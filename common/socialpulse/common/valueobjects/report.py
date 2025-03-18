@@ -26,7 +26,7 @@ class SocialContentSource(enum.Enum):
   OTHER = "other"
 
 
-class AnalysisType(enum.Enum):
+class ReportType(enum.Enum):
   SENTIMENT_SCORE = "sentiment_score"
   SENTIMENT_JUSTIFICATION = "justification"
   SOURCE_COUNT = "source_count"
@@ -59,14 +59,10 @@ class AnalysisWindow:
 
 
 @dataclasses.dataclass
-class AnalysisOutput:
-  type: AnalysisType
-  segment_timeframe: TimeUnit = TimeUnit.DAY
-
-
-@dataclasses.dataclass
 class ReportParameters:
-  event_date: datetime.date | None
   sources: list[SocialContentSource]
   analysis_windows: list[AnalysisWindow]
-  analysis_outputs: list[AnalysisOutput]
+
+  event_date: datetime.date | None = None
+  report_type: ReportType = ReportType.SENTIMENT_SCORE
+  segment_timeframe: TimeUnit = TimeUnit.DAY
