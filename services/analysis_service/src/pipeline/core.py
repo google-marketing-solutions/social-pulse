@@ -17,7 +17,7 @@
 import abc
 import pandas as pd
 
-from socialpulse.common.valueobjects import report
+from socialpulse_common.valueobjects import report
 
 
 class AnalysisStep(abc.ABC):

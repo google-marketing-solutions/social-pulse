@@ -1,0 +1,22 @@
+[project]
+name = "socialpulse_common"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "", email = "jmistral@google.com"},
+]
+dependencies = [
+    "build==1.2.2.post1",
+    "packaging==24.2",
+    "pyproject-hooks==1.2.0",
+]
+requires-python = ">=3.12"
+readme = "README.md"
+license = "MIT"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src/"]

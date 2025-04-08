@@ -23,7 +23,7 @@ from googleapiclient import errors
 import pandas as pd
 from pipeline.scoring import comment
 from pipeline.scoring import video
-from socialpulse.common.valueobjects import report
+from socialpulse_common.valueobjects import report
 import vertexai
 from vertexai.batch_prediction import BatchPredictionJob
 
@@ -36,8 +36,8 @@ USE_CACHED_COMMENT_DATA = False
 
 
 ######### Flags for which analysis to do
-PERFORM_VIDEO_ANALYSIS = False
-PERFORM_COMMENT_ANALYSIS = True
+PERFORM_VIDEO_ANALYSIS = True
+PERFORM_COMMENT_ANALYSIS = False
 
 
 ######### Customer doing analysis for

@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Module for setting up a video sentiment scoring analysis."""
+"""Module for setting up a video comment sentiment scoring analysis."""
 
 
 import copy
@@ -22,54 +22,59 @@ import pandas as pd
 from pipeline import core
 from pipeline.scoring import constants
 from prompts import generator
-from socialpulse.common.valueobjects import report
+from socialpulse_common.valueobjects import report
 
 
-VIDEO_EXTRACTION_SYSTEM_INSTRUCTION = """You are a video analyst that carefully
-    looks through all frames of provided videos, extracting out the pieces
-    necessary to respond to user prompts. Make sure to look through and listen
-    to the whole video, start to finish.  Only reference information in the
-    video itself in your response."""
-
+TEXT_EXTRACTION_SYSTEM_INSTRUCTION = """You are a text analyst that carefully
+    looks through all sentences of provided text, extracting out the pieces
+    necessary to respond to user prompts. Make sure to look through and read
+    the whole text sample, start to finish.  Only reference information in the
+    text itself in your response."""
 
 SENTIMENT_SCORE_PROMPT_TEMPLATE = """Ignoring any previous questions and
-    answers, examine the video and  identify if it contains any of the
-    following products or brands for you to analyze:
+    answers, examine the video comment and  identify if it references
+    any of the following products or brands for you to analyze:
 
     ${topic_list}
 
-    For each product or brand that you identify, analyze the video for
-    them and generate an overall sentiment score of the video towards
+    For each product or brand that you identify, analyze the video comment for
+    them and generate an overall sentiment score of the video comment towards
     that product or brand, where -1.0 represents an extremely negative
     sentiment, 1.0 represents an extremely positive sentiment, and 0 represents
     a neutral sentiment.
 
     In addition, generate a relevance score, that represents how revelevant the
-    video is towards the product or brand.  Where 0 means the
-    video doesn't mentiond the product or brand at all, and 100 means
-    the video is exclusively about the product or brand.
+    video comment is towards the product or brand.  Where 0 means the
+    video comment doesn't allude to product or brand at all, and 100 means
+    the video comment is exclusively about the product or brand.  For example,
+    if the comment is simply praising the video creator for creating a good
+    video (ie, "Great video! I really liked it!"), than the relevance score
+    should be 0.  If the comment specifically mentions the product or brand, or
+    if it mentions a feature of the product (ie, "I really like how you can
+    use the widget to search for X"), then it should have a relevance score of
+    100.
 
-    In addition, generate a short summary of 3 to 4 sentences that summarize the
-    video, hitting on what specific points the creator brings up about the
-    product or brand.
+    To help you analyze the video comment, here's a summary of the
+    video that the comments were posted to:
+
+    ${video_summary}
+
+    Finally, if for whatever reason you can't provide any analysis, like if
+    there's too little text in the comment, or a completely blank comment,
+    then return a response with a sentiment score of 0.0, a relevance score
+    of 0, and "N/A" for the product or brand.
+
+    Here's the video comment to analyze:
+
+    ${video_comment}
     """
 
 
-JUSTIFICATION_PROMPT_CLAUSE = """In addition, pull out up to 3 quotes that are
-    positive about the product or brand, and up to 3 quotes that are negative
-    about the product or brand.
+class AttachBatchVideoCommentAnalysisRequestStep(core.AnalysisStep):
+  """Analysis step that attaches a batch request for video comment analysis.
 
-    Make sure to only include quotes from the video, and only quotes
-    about the products or brands you're analyzing.  Finally generate 1 row per
-    product or brand that you identify and analyze."""
-
-
-class AttachBatchVideoAnalysisRequestStep(core.AnalysisStep):
-  """Generates and attaches a batch LLM request to the social content data.
-
-  Uses report information and the social content data to generate a batch
-  LLM prediction request, and then attaches it to the social content data in
-  a column called "request".
+  This step aggregates video comments and generates a request for sentiment
+  analysis and justification.
   """
 
   def execute(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -104,6 +109,8 @@ class AttachBatchVideoAnalysisRequestStep(core.AnalysisStep):
       A string representing the LLM request.
     """
     response_schema = copy.deepcopy(constants.BASE_SENTIMENT_RESPONSE_SCHEMA)
+    del response_schema["items"]["properties"]["summary"]
+
     if (self.report_params.report_type ==
         report.ReportType.SENTIMENT_JUSTIFICATION):
       response_schema["items"]["properties"].update(
@@ -115,7 +122,7 @@ class AttachBatchVideoAnalysisRequestStep(core.AnalysisStep):
         ).with_prompt(
             self._generate_base_prompt(row)
         ).with_system_instruction(
-            VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
+            TEXT_EXTRACTION_SYSTEM_INSTRUCTION
         ).with_response_schema(
             response_schema
         ).with_temperature(
@@ -125,37 +132,19 @@ class AttachBatchVideoAnalysisRequestStep(core.AnalysisStep):
         )
     )
 
-    prompt_generator.with_file_data([
-        ("video/*", row["videoUrl"])
-    ])
-
     return prompt_generator.build()
 
-  def _generate_base_prompt(self, content: pd.Series) -> str:
-    """Generates the base prompt for the LLM.
-
-    Args:
-      content: A row of social content data.
-
-    Returns:
-      The base prompt for the LLM.
-    """
+  def _generate_base_prompt(self, row: pd.Series) -> str:
     all_topics_as_list = [
         window.topics for window in self.report_params.analysis_windows
     ]
     all_topics = list(itertools.chain.from_iterable(all_topics_as_list))
+    video_summary = row["videoSummary"]
+    video_comment = row["text"]
 
-    include_justification = (
-        self.report_params.report_type ==
-        report.ReportType.SENTIMENT_JUSTIFICATION
+    prompt_template = string.Template(SENTIMENT_SCORE_PROMPT_TEMPLATE)
+    return prompt_template.substitute(
+        topic_list="\n".join(all_topics),
+        video_summary=video_summary,
+        video_comment=video_comment
     )
-
-    scoring_prompt = string.Template(SENTIMENT_SCORE_PROMPT_TEMPLATE)
-    prompt = scoring_prompt.substitute(
-        topic_list="\n".join(all_topics)
-    )
-
-    if include_justification:
-      prompt += JUSTIFICATION_PROMPT_CLAUSE
-
-    return prompt

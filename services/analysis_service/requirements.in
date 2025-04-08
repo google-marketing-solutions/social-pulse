@@ -1,0 +1,8 @@
+google_api_python_client
+pandas
+protobuf
+pyarrow
+vertexai
+
+# Shared social pulse library
+-e file:../shared_lib
