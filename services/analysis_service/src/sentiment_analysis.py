@@ -23,7 +23,8 @@ from googleapiclient import errors
 import pandas as pd
 from pipeline.scoring import comment
 from pipeline.scoring import video
-from socialpulse_common.valueobjects import report
+from socialpulse_common.messages import workflow_execution_pb2 as wfe
+
 import vertexai
 from vertexai.batch_prediction import BatchPredictionJob
 
@@ -736,7 +737,7 @@ def main() -> None:
     ).with_sort_by(
         VideoResultsSortBy.RELEVANCE
     ).with_max_results(
-        1500
+        1
     ).with_published_after(
         RELEASE_DATE
     )
@@ -769,19 +770,28 @@ def main() -> None:
 
 
 SEARCH_ENGINE = YoutubeSearch(API_KEY)
-REPORT_PARAMS = report.ReportParameters(
-    sources=[
-        report.SocialContentSource.VIDEO_CONTENT,
-        report.SocialContentSource.VIDEO_COMMENT
-    ],
-    analysis_windows=[
-        report.AnalysisWindow(
-            date_range_start=RELEASE_DATE,
-            date_range_end=datetime.date.today(),
-            topics=[TOPIC]
-        )
-    ]
-)
+
+REPORT_PARAMS = wfe.WorkflowExecution()
+REPORT_PARAMS.executionId = "some_id"
+REPORT_PARAMS.data_outputs.extend([
+    wfe.SentimentDataType.SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,
+    wfe.SentimentDataType.SENTIMENT_DATA_TYPE_DISTRIBUTION,
+])
+
+
+# report.ReportParameters(
+#     sources=[
+#         workflow_execution.SocialContentSource.VIDEO_CONTENT,
+#         workflow_execution.SocialContentSource.VIDEO_COMMENT,
+#     ],
+#     analysis_windows=[
+#         report.AnalysisWindow(
+#             date_range_start=RELEASE_DATE,
+#             date_range_end=datetime.date.today(),
+#             topics=[TOPIC]
+#         )
+#     ]
+# )
 
 
 if __name__ == "__main__":

@@ -15,14 +15,13 @@
 
 
 import copy
-import itertools
 import string
 
 import pandas as pd
 from pipeline import core
 from pipeline.scoring import constants
 from prompts import generator
-from socialpulse_common.valueobjects import report
+from socialpulse_common.messages import workflow_execution_pb2 as wfe
 
 
 TEXT_EXTRACTION_SYSTEM_INSTRUCTION = """You are a text analyst that carefully
@@ -111,8 +110,10 @@ class AttachBatchVideoCommentAnalysisRequestStep(core.AnalysisStep):
     response_schema = copy.deepcopy(constants.BASE_SENTIMENT_RESPONSE_SCHEMA)
     del response_schema["items"]["properties"]["summary"]
 
-    if (self.report_params.report_type ==
-        report.ReportType.SENTIMENT_JUSTIFICATION):
+    if (
+        wfe.SentimentDataType.SENTIMENT_DATA_TYPE_JUSTIFICATION
+        in self.execution_params.data_outputs
+    ):
       response_schema["items"]["properties"].update(
           constants.JUSTIFICATION_RESPONSE_SCHEMA
       )
@@ -135,16 +136,12 @@ class AttachBatchVideoCommentAnalysisRequestStep(core.AnalysisStep):
     return prompt_generator.build()
 
   def _generate_base_prompt(self, row: pd.Series) -> str:
-    all_topics_as_list = [
-        window.topics for window in self.report_params.analysis_windows
-    ]
-    all_topics = list(itertools.chain.from_iterable(all_topics_as_list))
     video_summary = row["videoSummary"]
     video_comment = row["text"]
 
     prompt_template = string.Template(SENTIMENT_SCORE_PROMPT_TEMPLATE)
     return prompt_template.substitute(
-        topic_list="\n".join(all_topics),
+        topic_list=self.execution_params.topic,
         video_summary=video_summary,
         video_comment=video_comment
     )

@@ -17,7 +17,7 @@
 import abc
 import pandas as pd
 
-from socialpulse_common.valueobjects import report
+from socialpulse_common.messages import workflow_execution_pb2 as workflow_execution
 
 
 class AnalysisStep(abc.ABC):
@@ -29,13 +29,13 @@ class AnalysisStep(abc.ABC):
   Subclasses should implement the `execute` method.
   """
 
-  def __init__(self, report_params: report.ReportParameters):
+  def __init__(self, execution_params: workflow_execution.WorkflowExecution):
     """Constructor for the AnalysisStep.
 
     Args:
-      report_params: The parameters the report was configured with.
+      execution_params: The parameters the execution was configured with.
     """
-    self.report_params = report_params
+    self.execution_params = execution_params
 
   @abc.abstractmethod
   def execute(self, data: pd.DataFrame) -> pd.DataFrame:

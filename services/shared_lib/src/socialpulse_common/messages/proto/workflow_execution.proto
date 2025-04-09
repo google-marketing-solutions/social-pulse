@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package socialpulse_common.messages;
+
+import "google/protobuf/timestamp.proto";
+
+
+/**
+ * Sources of social media content.
+ */
+enum SocialMediaSource {
+  SOCIAL_MEDIA_SOURCE_UNKNOWN = 0;
+  SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO = 1;
+  SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT = 2;
+  SOCIAL_MEDIA_SOURCE_REDDIT_POST = 3;
+  SOCIAL_MEDIA_SOURCE_X_POST = 4;
+  SOCIAL_MEDIA_SOURCE_APP_STORE_REVIEW = 5;
+}
+
+/**
+ * Types of topics, affecting the any prompts generated downstream.
+ */
+enum TopicType {
+  TOPIC_TYPE_UNKNOWN = 0;
+  TOPIC_TYPE_PRODUCT = 1;
+  TOPIC_TYPE_FEATURE = 2;
+  TOPIC_TYPE_BRAND = 3;
+  TOPIC_TYPE_INTEREST = 4;
+}
+
+/**
+ * Types of sentiment data an analysis can produce.
+ */
+ enum SentimentDataType {
+  SENTIMENT_DATA_TYPE_UNKNOWN = 0;
+  SENTIMENT_DATA_TYPE_SENTIMENT_SCORE = 1;
+  SENTIMENT_DATA_TYPE_JUSTIFICATION = 2;
+  SENTIMENT_DATA_TYPE_DISTRIBUTION = 3;
+}
+
+
+/**
+ * Represents a specific execution of a sentiment workflow.
+ *
+ * A sentiment report can lead to multiple workflows that need to be executed,
+ * with each workflow analyzing sentiment of a certain topic, from a
+ * certain source, within a certain timeframe. This message represents a
+ * specific execution of that workflow.
+ */
+message WorkflowExecution {
+  // Unique identifier for this execution.
+  string executionId = 1;
+  // Source of the social media content.
+  SocialMediaSource source = 2;
+  // Types of sentiment data that should be produced by this execution.
+  repeated SentimentDataType data_outputs = 3;
+
+  // Information on the topic the analysis will be performed on.
+  TopicType topic_type = 4;
+  string topic = 5;
+
+  // Start and end time of the analysis this execution will perform.
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time = 7;
+}

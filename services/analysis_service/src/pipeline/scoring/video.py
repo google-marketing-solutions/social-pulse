@@ -15,14 +15,13 @@
 
 
 import copy
-import itertools
 import string
 
 import pandas as pd
 from pipeline import core
 from pipeline.scoring import constants
 from prompts import generator
-from socialpulse_common.valueobjects import report
+from socialpulse_common.messages import workflow_execution_pb2 as wfe
 
 
 VIDEO_EXTRACTION_SYSTEM_INSTRUCTION = """You are a video analyst that carefully
@@ -104,8 +103,10 @@ class AttachBatchVideoAnalysisRequestStep(core.AnalysisStep):
       A string representing the LLM request.
     """
     response_schema = copy.deepcopy(constants.BASE_SENTIMENT_RESPONSE_SCHEMA)
-    if (self.report_params.report_type ==
-        report.ReportType.SENTIMENT_JUSTIFICATION):
+    if (
+        wfe.SentimentDataType.SENTIMENT_DATA_TYPE_JUSTIFICATION
+        in self.execution_params.data_outputs
+    ):
       response_schema["items"]["properties"].update(
           constants.JUSTIFICATION_RESPONSE_SCHEMA
       )
@@ -140,22 +141,15 @@ class AttachBatchVideoAnalysisRequestStep(core.AnalysisStep):
     Returns:
       The base prompt for the LLM.
     """
-    all_topics_as_list = [
-        window.topics for window in self.report_params.analysis_windows
-    ]
-    all_topics = list(itertools.chain.from_iterable(all_topics_as_list))
-
-    include_justification = (
-        self.report_params.report_type ==
-        report.ReportType.SENTIMENT_JUSTIFICATION
-    )
-
     scoring_prompt = string.Template(SENTIMENT_SCORE_PROMPT_TEMPLATE)
     prompt = scoring_prompt.substitute(
-        topic_list="\n".join(all_topics)
+        topic_list=self.execution_params.topic
     )
 
-    if include_justification:
+    if (
+        wfe.SentimentDataType.SENTIMENT_DATA_TYPE_JUSTIFICATION
+        in self.execution_params.data_outputs
+    ):
       prompt += JUSTIFICATION_PROMPT_CLAUSE
 
     return prompt
