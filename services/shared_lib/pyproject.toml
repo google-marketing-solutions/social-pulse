@@ -9,6 +9,10 @@ dependencies = [
     "build==1.2.2.post1",
     "packaging==24.2",
     "pyproject-hooks==1.2.0",
+    "protobuf",
+    "python-dotenv",
+    "pydantic-settings",
+    "pytest",
 ]
 requires-python = ">=3.12"
 readme = "README.md"
@@ -20,3 +24,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src/"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

@@ -4,5 +4,32 @@
 #
 #    pip-compile requirements.in
 #
+annotated-types==0.7.0
+    # via pydantic
+iniconfig==2.1.0
+    # via pytest
+packaging==24.2
+    # via pytest
+pluggy==1.5.0
+    # via pytest
 protobuf==6.30.2
     # via -r requirements.in
+pydantic==2.11.3
+    # via pydantic-settings
+pydantic-core==2.33.1
+    # via pydantic
+pydantic-settings==2.8.1
+    # via -r requirements.in
+pytest==8.3.5
+    # via -r requirements.in
+python-dotenv==1.1.0
+    # via
+    #   -r requirements.in
+    #   pydantic-settings
+typing-extensions==4.13.2
+    # via
+    #   pydantic
+    #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.0
+    # via pydantic
