@@ -1,4 +1,5 @@
 google_api_python_client
+luigi
 pandas
 protobuf
 pyarrow

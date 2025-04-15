@@ -47,7 +47,7 @@ enum TopicType {
  * certain source, within a certain timeframe. This message represents a
  * specific execution of that workflow.
  */
-message WorkflowExecution {
+message WorkflowExecutionParams {
   // Unique identifier for this execution.
   string executionId = 1;
   // Source of the social media content.

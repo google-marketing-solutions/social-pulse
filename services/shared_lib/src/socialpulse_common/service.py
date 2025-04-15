@@ -43,6 +43,7 @@ services.registry.register(SomeDomainService, impl)
 """
 
 import abc
+import logging
 from typing import TypeVar
 
 
@@ -89,6 +90,11 @@ class ServiceRegistry:
       service_class: The type of service to register.
       service_instance: The service instance to register.
     """
+    logging.debug(
+        "Registering service key '%s' with instance %s",
+        service_class.__name__,
+        service_instance
+    )
     self._registered_services[service_class.__name__] = service_instance
 
   def get(self, service_type: type[T]) -> T:
@@ -104,6 +110,7 @@ class ServiceRegistry:
       ValueError: If the service type is not registered.
     """
     key = service_type.__name__
+    logging.debug("Retrieving service with key: '%s'", key)
     if key not in self._registered_services:
       raise ValueError(f'Service type {service_type} not registered.')
     return self._registered_services.get(key)
