@@ -11,31 +11,33 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Module with service implementations required by the tasks."""
+"""Module for providing stubbed implementations of workflow data."""
 
 import datetime
 
 from socialpulse_common.messages import workflow_execution_pb2 as wfe
-from tasks import core
+from tasks.ports import persistence
 
 
-class StubWorkflowExecutionLoaderService(core.WorkflowExecutionLoaderService):
+class StubWorkflowExecutionLoaderService(
+    persistence.WorkflowExecutionLoaderService
+):
   """Stub implementation of the WorkflowExecutionLoaderService.
 
   This class provides a stubbed implementation for loading workflow executions.
   """
 
   def load_execution(self, execution_id: str) -> wfe.WorkflowExecutionParams:
-    """Loads a workflow execution by its ID.
+    """Loads a stubbed (testing) workflow execution.
 
     This method provides a stubbed implementation for loading a workflow
-    execution. It returns a pre-defined WorkflowExecution object with
+    execution. It returns a pre-defined WorkflowExecutionParams object with
     sample data.
 
     Args:
       execution_id: The ID of the workflow execution to load.
     Returns:
-      A WorkflowExecution object.
+      A WorkflowExecutionParams object.
     """
     stubbed_workflow_exec = wfe.WorkflowExecutionParams()
     stubbed_workflow_exec.executionId = execution_id
