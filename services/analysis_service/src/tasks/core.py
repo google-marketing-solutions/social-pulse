@@ -14,12 +14,13 @@
 """Module for core sentiment analysis task classes/enums."""
 
 import abc
+import logging
 
 import luigi
 import pandas as pd
-from ports import persistence
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from tasks.ports import persistence
 
 
 class SentimentTask(luigi.Task, abc.ABC):
@@ -34,7 +35,7 @@ class SentimentTask(luigi.Task, abc.ABC):
   # Uniquely identifies the workflow execution this task is working in.
   execution_id = luigi.Parameter()
 
-  # ID of the previous task to run as the requirement (non-significant param)
+  # Task to run as the requirement for this task (non-significant param)
   my_required_task = luigi.TaskParameter(significant=False)
 
   def __init__(self, *args, **kwargs):
@@ -49,9 +50,16 @@ class SentimentTask(luigi.Task, abc.ABC):
       **kwargs: Arbitrary keyword arguments.
     """
     super().__init__(*args, **kwargs)
+    logging.debug(
+        "Initializing %s for execution_id=%s", self.task_id, self.execution_id
+    )
 
     workflow_exec_loader_service = service.registry.get(
         persistence.WorkflowExecutionLoaderService
+    )
+
+    logging.debug(
+        "Loading workflow execution params for: %s", self.execution_id
     )
     self.workflow_exec: wfe.WorkflowExecutionParams = (
         workflow_exec_loader_service.load_execution(self.execution_id)
@@ -80,7 +88,10 @@ class SentimentTask(luigi.Task, abc.ABC):
     Returns:
       A luigi.Task instance representing the required task.
     """
-    return self.my_required_task
+    if not self.my_required_task:
+      return  []
+    else:
+      return self.my_required_task
 
   @abc.abstractmethod
   def run(self) -> None:

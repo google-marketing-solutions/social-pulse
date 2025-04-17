@@ -44,8 +44,8 @@ class StubWorkflowExecutionLoaderService(
     stubbed_workflow_exec.source = (
         wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
     )
-    stubbed_workflow_exec.data_outputs.append([
-        wfe.SentimentDataType.SENTIMENT_DATA_TYPE_SENTIMENT_ANALYSIS,
+    stubbed_workflow_exec.data_outputs.extend([
+        wfe.SentimentDataType.SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,
         wfe.SentimentDataType.SENTIMENT_DATA_TYPE_DISTRIBUTION
     ])
 

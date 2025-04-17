@@ -15,14 +15,19 @@
 import unittest
 from unittest import mock
 
+import luigi
 from socialpulse_common import service
-import tasks
-import tasks.core
+from tasks import core
+from tasks.ports import persistence
 
 
-class EmptyChildSentimentTask(tasks.core.SentimentTask):
+class RequiredTask(luigi.WrapperTask):
   def requires(self):
     return None
+
+
+class TestChildSentimentTask(core.SentimentTask):
+  task_namespace = "test_namespace"
 
   def output(self):
     return None
@@ -36,8 +41,14 @@ class CoreTest(unittest.TestCase):
     super().setUp()
 
     self.mocked_wfe_params_loader_service = mock.Mock()
+    self.mock_execution_params = mock.Mock()
+
+    self.mocked_wfe_params_loader_service.load_execution.return_value = (
+        self.mock_execution_params
+    )
+
     service.registry.register(
-        tasks.core.WorkflowExecutionLoaderService,
+        persistence.WorkflowExecutionLoaderService,
         self.mocked_wfe_params_loader_service
     )
 
@@ -48,11 +59,22 @@ class CoreTest(unittest.TestCase):
     When it's instantiated with an execution ID of "some_execution_id'
     Then the execution params should be loaded from the service
     """
-    mock_execution_params = mock.Mock()
-    self.mocked_wfe_params_loader_service.load_execution.return_value = (
-        mock_execution_params
+    task = TestChildSentimentTask("some_execution_id", RequiredTask())
+
+    self.assertEqual(self.mock_execution_params, task.workflow_exec)
+
+  def test_task_data_set_name_constructed_from_family_and_execution_id(self):
+    """Constructs a data set name from the task family and execution ID.
+
+    Given an implementation of SentimentTask
+    And it's instantiated with a task family of "test_namespace"
+    When it's instantiated with an execution ID of "some_execution_id"
+    Then the data set name should be constructed as
+        "test_namespace.TestChildSentimentTask_some_execution_id"
+    """
+    task = TestChildSentimentTask("some_execution_id", RequiredTask())
+
+    self.assertEqual(
+        "test_namespace.TestChildSentimentTask_some_execution_id",
+        task.dataset_name
     )
-
-    task = EmptyChildSentimentTask("some_execution_id")
-
-    self.assertEqual(mock_execution_params, task.workflow_exec)
