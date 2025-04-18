@@ -41,7 +41,13 @@ class ConfigTest(unittest.TestCase):
       settings = config.Settings()  # pylint: disable=unused-variable
 
   @mock.patch.dict(
-      os.environ, {"cloud_project_id": "foo", "cloud_api_key": "bar"}
+      os.environ, {
+          "CLOUD.PROJECT_ID": "foo-project",
+          "API.YOUTUBE.KEY": "bar-key",
+          "DB.PASSWORD": "fizz-password",
+          "DB.NAME": "test-db",
+      },
+      clear=True
   )
   def test_is_development_mode_is_one_if_app_evn_set_to_dev(self):
     """Development mode flag is true if app env is set to development.
@@ -50,12 +56,18 @@ class ConfigTest(unittest.TestCase):
     When is_development is called
     Then the return value is True
     """
-    with mock.patch.dict(os.environ, {"app_env": "development"}):
+    with mock.patch.dict(os.environ, {"APP_ENV": "development"}):
       settings = config.Settings()
       self.assertTrue(settings.is_development)
 
   @mock.patch.dict(
-      os.environ, {"cloud_project_id": "foo", "cloud_api_key": "bar"}
+      os.environ, {
+          "CLOUD.PROJECT_ID": "foo-project",
+          "API.YOUTUBE.KEY": "bar-key",
+          "DB.PASSWORD": "fizz-password",
+          "DB.NAME": "test-db",
+      },
+      clear=True
   )
   def test_env_vars_override_default_values(self):
     """Environment variables override default values.
@@ -64,9 +76,9 @@ class ConfigTest(unittest.TestCase):
     When an env var is set
     Then the env var value is used over the default value
     """
-    with mock.patch.dict(os.environ, {"gemini_pro_model_id": "fizz"}):
+    with mock.patch.dict(os.environ, {"DB.USERNAME": "fizz"}):
       settings = config.Settings()
-      self.assertEqual(settings.gemini_pro_model_id, "fizz")
+      self.assertEqual(settings.db.username, "fizz")
 
 
 if __name__ == "__main__":

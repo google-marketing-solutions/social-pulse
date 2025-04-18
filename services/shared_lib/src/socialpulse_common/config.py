@@ -15,9 +15,8 @@
 import logging
 
 from dotenv import load_dotenv
-from pydantic import Field
-from pydantic_settings import BaseSettings
-from pydantic_settings import SettingsConfigDict
+import pydantic
+import pydantic_settings
 
 
 ENV_DEVELOPMENT = "development"
@@ -28,7 +27,33 @@ ENV_PRODUCTION = "production"
 load_dotenv()
 
 
-class _PydanticSettingsRepo(BaseSettings):
+class _DbSettings(pydantic.BaseModel):
+  host: str = pydantic.Field(default="localhost")
+  port: int = pydantic.Field(default=5432)
+  username: str = pydantic.Field(default="social_pulse_user")
+  name: str = pydantic.Field(default="social_pulse_db")
+  password: str = pydantic.Field(repr=False)
+
+
+class _CloudSettings(pydantic.BaseModel):
+  project_id: str = pydantic.Field()
+  region: str = pydantic.Field(default="us-central1")
+
+
+class _YoutubeApiSettings(pydantic.BaseModel):
+  key: str = pydantic.Field(..., repr=False)
+  service_name: str = pydantic.Field(default="youtube")
+  version: str = pydantic.Field(default="v3")
+  scopes: list[str] = pydantic.Field(
+      default=["https://www.googleapis.com/auth/youtube.force-ssl"]
+  )
+
+
+class _ApiSettings(pydantic.BaseModel):
+  youtube: _YoutubeApiSettings
+
+
+class _AppSettings(pydantic_settings.BaseSettings):
   """Internal class to hold the settings.
 
   This class is not meant to be used directly, use the Settings class instead.
@@ -36,23 +61,15 @@ class _PydanticSettingsRepo(BaseSettings):
   _instance = None
   _initialized: bool = False
 
-  model_config = SettingsConfigDict(extra="ignore")
+  app_env: str = pydantic.Field(default=ENV_DEVELOPMENT)
 
-  app_env: str = Field(default=ENV_DEVELOPMENT)
-  cloud_project_id: str = Field()
-  cloud_api_key: str = Field()
-  cloud_region: str = Field(default="us-central1")
+  db: _DbSettings
+  api: _ApiSettings
+  cloud: _CloudSettings
 
-  gemini_pro_model_id: str = Field(default="gemini-2.0-flash-001")
-  sentiment_dataset_name: str = Field(default="social_pulse_sentiment")
-
-  report_dataset_name: str = Field(default="social_pulse_reports")
-  workflow_execution_table_name: str = Field(default="workflow_executions")
-
-  yt_api_service_name: str = Field(default="youtube")
-  yt_api_version: str = Field(default="v3")
-  yt_api_scope: list[str] = Field(
-      default=["https://www.googleapis.com/auth/youtube.force-ssl"]
+  model_config = pydantic_settings.SettingsConfigDict(
+      env_nested_delimiter=".",
+      extra="ignore"
   )
 
 
@@ -73,7 +90,7 @@ class Settings:
   """
   _instance = None
   _initialized: bool = False
-  _internal_settings: _PydanticSettingsRepo = None
+  _internal_settings: _ApiSettings = None
 
   def __new__(cls, *args, **kwargs):
     if cls._instance is None:
@@ -84,7 +101,7 @@ class Settings:
     if self._initialized:
       return
 
-    self._internal_settings = _PydanticSettingsRepo()
+    self._internal_settings = _AppSettings()
     self._initialized = True
 
   def __getattr__(self, name):
