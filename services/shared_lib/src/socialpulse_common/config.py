@@ -14,17 +14,13 @@
 """Module for configuration parameters access."""
 import logging
 
-from dotenv import load_dotenv
+import dotenv
 import pydantic
 import pydantic_settings
 
 
 ENV_DEVELOPMENT = "development"
 ENV_PRODUCTION = "production"
-
-
-# Load local .env overrides, so Settings can use local developmnet overrides.
-load_dotenv()
 
 
 class _DbSettings(pydantic.BaseModel):
@@ -100,6 +96,14 @@ class Settings:
   def __init__(self):
     if self._initialized:
       return
+
+    # Load local .env overrides, so Settings can use local developmnet
+    # overrides.
+    dotenv_file_location = dotenv.find_dotenv(
+        usecwd=True,
+        raise_error_if_not_found=True
+    )
+    dotenv.load_dotenv(dotenv_path=dotenv_file_location)
 
     self._internal_settings = _AppSettings()
     self._initialized = True

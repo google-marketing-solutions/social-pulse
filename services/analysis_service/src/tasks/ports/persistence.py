@@ -39,6 +39,18 @@ class WorkflowExecutionLoaderService(service.RegisterableService):
     """
     raise NotImplementedError
 
+  @abc.abstractmethod
+  def create_execution(
+      self,
+      execution_params: wfe.WorkflowExecutionParams
+  ) -> None:
+    """Saves workflow execution parameters.
+
+    Args:
+      execution_params: The workflow execution parameters.
+    """
+    raise NotImplementedError
+
 
 class SentimentDataRepo(service.RegisterableService, abc.ABC):
   """Service for reading/writing data to the sentiment data set repo.

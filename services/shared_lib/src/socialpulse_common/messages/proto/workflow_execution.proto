@@ -49,7 +49,7 @@ enum TopicType {
  */
 message WorkflowExecutionParams {
   // Unique identifier for this execution.
-  string executionId = 1;
+  string execution_id = 1;
   // Source of the social media content.
   SocialMediaSource source = 2;
   // Types of sentiment data that should be produced by this execution.

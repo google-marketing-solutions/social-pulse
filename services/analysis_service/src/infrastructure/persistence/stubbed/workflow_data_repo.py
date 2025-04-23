@@ -40,7 +40,7 @@ class StubWorkflowExecutionLoaderService(
       A WorkflowExecutionParams object.
     """
     stubbed_workflow_exec = wfe.WorkflowExecutionParams()
-    stubbed_workflow_exec.executionId = execution_id
+    stubbed_workflow_exec.execution_id = execution_id
     stubbed_workflow_exec.source = (
         wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
     )
@@ -56,3 +56,21 @@ class StubWorkflowExecutionLoaderService(
     stubbed_workflow_exec.end_time = datetime.datetime.now()
 
     return stubbed_workflow_exec
+
+  def create_execution(
+      self,
+      execution_params: wfe.WorkflowExecutionParams
+  ) -> None:
+    """Creates a stubbed (testing) workflow execution.
+
+    This method provides a stubbed implementation for creating a workflow
+    execution. It simulates the creation of a workflow execution by
+    returning the execution ID.
+
+    Args:
+      execution_params: The parameters of the workflow execution to create.
+    Returns:
+      The execution ID of the created workflow execution.
+    """
+
+    return execution_params.execution_id

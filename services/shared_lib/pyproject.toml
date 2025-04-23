@@ -27,3 +27,5 @@ where = ["src/"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+log_level = "DEBUG"
+log_cli = true

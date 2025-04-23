@@ -5,3 +5,6 @@ dist/
 
 # Ignore protobuf generated Python files
 **/*_pb2.py
+
+# Ignore local env variable overrides
+.env

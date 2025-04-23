@@ -13,16 +13,24 @@
 #  limitations under the License.
 """Module for sentiment data related service repos."""
 
+import logging
+
+from google.cloud import bigquery
+from google.cloud import exceptions
 import pandas as pd
 from tasks.ports import persistence
+
+
+logger = logging.getLogger(__name__)
 
 
 class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
   """Class for reading/writing sentiment data to BigQuery staging tables."""
 
-  def __init__(self):
-    # Create and store a reference to a BQ client
-    pass
+  def __init__(self, gcp_project_id: str, dataset_name: str):
+    self._client = bigquery.Client(project=gcp_project_id)
+    self._gcp_project_id = gcp_project_id
+    self._dataset_name = dataset_name
 
   def exists(self, table_name: str) -> bool:
     """Checks if a sentiment data set BQ table exists.
@@ -33,7 +41,14 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     Returns:
       True if the table exists, False otherwise.
     """
-    raise NotImplementedError
+    try:
+      table_name_ref = f"{self._dataset_name}.{table_name}"
+
+      logger.debug("Checking if table exists:  %s", table_name_ref)
+      self._client.get_table(table_name_ref)
+      return True
+    except exceptions.NotFound:
+      return False  # Excpected exception if the table doesn't exist
 
   def load_sentiment_data(self, table_name: str) -> pd.DataFrame:
     """Loads a sentiment data set from the specified BQ table.
@@ -47,7 +62,10 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     Returns:
       A pandas DataFrame containing the sentiment data.
     """
-    raise NotImplementedError
+
+    query = f"SELECT * FROM {self._generate_table_ref(table_name)}"
+    query_job = self._client.query(query)
+    return query_job.to_dataframe()
 
   def write_sentiment_data(
       self,
@@ -64,4 +82,25 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
       sentiment_dataset: The pandas DataFrame containing the sentiment data to
         write.
     """
-    raise NotImplementedError
+    load_data_job = self._client.load_table_from_dataframe(
+        sentiment_dataset,
+        self._generate_table_ref(table_name),
+        job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+    )
+
+    # Wait for the load job to complete
+    load_data_job.result()
+
+  def _generate_table_ref(self, table_name: str) -> str:
+    """Generates a fully qualified table reference string.
+
+    This method constructs a string that represents the full path to a table
+    within BigQuery, including the project ID, dataset name, and table name.
+
+    Args:
+      table_name: The name of the table.
+
+    Returns:
+      A string representing the fully qualified table reference.
+    """
+    return f"{self._gcp_project_id}.{self._dataset_name}.{table_name}"

@@ -1,9 +1,13 @@
+cloud-sql-python-connector[psycopg2]
+db-dtypes
 google_api_python_client
 luigi
 pandas
 protobuf
+psycopg2-binary
 pyarrow
 vertexai
+yoyo-migrations
 
 # Shared social pulse library
 -e file:../shared_lib
