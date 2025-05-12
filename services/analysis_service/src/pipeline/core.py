@@ -29,7 +29,10 @@ class AnalysisStep(abc.ABC):
   Subclasses should implement the `execute` method.
   """
 
-  def __init__(self, execution_params: workflow_execution.WorkflowExecution):
+  def __init__(
+      self,
+      execution_params: workflow_execution.WorkflowExecutionParams
+  ):
     """Constructor for the AnalysisStep.
 
     Args:

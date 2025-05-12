@@ -37,8 +37,8 @@ USE_CACHED_COMMENT_DATA = False
 
 
 ######### Flags for which analysis to do
-PERFORM_VIDEO_ANALYSIS = True
-PERFORM_COMMENT_ANALYSIS = False
+PERFORM_VIDEO_ANALYSIS = False
+PERFORM_COMMENT_ANALYSIS = True
 
 
 ######### Customer doing analysis for
@@ -46,17 +46,27 @@ CUSTOMER = "adobe"
 
 
 ######### Adobe Photoshop for iPhone
-# RELEASE_DATE = datetime.date(2025, 2, 25)
+# START_DATE = datetime.date(2025, 2, 25)
+# END_DATE = None
 # TOPIC = "Photoshop on iPhone"
 # REPORT_TABLE_NAME_PREFIX = f"{CUSTOMER}_photoshop"
 
 # ####### Adobe Firefly:  text to video
-RELEASE_DATE = datetime.date(2025, 2, 12)
-TOPIC = "Adobe Firely Text to Video"
-REPORT_TABLE_NAME_PREFIX = (
-    f"{CUSTOMER}_firefly_text_to_video"
-)
+# START_DATE = datetime.date(2025, 2, 12)
+# END_DATE = None
+# TOPIC = "Adobe Firely Text to Video"
+# REPORT_TABLE_NAME_PREFIX = (
+#     f"{CUSTOMER}_firefly_text_to_video"
+# )
 
+
+######### Canva Create 2025
+START_DATE = datetime.date(2025, 4, 10)
+END_DATE = None
+TOPIC = "Canva Create 2025"
+REPORT_TABLE_NAME_PREFIX = (
+    f"{CUSTOMER}_canva_create_2025"
+)
 
 ######### GCP Parameters - Fill these out with your project
 PROJECT_ID = ""
@@ -232,7 +242,7 @@ class YoutubeSearch:
 
       print(
           f"...getting details for videos {current_window_start_index}"
-          f"to {current_window_end_index}"
+          f" to {current_window_end_index}"
       )
       video_ids_slice = video_ids[
           current_window_start_index : current_window_end_index]
@@ -411,6 +421,10 @@ def _find_videos(criteria: YoutubeSearchCriteria):
       }
   )
 
+  yt_data_api_response_df = yt_data_api_response_df.drop_duplicates(
+      subset=["videoId"],
+      keep="first"
+  )
   return yt_data_api_response_df
 
 
@@ -737,10 +751,14 @@ def main() -> None:
     ).with_sort_by(
         VideoResultsSortBy.RELEVANCE
     ).with_max_results(
-        1
+        1500
     ).with_published_after(
-        RELEASE_DATE
+        START_DATE
     )
+
+    if END_DATE:
+      criteria.with_published_before(END_DATE)
+
     print(f"Searching for videos with criteria: \n{str(criteria)}\n")
 
     videos_bq_table = f"{REPORT_TABLE_NAME_PREFIX}_videos_with_file_parts"
@@ -771,27 +789,12 @@ def main() -> None:
 
 SEARCH_ENGINE = YoutubeSearch(API_KEY)
 
-REPORT_PARAMS = wfe.WorkflowExecution()
-REPORT_PARAMS.executionId = "some_id"
+REPORT_PARAMS = wfe.WorkflowExecutionParams()
+REPORT_PARAMS.execution_id = "some_id"
 REPORT_PARAMS.data_outputs.extend([
     wfe.SentimentDataType.SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,
     wfe.SentimentDataType.SENTIMENT_DATA_TYPE_DISTRIBUTION,
 ])
-
-
-# report.ReportParameters(
-#     sources=[
-#         workflow_execution.SocialContentSource.VIDEO_CONTENT,
-#         workflow_execution.SocialContentSource.VIDEO_COMMENT,
-#     ],
-#     analysis_windows=[
-#         report.AnalysisWindow(
-#             date_range_start=RELEASE_DATE,
-#             date_range_end=datetime.date.today(),
-#             topics=[TOPIC]
-#         )
-#     ]
-# )
 
 
 if __name__ == "__main__":
