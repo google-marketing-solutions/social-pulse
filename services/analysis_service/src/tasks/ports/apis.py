@@ -44,7 +44,7 @@ class YoutubeSearchCriteria:
   """Represents the criteria for searching videos on YouTube."""
   query: str
   language: Language = Language.ENGLISH
-  sort_by: VideoResultsSortBy.RELEVANCE
+  sort_by: VideoResultsSortBy = VideoResultsSortBy.RELEVANCE
   max_results: int = 1000
   published_after: datetime.date | None = None
   published_before: datetime.date | None = None
@@ -114,5 +114,27 @@ class YoutubeApiClient(service.RegisterableService, abc.ABC):
       A list of raw comment thread item dictionaries as returned by the API.
       Returns an empty list if no comments are found. Implementations should
       handle iterating through video IDs and comment pagination.
+    """
+    raise NotImplementedError
+
+
+class LlmBatchJobApiClient(abc.ABC):
+  """Abstract interface for interacting with the LLM Batch Job API."""
+
+  @abc.abstractmethod
+  def submit_batch_job(
+      self, input_table_name: str, output_table_name: str
+  ) -> None:
+    """Submit a batch prediction job to the LLM.
+
+    This function will package and submit the batch analysis job, waiting
+    for the job to complete with either a success (returns), or raises an
+    error on a failure.
+
+    Args:
+      input_table_name: The URI of the input table where requests will be read
+        from.
+      output_table_name: The URI of the output table where responses will be
+        written to.
     """
     raise NotImplementedError

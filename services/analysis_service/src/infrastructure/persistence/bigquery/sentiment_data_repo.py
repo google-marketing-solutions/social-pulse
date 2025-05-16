@@ -27,10 +27,17 @@ logger = logging.getLogger(__name__)
 class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
   """Class for reading/writing sentiment data to BigQuery staging tables."""
 
-  def __init__(self, gcp_project_id: str, dataset_name: str):
+  def __init__(self, gcp_project_id: str, bq_dataset_name: str):
+    """Initializes the BigQuerySentimentDataRepo with a BigQuery client.
+
+    Args:
+      gcp_project_id: The Google Cloud Project ID where the BigQuery dataset
+        resides.
+      bq_dataset_name: The name of the BigQuery dataset to interact with.
+    """
     self._client = bigquery.Client(project=gcp_project_id)
     self._gcp_project_id = gcp_project_id
-    self._dataset_name = dataset_name
+    self._bq_dataset_name = bq_dataset_name
 
   def exists(self, table_name: str) -> bool:
     """Checks if a sentiment data set BQ table exists.
@@ -42,7 +49,7 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
       True if the table exists, False otherwise.
     """
     try:
-      table_name_ref = f"{self._dataset_name}.{table_name}"
+      table_name_ref = f"{self._bq_dataset_name}.{table_name}"
 
       logger.debug("Checking if table exists:  %s", table_name_ref)
       self._client.get_table(table_name_ref)
@@ -103,4 +110,4 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     Returns:
       A string representing the fully qualified table reference.
     """
-    return f"{self._gcp_project_id}.{self._dataset_name}.{table_name}"
+    return f"{self._gcp_project_id}.{self._bq_dataset_name}.{table_name}"
