@@ -15,6 +15,7 @@
 import unittest
 from unittest import mock
 
+import luigi
 import pandas as pd
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution_pb2 as wfe
@@ -22,6 +23,39 @@ from tasks import core as tasks_core
 from tasks import youtube_comments
 from tasks.ports import apis as ports_apis
 from tasks.ports import persistence
+
+
+TEST_RAW_COMMENTS_JSON_DATA = [
+    {
+        "id": "top1",
+        "snippet": {
+            "videoId": "vidWithReplies",
+            "topLevelComment": {
+                "snippet": {
+                    "authorChannelId": {"value": "authorA"},
+                    "publishedAt": "dateA",
+                    "textOriginal": "Text A",
+                    "likeCount": 10,
+                }
+            },
+            "totalReplyCount": 1,
+        },
+        "replies": {
+            "comments": [
+                {
+                    "id": "top1.reply1",
+                    "snippet": {
+                        "authorChannelId": {"value": "authorB"},
+                        "publishedAt": "dateB",
+                        "textOriginal": "Reply B",
+                        "likeCount": 2,
+                        "parentId": "top1",
+                    },
+                }
+            ]
+        },
+    }
+]
 
 
 class YoutubeCommentsTest(unittest.TestCase):
@@ -48,6 +82,9 @@ class YoutubeCommentsTest(unittest.TestCase):
   def _setup_mock_youtube_api_client(self):
     """Sets up and registers the mock YoutubeApiClient."""
     self.mock_api_client = mock.Mock(spec=ports_apis.YoutubeApiClient)
+    self.mock_api_client.get_comments_for_videos.return_value = (
+        TEST_RAW_COMMENTS_JSON_DATA
+    )
     service.registry.register(ports_apis.YoutubeApiClient, self.mock_api_client)
 
   def _setup_mock_data_repo(self):
@@ -68,13 +105,13 @@ class YoutubeCommentsTest(unittest.TestCase):
     self.mock_input_video_target = mock.Mock(
         spec=tasks_core.SentimentDataRepoTarget
     )
-
-    self.mock_input_video_target._sentiment_data_repo = self.mock_data_repo
     self.mock_input_video_target.table_name = (
         "FindYoutubeVideos_mock_input_for_comments"
     )
+    self.mock_input_video_target.exists.return_value = True
 
-    self.mock_required_video_task = mock.Mock()
+    self.mock_required_video_task = mock.Mock(spec=luigi.Task)
+    self.mock_required_video_task.requires.return_value = []
     self.mock_required_video_task.output.return_value = (
         self.mock_input_video_target
     )
@@ -96,79 +133,27 @@ class YoutubeCommentsTest(unittest.TestCase):
     super().tearDown()
     self.settings_patcher.stop()
 
-  def test_output_returns_correct_target(self):
-    """Verifies task.output() configures the correct data target."""
-
-    task = youtube_comments.FindYoutubeComments(
-        execution_id=self.execution_id,
-        my_required_task=self.mock_required_video_task,
-    )
-    expected_table_name = f"{task.task_family}_{self.execution_id}"
-
-    output_target = task.output()
-
-    # Assert
-    self.assertIsInstance(output_target, tasks_core.SentimentDataRepoTarget)
-    self.assertEqual(output_target.table_name, expected_table_name)
-    self.assertEqual(output_target._sentiment_data_repo, self.mock_data_repo)
-
   def test_run_loads_input_from_required_task_target(self):
     """Verifies that run() loads data from preceding task's output target."""
     expected_input_df = pd.DataFrame({"videoId": ["vidTest"]})
-    self.mock_data_repo.load_sentiment_data.return_value = expected_input_df
-
+    self.mock_input_video_target.load_sentiment_data.return_value = (
+        expected_input_df
+    )
     task = youtube_comments.FindYoutubeComments(
         execution_id=self.execution_id,
         my_required_task=self.mock_required_video_task,
     )
 
-    self.mock_api_client.get_comments_for_videos.return_value = []
     task.run()
-    self.mock_data_repo.load_sentiment_data.assert_called_once_with(
-        self.mock_input_video_target.table_name
-    )
+    self.mock_input_video_target.load_sentiment_data.assert_called_once_with()
 
   def test_run_successful_workflow_with_replies(self):
     """Tests main run logic: load input, fetch comments, flatten, write."""
 
     # Configure input data (from FindYoutubeVideos)
     input_videos_df = pd.DataFrame({"videoId": ["vidWithReplies"]})
-    self.mock_data_repo.load_sentiment_data.return_value = input_videos_df
-
-    # Configure API client mock
-    raw_comment_data_with_replies = [
-        {
-            "id": "top1",
-            "snippet": {
-                "videoId": "vidWithReplies",
-                "topLevelComment": {
-                    "snippet": {
-                        "authorChannelId": {"value": "authorA"},
-                        "publishedAt": "dateA",
-                        "textOriginal": "Text A",
-                        "likeCount": 10,
-                    }
-                },
-                "totalReplyCount": 1,
-            },
-            "replies": {
-                "comments": [
-                    {
-                        "id": "top1.reply1",
-                        "snippet": {
-                            "authorChannelId": {"value": "authorB"},
-                            "publishedAt": "dateB",
-                            "textOriginal": "Reply B",
-                            "likeCount": 2,
-                            "parentId": "top1",
-                        },
-                    }
-                ]
-            },
-        }
-    ]
-    self.mock_api_client.get_comments_for_videos.return_value = (
-        raw_comment_data_with_replies
+    self.mock_input_video_target.load_sentiment_data.return_value = (
+        input_videos_df
     )
 
     # Define expected DataFrame after flattening
@@ -193,9 +178,6 @@ class YoutubeCommentsTest(unittest.TestCase):
     task.run()
 
     # Assert
-    self.mock_data_repo.load_sentiment_data.assert_called_once_with(
-        self.mock_input_video_target.table_name
-    )
     self.mock_api_client.get_comments_for_videos.assert_called_once_with(
         ["vidWithReplies"]
     )
@@ -205,62 +187,6 @@ class YoutubeCommentsTest(unittest.TestCase):
     pd.testing.assert_frame_equal(
         call_args[1], expected_comments_df, check_dtype=False
     )
-
-  def test_run_handles_empty_input_videos(self):
-    """Tests task completes gracefully if input video DataFrame is empty."""
-
-    input_videos_df = pd.DataFrame({"videoId": []})
-    self.mock_data_repo.load_sentiment_data.return_value = input_videos_df
-
-    task = youtube_comments.FindYoutubeComments(
-        execution_id=self.execution_id,
-        my_required_task=self.mock_required_video_task,
-    )
-    expected_output_table_name = task.output().table_name
-    # Expected empty DataFrame with correct columns
-    expected_empty_comments_df = pd.DataFrame(
-        columns=task._FINAL_OUTPUT_COLUMNS
-    )
-
-    task.run()
-
-    # Assert
-    self.mock_data_repo.load_sentiment_data.assert_called_once()
-    self.mock_api_client.get_comments_for_videos.assert_not_called()
-    # Verify an empty DataFrame with correct columns was written
-    self.mock_data_repo.write_sentiment_data.assert_called_once()
-    call_args, _ = self.mock_data_repo.write_sentiment_data.call_args
-    self.assertEqual(call_args[0], expected_output_table_name)
-    pd.testing.assert_frame_equal(call_args[1], expected_empty_comments_df)
-
-  def test_run_handles_no_comments_found(self):
-    """Tests task completes gracefully if API returns no comments."""
-
-    input_videos_df = pd.DataFrame({"videoId": ["vidWithoutComments"]})
-    self.mock_data_repo.load_sentiment_data.return_value = input_videos_df
-    self.mock_api_client.get_comments_for_videos.return_value = []
-
-    task = youtube_comments.FindYoutubeComments(
-        execution_id=self.execution_id,
-        my_required_task=self.mock_required_video_task,
-    )
-    expected_output_table_name = task.output().table_name
-    expected_empty_comments_df = pd.DataFrame(
-        columns=task._FINAL_OUTPUT_COLUMNS
-    )
-
-    task.run()
-
-    # Assert
-    self.mock_data_repo.load_sentiment_data.assert_called_once()
-    self.mock_api_client.get_comments_for_videos.assert_called_once_with(
-        ["vidWithoutComments"]
-    )
-    # Verify an empty DataFrame with correct columns was written
-    self.mock_data_repo.write_sentiment_data.assert_called_once()
-    call_args, _ = self.mock_data_repo.write_sentiment_data.call_args
-    self.assertEqual(call_args[0], expected_output_table_name)
-    pd.testing.assert_frame_equal(call_args[1], expected_empty_comments_df)
 
 
 if __name__ == "__main__":

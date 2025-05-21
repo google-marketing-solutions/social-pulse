@@ -135,6 +135,11 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
 
       videos_raw = youtube_client.search_for_videos(criteria)
 
+      logging.info(
+          "[%s] Found %s videos matching criteria for execution %s.",
+          self.task_family, len(videos_raw), self.execution_id
+      )
+
       if not videos_raw:
         logging.error("[%s] No videos found for criteria in execution %s."
                       "Cannot proceed with analysis.",

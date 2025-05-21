@@ -19,7 +19,6 @@ from socialpulse_common import config
 from socialpulse_common import service
 from tasks import core as tasks_core
 from tasks.ports import apis as ports_apis
-from tasks.youtube_data import FindYoutubeVideos
 
 
 settings = config.Settings()
@@ -43,23 +42,6 @@ class FindYoutubeComments(tasks_core.SentimentTask):
       "numOfReplies",
       "parentId",
   ]
-
-  def requires(self) -> FindYoutubeVideos:
-    """This task requires FindYoutubeVideos to run first.
-
-    The actual instance is passed via the 'my_required_task' parameter
-    during instantiation.
-
-    Returns:
-      The required FindYoutubeVideos task instance.
-    """
-    required_task = super().requires()
-    if not isinstance(required_task, FindYoutubeVideos):
-      raise TypeError(
-          f"[{self.task_family}] requires FindYoutubeVideos, but got "
-          f"{type(required_task).__name__}"
-      )
-    return required_task
 
   def output(self) -> tasks_core.SentimentDataRepoTarget:
     """Defines the output target for this task using SentimentDataRepoTarget.
@@ -171,7 +153,6 @@ class FindYoutubeComments(tasks_core.SentimentTask):
                   "numOfReplies": 0,
                   "authorId": "Unknown",
                   "text": "",
-                  "replies": None,
               }
           )
           .astype(

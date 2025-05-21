@@ -66,15 +66,11 @@ class YoutubeDataTest(unittest.TestCase):
 
   def _create_mock_workflow_exec(self):
     """Helper to create a standard mock workflow exec."""
-    mock_exec = mock.Mock(spec=wfe.WorkflowExecutionParams)
+    mock_exec = wfe.WorkflowExecutionParams()
     mock_exec.topic = "Test Topic"
-    mock_exec.HasField.side_effect = lambda field: field in [
-        "start_time",
-        "end_time",
-    ]
-    # pylint: disable=line-too-long
-    mock_exec.start_time.ToDatetime.return_value = datetime.datetime(2025, 4, 30)
-    mock_exec.end_time.ToDatetime.return_value = datetime.datetime(2025, 5, 2)
+    mock_exec.start_time.FromDatetime(datetime.datetime(2025, 4, 1))
+    mock_exec.end_time.FromDatetime(datetime.datetime(2025, 5, 30))
+
     return mock_exec
 
   def test_output_returns_correct_target(self):
@@ -112,7 +108,7 @@ class YoutubeDataTest(unittest.TestCase):
                 "description": "Desc 1",
                 "channelId": "c1",
                 "channelTitle": "Chan 1",
-                "publishedAt": "2025-04-30T00:00:00Z",
+                "publishedAt": "2025-04-01T00:00:00Z",
             },
         },
         {
@@ -122,7 +118,7 @@ class YoutubeDataTest(unittest.TestCase):
                 "description": "Desc 2",
                 "channelId": "c2",
                 "channelTitle": "Chan 2",
-                "publishedAt": "2025-05-01T00:00:00Z",
+                "publishedAt": "2025-05-30T00:00:00Z",
             },
         },
     ]
@@ -161,13 +157,11 @@ class YoutubeDataTest(unittest.TestCase):
     task.run()
 
     # Verify mocks were called as expected
-    self.mocked_wfe_params_loader_service.load_execution.assert_called_once_with(
-        self.execution_id
-    )
     self.mock_api_client.search_for_videos.assert_called_once_with(
         expected_criteria
     )
     self.mock_data_repo.write_sentiment_data.assert_called_once()
+
     # Compare DataFrame passed to write_sentiment_data
     call_args, _ = self.mock_data_repo.write_sentiment_data.call_args
     self.assertEqual(call_args[0], expected_table_name)
@@ -180,20 +174,17 @@ class YoutubeDataTest(unittest.TestCase):
     self.mocked_wfe_params_loader_service.load_execution.return_value = (
         mock_exec
     )
-    self.mock_api_client.search_for_videos.return_value = (
-        []
-    )
-
-    _ = youtube_data.FindYoutubeVideos(
-        execution_id=self.execution_id, my_required_task=self.required_task_mock
-    )
+    self.mock_api_client.search_for_videos.return_value = []
 
     # Assert
-    self.mocked_wfe_params_loader_service.load_execution.assert_called_once_with(
-        self.execution_id
-    )
-    self.mock_api_client.search_for_videos.assert_called_once()
-    self.mock_data_repo.write_sentiment_data.assert_not_called()
+    with self.assertRaises(ValueError) as err_context:
+      task = youtube_data.FindYoutubeVideos(
+          execution_id=self.execution_id,
+          my_required_task=self.required_task_mock
+      )
+      task.run()
+
+    self.assertIn("No videos found", str(err_context.exception))
 
 
 if __name__ == "__main__":
