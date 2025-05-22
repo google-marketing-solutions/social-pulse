@@ -110,10 +110,16 @@ class ServiceRegistry:
       ValueError: If the service type is not registered.
     """
     key = service_type.__name__
-    logging.debug("Retrieving service with key: '%s'", key)
     if key not in self._registered_services:
       raise ValueError(f'Service type {service_type} not registered.')
-    return self._registered_services.get(key)
+
+    service_instance = self._registered_services.get(key)
+    logging.debug(
+        "Retrieved instance '%s' with service key %s",
+        service_instance,
+        key
+    )
+    return service_instance
 
 
 registry = ServiceRegistry()

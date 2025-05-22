@@ -43,18 +43,6 @@ class FindYoutubeComments(tasks_core.SentimentTask):
       "parentId",
   ]
 
-  def output(self) -> tasks_core.SentimentDataRepoTarget:
-    """Defines the output target for this task using SentimentDataRepoTarget.
-
-    The output is a dataset managed by the SentimentDataRepo, named using
-    the task family (FindYoutubeComments) and execution ID.
-
-    Returns:
-      An instance of SentimentDataRepoTarget representing the task's
-      output dataset.
-    """
-    return tasks_core.SentimentDataRepoTarget(self.dataset_name)
-
   def run(self) -> None:
     """Executes the comment finding and flattening logic."""
     logging.info(

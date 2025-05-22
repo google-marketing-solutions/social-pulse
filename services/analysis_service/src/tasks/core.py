@@ -23,6 +23,57 @@ from socialpulse_common.messages import workflow_execution_pb2 as wfe
 from tasks.ports import persistence
 
 
+class SentimentDataRepoTarget(luigi.Target):
+  """Target that wraps a sentiment data repo.
+
+  This target is used to represent a sentiment data set stored in a
+  SentimentDataRepo. It provides methods to check if the data set exists,
+  load the data set, and write data to the data set.
+
+  Attributes:
+    table_name: The name of the table in the sentiment data repo.
+    _sentiment_data_repo: The SentimentDataRepo instance.
+  """
+
+  def __init__(self, table_name: str):
+    self.table_name = table_name
+
+    self._sentiment_data_repo = service.registry.get(
+        persistence.SentimentDataRepo
+    )
+
+  def exists(self) -> bool:
+    """Checks if the sentiment data set exists.
+
+    Returns:
+      True if the data set exists, False otherwise.
+    """
+    return self._sentiment_data_repo.exists(self.table_name)
+
+  def load_sentiment_data(self) -> pd.DataFrame:
+    """Loads the sentiment data set wrapped by this target.
+
+    Returns:
+      A pandas DataFrame containing the sentiment data.
+
+    Raises:
+      Exception: If there is an error loading the data.
+    """
+    return self._sentiment_data_repo.load_sentiment_data(self.table_name)
+
+  def write_sentiment_data(self, sentiment_dataset: pd.DataFrame) -> None:
+    """Writes the sentiment data set wrapped by this target to the repo.
+
+    Args:
+      sentiment_dataset: The pandas DataFrame containing the sentiment data to
+        write.
+    """
+    self._sentiment_data_repo.write_sentiment_data(
+        self.table_name,
+        sentiment_dataset
+    )
+
+
 class SentimentTask(luigi.Task, abc.ABC):
   """Abstract class representing a sentiment analysis task.
 
@@ -93,61 +144,18 @@ class SentimentTask(luigi.Task, abc.ABC):
     else:
       return self.my_required_task
 
+  def output(self) -> SentimentDataRepoTarget:
+    """Defines the output target for this task using SentimentDataRepoTarget.
+
+    The output is a dataset managed by the SentimentDataRepo, named using
+    the task family and execution ID.
+
+    Returns:
+      An instance of SentimentDataRepoTarget representing the task's
+      output dataset.
+    """
+    return SentimentDataRepoTarget(self.dataset_name)
+
   @abc.abstractmethod
   def run(self) -> None:
     pass
-
-  @abc.abstractmethod
-  def output(self) -> luigi.Target:
-    pass
-
-
-class SentimentDataRepoTarget(luigi.Target):
-  """Target that wraps a sentiment data repo.
-
-  This target is used to represent a sentiment data set stored in a
-  SentimentDataRepo. It provides methods to check if the data set exists,
-  load the data set, and write data to the data set.
-
-  Attributes:
-    table_name: The name of the table in the sentiment data repo.
-    _sentiment_data_repo: The SentimentDataRepo instance.
-  """
-
-  def __init__(self, table_name: str):
-    self.table_name = table_name
-
-    self._sentiment_data_repo = service.registry.get(
-        persistence.SentimentDataRepo
-    )
-
-  def exists(self) -> bool:
-    """Checks if the sentiment data set exists.
-
-    Returns:
-      True if the data set exists, False otherwise.
-    """
-    return self._sentiment_data_repo.exists(self.table_name)
-
-  def load_sentiment_data(self) -> pd.DataFrame:
-    """Loads the sentiment data set wrapped by this target.
-
-    Returns:
-      A pandas DataFrame containing the sentiment data.
-
-    Raises:
-      Exception: If there is an error loading the data.
-    """
-    return self._sentiment_data_repo.load_sentiment_data(self.table_name)
-
-  def write_sentiment_data(self, sentiment_dataset: pd.DataFrame) -> None:
-    """Writes the sentiment data set wrapped by this target to the repo.
-
-    Args:
-      sentiment_dataset: The pandas DataFrame containing the sentiment data to
-        write.
-    """
-    self._sentiment_data_repo.write_sentiment_data(
-        self.table_name,
-        sentiment_dataset
-    )

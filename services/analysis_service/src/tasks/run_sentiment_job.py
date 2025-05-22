@@ -36,18 +36,6 @@ class RunSentimentAnalysisJobTask(tasks_core.SentimentTask):
   has finished executing.
   """
 
-  def output(self):
-    """Defines the output target for this task using SentimentDataRepoTarget.
-
-    The output is a dataset created by the LLM after sentiment analysis is
-    performed.  It will contain the responses from the LLM.
-
-    Returns:
-      An instance of SentimentDataRepoTarget representing the dataset with the
-      LLM sentiment analysis output.
-    """
-    return tasks_core.SentimentDataRepoTarget(self.dataset_name)
-
   def run(self) -> None:
     """Executes the sentiment analysis job."""
     job_client: apis.LlmBatchJobApiClient = service.registry.get(

@@ -12,13 +12,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import logging
 import unittest
 from unittest import mock
 
 import luigi
 from socialpulse_common import service
+from socialpulse_common.messages import workflow_execution_pb2 as wfe
 from tasks import core
 from tasks.ports import persistence
+
+
+logger = logging.getLogger(__name__)
 
 
 class RequiredTask(luigi.WrapperTask):
@@ -29,9 +34,6 @@ class RequiredTask(luigi.WrapperTask):
 class TestChildSentimentTask(core.SentimentTask):
   task_namespace = "test_namespace"
 
-  def output(self):
-    return None
-
   def run(self):
     pass
 
@@ -40,16 +42,33 @@ class CoreTest(unittest.TestCase):
   def setUp(self):
     super().setUp()
 
-    self.mocked_wfe_params_loader_service = mock.Mock()
-    self.mock_execution_params = mock.Mock()
+    # Need to clear Luigi's task cache, otherwise it'll re-use whatever test
+    # child task created by the first executed test.
+    luigi.Task.clear_instance_cache()
 
-    self.mocked_wfe_params_loader_service.load_execution.return_value = (
+    self._setup_mock_workflow_params()
+    self._setup_mock_setniment_data_repo()
+
+  def _setup_mock_workflow_params(self):
+    self.mock_wfe_params_loader_service = mock.Mock(
+        spec=persistence.WorkflowExecutionLoaderService
+    )
+    self.mock_execution_params = mock.Mock(spec=wfe.WorkflowExecutionParams)
+    self.mock_wfe_params_loader_service.load_execution.return_value = (
         self.mock_execution_params
     )
-
     service.registry.register(
         persistence.WorkflowExecutionLoaderService,
-        self.mocked_wfe_params_loader_service
+        self.mock_wfe_params_loader_service
+    )
+
+  def _setup_mock_setniment_data_repo(self):
+    self.mock_sentiment_data_repo = mock.Mock(
+        spec=persistence.SentimentDataRepo
+    )
+    service.registry.register(
+        persistence.SentimentDataRepo,
+        self.mock_sentiment_data_repo
     )
 
   def test_sentiment_task_loads_workflow_execution_params_using_id(self):
@@ -61,6 +80,9 @@ class CoreTest(unittest.TestCase):
     """
     task = TestChildSentimentTask("some_execution_id", RequiredTask())
 
+    self.mock_wfe_params_loader_service.load_execution.assert_called_once_with(
+        "some_execution_id"
+    )
     self.assertEqual(self.mock_execution_params, task.workflow_exec)
 
   def test_task_data_set_name_constructed_from_family_and_execution_id(self):
@@ -78,3 +100,26 @@ class CoreTest(unittest.TestCase):
         "test_namespace.TestChildSentimentTask_some_execution_id",
         task.dataset_name
     )
+
+  def test_output_returns_sentiment_data_repo_target_with_correct_table_name(
+      self
+  ):
+    """Returns a SentimentDataRepoTarget with the correct table name.
+
+    Given an implementation of SentimentTask
+    When its output() method is called
+    Then it should return a SentimentDataRepoTarget instance
+    And that instance should have its table_name attribute set to the task's
+        dataset_name.
+    """
+    task = TestChildSentimentTask("some_execution_id", RequiredTask())
+    expected_table_name = task.dataset_name
+
+    output_target = task.output()
+
+    self.assertIsInstance(output_target, core.SentimentDataRepoTarget)
+    self.assertEqual(output_target.table_name, expected_table_name)
+
+
+if __name__ == "__main__":
+  unittest.main()

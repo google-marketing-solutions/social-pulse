@@ -140,33 +140,6 @@ class ProcessLlmVideoResponses(tasks_core.SentimentTask):
   and saves the structured, flattened data.
   """
 
-  def requires(self) -> run_sentiment_job.RunSentimentAnalysisJobTask:
-    """This task requires RunSentimentAnalysisJobTask to complete.
-
-    Returns:
-      The required ProcessLlmVideoResponses task instance.
-    """
-    required_task = super().requires()
-    if not isinstance(
-        required_task, run_sentiment_job.RunSentimentAnalysisJobTask
-    ):
-      raise TypeError(
-          f"[{self.task_family}] requires RunSentimentAnalysisJobTask, but got "
-          f"{type(required_task).__name__}"
-      )
-    return required_task
-
-  def output(self) -> tasks_core.SentimentDataRepoTarget:
-    """Defines the output target for this task.
-
-    Output is a BigQuery table containing the final flattened sentiment data.
-
-    Returns:
-      An instance of SentimentDataRepoTarget representing the task's
-      output dataset.
-    """
-    return tasks_core.SentimentDataRepoTarget(self.dataset_name)
-
   def run(self) -> None:
     """Loads LLM results, parses JSON, flattens, and saves."""
     logging.info(

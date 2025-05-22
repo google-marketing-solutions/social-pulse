@@ -75,18 +75,6 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
   using the configured SentimentDataRepo.
   """
 
-  def output(self) -> tasks_core.SentimentDataRepoTarget:
-    """Defines the output target for this task using SentimentDataRepoTarget.
-
-    The output is a dataset managed by the SentimentDataRepo, named using
-    the task family (FindYoutubeVideos) and execution ID.
-
-    Returns:
-      An instance of SentimentDataRepoTarget representing the task's
-      output dataset.
-    """
-    return tasks_core.SentimentDataRepoTarget(self.dataset_name)
-
   def _build_search_criteria(self) -> ports_apis.YoutubeSearchCriteria:
     """Builds the search criteria object from workflow params and defaults."""
 
