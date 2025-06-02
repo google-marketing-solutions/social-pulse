@@ -1,0 +1,231 @@
+#  Copyright 2025 Google LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+import json
+import unittest
+
+import pandas as pd
+import sentiment_task_mixins as test_mixins
+from tasks import llm_response_processing as lrp
+
+
+class ProcessLlmSentimentResponsesTest(
+    unittest.TestCase,
+    test_mixins.SetupMockSentimentTaskDepependenciesMixin
+):
+  def setUp(self):
+    super().setUp()
+    self.setup_all_mock_dependencies()
+
+  def generate_test_llm_response(
+      self,
+      llm_sentiment_response: dict[str, any]
+  ) -> str:
+    encoded_sentiment_response = json.dumps(llm_sentiment_response)
+    outer_response = {
+        "candidates": [
+            {
+                "avgLogprobs": -0.027945819828245375,
+                "content": {
+                    "parts": [
+                        {
+                            "text": encoded_sentiment_response
+                        }
+                    ],
+                    "role": "model"
+                },
+                "finishReason": "STOP"
+            }
+        ],
+        "createTime": "2025-05-27T16:27:16.684777Z",
+        "modelVersion": "gemini-2.0-flash-001@default",
+        "responseId": "5Oc1aOnlKZiam9IPn42_-Ak",
+        "usageMetadata": {
+            "candidatesTokenCount": 36,
+            "candidatesTokensDetails": [
+                {
+                    "modality": "TEXT",
+                    "tokenCount": 36
+                }
+            ],
+            "promptTokenCount": 514,
+            "promptTokensDetails": [
+                {
+                    "modality": "TEXT",
+                    "tokenCount": 514
+                }
+            ],
+            "totalTokenCount": 550,
+            "trafficType": "ON_DEMAND"
+        }
+    }
+    return json.dumps(outer_response)
+
+  def assert_output_dataframe_matches(self, expected_df: pd.DataFrame) -> None:
+    write_sentiment_args = (
+        self.mock_sentiment_data_repo.write_sentiment_data.call_args
+    )
+    actual_df = write_sentiment_args[0][1]
+    pd.testing.assert_frame_equal(actual_df, expected_df)
+
+  def test_fails_if_input_is_missing_response_column(self):
+    """Fails if the input is missing the response column.
+
+    Given an input dataset missing the response column
+    When the task is executed
+    Then a ValueError is raised
+    """
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame(
+        {"some_column": ["some_value"]}
+    )
+
+    with self.assertRaises(ValueError):
+      task = lrp.ProcessLlmSentimentResponses(
+          execution_id="some_execution_id",
+          my_required_task=self.mock_required_task
+      )
+      task.run()
+
+  def test_returns_empty_analysis_if_response_has_invalid_json(self):
+    """Returns empty analysis if response has invalid JSON.
+
+    Given the LLM response has invalid JSON
+    When the task is executed
+    Then an empty analysis is returned
+    """
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
+        {
+            "response": "!@#$%^&*()_+"
+        }
+    ])
+
+    task = lrp.ProcessLlmSentimentResponses(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    self.assert_output_dataframe_matches(
+        pd.DataFrame([
+            {
+                "summary": "",
+                "relevanceScore": 0.0,
+                "sentimentScore": 0.0,
+            }
+        ])
+    )
+
+  def test_returns_empty_analysis_if_no_candidates_in_llm_response(self):
+    """Returns empty analysis if no candidates in LLM response.
+
+    Given the LLM response didn't have any candidates
+    When the task is executed
+    Then an empty analysis is returned
+    """
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
+        {
+            "response": json.dumps({"some_value": "a_value"})
+        }
+    ])
+
+    task = lrp.ProcessLlmSentimentResponses(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    self.assert_output_dataframe_matches(
+        pd.DataFrame([
+            {
+                "summary": "",
+                "relevanceScore": 0.0,
+                "sentimentScore": 0.0,
+            }
+        ])
+    )
+
+  def test_returns_empty_analysis_if_no_parts_in_llm_response(self):
+    """Returns empty analysis if no parts in LLM response.
+
+    Given the LLM response didn't have any parts within the candidates
+    When the task is executed
+    Then an empty analysis is returned
+    """
+    incomplete_message = {
+        "candidates": [
+            {
+                "avgLogprobs": -0.027945819828245375,
+                "content": {
+                    "parts": [],
+                    "role": "model"
+                },
+                "finishReason": "STOP"
+            }
+        ]
+    }
+    response_json_string = json.dumps(incomplete_message)
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
+        {"response": response_json_string}
+    ])
+
+    task = lrp.ProcessLlmSentimentResponses(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    self.assert_output_dataframe_matches(
+        pd.DataFrame([
+            {
+                "summary": "",
+                "relevanceScore": 0.0,
+                "sentimentScore": 0.0,
+            }
+        ])
+    )
+
+  def test_extract_sentiment_fields_from_sentiment_response(self):
+    """Extracts sentiment fields from the LLM response.
+
+    Given the LLM response contains the expected sentiment fields
+    When the task is executed
+    Then the sentiment fields are extracted and included in the output DataFrame
+    """
+
+    llm_sentiment_response = {
+        "summary": "a summary",
+        "relevanceScore": 0.5,
+        "sentimentScore": 0.7
+    }
+    response_json_string = self.generate_test_llm_response(
+        llm_sentiment_response
+    )
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
+        {"response": response_json_string}
+    ])
+
+    task = lrp.ProcessLlmSentimentResponses(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    self.assert_output_dataframe_matches(
+        pd.DataFrame([
+            {
+                "summary": "a summary",
+                "relevanceScore": 0.5,
+                "sentimentScore": 0.7,
+            }
+        ])
+    )
