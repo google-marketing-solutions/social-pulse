@@ -75,7 +75,7 @@ class ProcessLlmSentimentResponsesTest(
     write_sentiment_args = (
         self.mock_sentiment_data_repo.write_sentiment_data.call_args
     )
-    actual_df = write_sentiment_args[0][1]
+    actual_df = write_sentiment_args.args[1]
     pd.testing.assert_frame_equal(actual_df, expected_df)
 
   def test_fails_if_input_is_missing_response_column(self):

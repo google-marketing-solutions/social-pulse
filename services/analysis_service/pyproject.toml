@@ -18,3 +18,14 @@ distribution = false
 pythonpath = ["src"]
 log_level = "DEBUG"
 log_cli = false
+addopts = "--cov=src --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+# Specify where coverage should look for source files
+source = ["src"]
+
+[tool.coverage.report]
+exclude_also = [
+    # Exclude test files
+    "tests/*",
+]

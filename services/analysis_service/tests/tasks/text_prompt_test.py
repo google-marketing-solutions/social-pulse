@@ -1,43 +1,26 @@
-import string
 import unittest
+
+
 import pandas as pd
-from video_prompt import GenerateLlmTextAnalysisPrompts
-from video_prompt import SENTIMENT_SCORE_PROMPT_TEMPLATE
-from video_prompt import TEXT_EXTRACTION_SYSTEM_INSTRUCTION
+import parameterized
+import sentiment_task_mixins as test_mixins
+from tasks import text_prompt
 
 
-class TestGenerateLlmTextAnalysisPrompts(unittest.TestCase):
-
+class TestGenerateLlmTextAnalysisPrompts(
+    unittest.TestCase,
+    test_mixins.SetupMockSentimentTaskDepependenciesMixin
+):
   def setUp(self):
     """Set up for test methods."""
     super().setUp()
-    # Mock external dependencies
-    self.mock_settings = unittest.mock.MagicMock()
-    with unittest.mock.patch("socialpulse_common.config.Settings",
-                             return_value=self.mock_settings):
-      self.task = GenerateLlmTextAnalysisPrompts(
-          dataset_name="test_dataset", execution_id="test_exec_id")
-      self.task.topic = "TestProduct"  # Set a default topic for testing
 
-    # Mock constants
-    self.mock_base_sentiment_response_schema = {
-        "items": {"properties": {"sentiment": {}, "relevance": {}}}
-    }
-    self.mock_justification_response_schema = {
-        "positive_quotes": {}, "negative_quotes": {}
-    }
-    with (unittest.mock
-          .patch("pipeline.scoring.constants.BASE_SENTIMENT_RESPONSE_SCHEMA",
-                 self.mock_base_sentiment_response_schema)), \
-         (unittest.mock
-          .patch("pipeline.scoring.constants.JUSTIFICATION_RESPONSE_SCHEMA",
-                 self.mock_justification_response_schema)):
-      # Re-instantiate the task to ensure mocked constants are picked up
-      self.task = GenerateLlmTextAnalysisPrompts(
-          dataset_name="test_dataset", execution_id="test_exec_id")
-      self.task.topic = "TestProduct"
+    self.setup_all_mock_dependencies()
+    self._setup_mock_prompt_generator()
 
-    # Mock LlmPromptGenerator
+    self.mock_execution_params.topic = "some_topic"
+
+  def _setup_mock_prompt_generator(self):
     self.mock_prompt_generator = unittest.mock.MagicMock()
     (self.mock_prompt_generator.with_prompt
      .return_value) = self.mock_prompt_generator
@@ -59,133 +42,197 @@ class TestGenerateLlmTextAnalysisPrompts(unittest.TestCase):
                                      return_value=self.mock_prompt_generator))
     self.mock_llm_prompt_generator_class = self.patcher_generator.start()
 
-    # Patch logging to prevent actual log output during tests
-    self.patcher_logging = unittest.mock.patch("logging.info")
-    self.mock_logging_info = self.patcher_logging.start()
-    self.patcher_logging_exception = unittest.mock.patch("logging.exception")
-    self.mock_logging_exception = self.patcher_logging_exception.start()
-
   def tearDown(self):
     """Clean up after test methods."""
-    self.patcher_generator.stop()
-    self.patcher_logging.stop()
-    self.patcher_logging_exception.stop()
     super().tearDown()
+    self.patcher_generator.stop()
 
-  def test_validate_data(self):
-    """Test validate_data method."""
-    data = pd.DataFrame({"col1": [1], "col2": [2]})
-    self.assertTrue(self.task.validate_data(data))
+  @parameterized.parameterized.expand([
+      (
+          "Comment ID",
+          pd.DataFrame({
+              "videoId": ["video1"],
+              "authorId": ["author1"],
+              "videoSummary": ["here's a summary"],
+              "text": ["here's a comment"],
+              "parentId": ["parent1"]
+          }),
+          "commentId"
+      ),
+      (
+          "Video ID",
+          pd.DataFrame({
+              "commentId": ["comment1"],
+              "authorId": ["author1"],
+              "videoSummary": ["here's a summary"],
+              "text": ["here's a comment"],
+              "parentId": ["parent1"]
+          }),
+          "videoId"
+      ),
+      (
+          "Author ID",
+          pd.DataFrame({
+              "commentId": ["comment1"],
+              "videoId": ["video1"],
+              "videoSummary": ["here's a summary"],
+              "text": ["here's a comment"],
+              "parentId": ["parent1"]
+          }),
+          "authorId"
+      ),
+      (
+          "Video Summary",
+          pd.DataFrame({
+              "commentId": ["comment1"],
+              "videoId": ["video1"],
+              "authorId": ["author1"],
+              "text": ["here's a comment"],
+              "parentId": ["parent1"]
+          }),
+          "videoSummary"
+      ),
+      (
+          "Comment Text",
+          pd.DataFrame({
+              "commentId": ["comment1"],
+              "videoId": ["video1"],
+              "authorId": ["author1"],
+              "videoSummary": ["here's a summary"],
+              "parentId": ["parent1"]
+          }),
+          "text"
+      ),
+      (
+          "Parent ID",
+          pd.DataFrame({
+              "commentId": ["comment1"],
+              "videoId": ["video1"],
+              "authorId": ["author1"],
+              "videoSummary": ["here's a summary"],
+              "text": ["here's a comment"],
+          }),
+          "parentId"
+      )
+  ])
+  def test_fails_if_required_column_is_missing(
+      self,
+      _,
+      input_pd,
+      missing_col_name
+  ):
+    """Test that the task fails if a required column is missing.
 
-  def test_output(self):
-    """Test output method."""
-    output_target = self.task.output()
-    self.assertIsNotNone(output_target)
-    self.assertEqual(output_target.dataset_name, "test_dataset")
-    self.assertEqual(output_target.table_name,
-                     "generate_llm_text_analysis_prompts_test_exec_id")
+    Given the input data is missing a required column
+    When the task is executed
+    Then a ValueError is raised
+    And the error specifies the missing column
 
-  @unittest.mock.patch("tasks.core.SentimentDataRepoTarget")
-  def test_run_success(self, mock_sentiment_data_repo_target):
-    """Test run method for successful execution."""
-    mock_input_target = unittest.mock.MagicMock()
-    mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
-        "videoSummary": ["Test video Summary"],
-        "text": ["Test comment"],
-        "sourceDataId": ["id1"]
+    Args:
+        _: Placeholder for the parameterized test name.
+        input_pd: A pandas DataFrame representing the input data to the task,
+          with one required column missing.
+        missing_col_name: The name of the missing column that should be present
+          in the raised error message.
+    """
+    self.mock_input_target.load_sentiment_data.return_value = input_pd
+    with self.assertRaises(ValueError) as cm:
+      task = text_prompt.GenerateLlmTextAnalysisPrompts(
+          execution_id="some_execution_id",
+          my_required_task=self.mock_required_task
+      )
+      task.run()
+
+    self.assertIn(missing_col_name, str(cm.exception))
+
+  def test_a_prompt_column_is_added_to_output_dataframe(self):
+    """Tests that a column is added to the output with a prompt.
+
+    Given a properly populated input sentiment dataset
+    When the task is executed
+    Then a prompt column is present in the output sentiment dataset
+    """
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "commentId": ["comment1"],
+        "videoId": ["video1"],
+        "authorId": ["author1"],
+        "videoSummary": ["here's a summary"],
+        "text": ["here's a comment"],
+        "parentId": ["parent1"]
     })
 
-    self.task.input = unittest.mock.MagicMock(return_value=mock_input_target)
-    mock_output_target_instance = mock_sentiment_data_repo_target.return_value
-    mock_output_target_instance.write_sentiment_data.return_value = None
+    task = text_prompt.GenerateLlmTextAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
 
-    self.task.run(brand_or_product="TestBrand")
+    write_sentiment_args = (
+        self.mock_sentiment_data_repo.write_sentiment_data.call_args
+    )
+    output_df = write_sentiment_args.args[1]
+    self.assertIn("prompt", output_df.columns)
 
-    mock_input_target.load_sentiment_data.assert_called_once()
-    mock_output_target_instance.write_sentiment_data.assert_called_once()
-    args = mock_output_target_instance.write_sentiment_data.call_args
-    output_df = args[0]
-    self.assertIsInstance(output_df, pd.DataFrame)
-    self.assertIn("promptId", output_df.columns)
-    self.assertIn("promptText", output_df.columns)
-    self.assertIn("generatedAt", output_df.columns)
-    self.assertIn("sourceDataId", output_df.columns)
-    self.assertEqual(len(output_df), 1)
-    self.assertEqual(output_df["promptText"].iloc[0], "generated_llm_prompt")
-    self.assertEqual(output_df["sourceDataId"].iloc[0], "id1")
-    self.mock_logging_info.assert_called()
-    self.mock_logging_exception.assert_not_called()
-
-  @unittest.mock.patch("tasks.core.SentimentDataRepoTarget")
-  def test_run_failure_reading_data(self, mock_sentiment_data_repo_target):
-    """Test run method for failure when reading data."""
-    mock_input_target = unittest.mock.MagicMock()
-    mock_input_target.load_sentiment_data.side_effect = Exception("Test error")
-    self.task.input = unittest.mock.MagicMock(return_value=mock_input_target)
-
-    with self.assertRaises(Exception):
-      self.task.run(brand_or_product="TestBrand")
-
-    self.mock_logging_exception.assert_called_once()
-    mock_input_target.load_sentiment_data.assert_called_once()
-    (mock_sentiment_data_repo_target.return_value
-     .write_sentiment_data.assert_not_called())
-
-  def test_attach_request(self):
-    """Test _attach_request method."""
-    data = pd.DataFrame({
-        "videoSummary": ["Test video Summary A", "Test video Summary B"],
-        "text": ["Test comment A", "Test comment B"],
-        "sourceDataId": ["id_A", "id_B"]
+  def test_prompt_is_generated_with_topic(self):
+    self.mock_execution_params.topic = "some_important_topic"
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "commentId": ["comment1"],
+        "videoId": ["video1"],
+        "authorId": ["author1"],
+        "videoSummary": ["here's a summary"],
+        "text": ["here's a comment"],
+        "parentId": ["parent1"]
     })
 
-    self.task.topic = "TestProduct"
-
-    result_df = self.task._attach_request(data)
-
-    self.assertIsInstance(result_df, pd.DataFrame)
-    self.assertEqual(len(result_df), 2)
-    self.assertIn("prompt", result_df.columns)
-    self.assertEqual(result_df["prompt"].iloc[0], "generated_llm_prompt")
-    self.assertEqual(result_df["prompt"].iloc[1], "generated_llm_prompt")
-
-    # Verify LlmPromptGenerator was called correctly for each row
-    self.assertEqual(self.mock_llm_prompt_generator_class.call_count, 2)
-
-    # Verify calls for the first row
-    self.mock_prompt_generator.with_prompt.assert_any_call(
-        self._generate_expected_base_prompt("TestProduct"))
-    self.mock_prompt_generator.with_system_instruction.assert_any_call(
-        TEXT_EXTRACTION_SYSTEM_INSTRUCTION)
-    self.mock_prompt_generator.with_response_schema.assert_any_call(
-        self.task._get_expected_response_schema())
-    self.mock_prompt_generator.with_temperature.assert_any_call(0.5)
-    self.mock_prompt_generator.with_response_mime_type.assert_any_call(
-        "application/json"
+    task = text_prompt.GenerateLlmTextAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
     )
-    self.mock_prompt_generator.build.assert_called()
+    task.run()
 
-  def test_generate_base_prompt(self):
-    """Test _generate_base_prompt method."""
-    self.task.topic = "Laptop, Smartphone"
-    expected_prompt = string.Template(
-        SENTIMENT_SCORE_PROMPT_TEMPLATE
-    ).substitute(
-        topic_list="Laptop, Smartphone"
+    with_prompt_args = self.mock_prompt_generator.with_prompt.call_args
+    actual_prompt = with_prompt_args.args[0]
+    self.assertIn("some_important_topic", actual_prompt)
+
+  def test_prompt_is_generated_with_video_summary(self):
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "commentId": ["comment1"],
+        "videoId": ["video1"],
+        "authorId": ["author1"],
+        "videoSummary": ["here's a summary"],
+        "text": ["here's a comment"],
+        "parentId": ["parent1"]
+    })
+
+    task = text_prompt.GenerateLlmTextAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
     )
-    self.assertEqual(self.task._generate_base_prompt(), expected_prompt)
+    task.run()
 
-  def _generate_expected_base_prompt(self, topic):
-    """Helper to generate the expected base prompt."""
-    scoring_prompt = string.Template(SENTIMENT_SCORE_PROMPT_TEMPLATE)
-    return scoring_prompt.substitute(topic_list=topic)
+    with_prompt_args = self.mock_prompt_generator.with_prompt.call_args
+    actual_prompt = with_prompt_args.args[0]
+    self.assertIn("here's a summary", actual_prompt)
 
-  def _get_expected_response_schema(self):
-    """Helper to get the expected merged response schema."""
-    response_schema = self.mock_base_sentiment_response_schema
-    response_schema["items"]["properties"].update(
-        self.mock_justification_response_schema)
-    return response_schema
+  def test_prompt_is_generated_with_comment_text(self):
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "commentId": ["comment1"],
+        "videoId": ["video1"],
+        "authorId": ["author1"],
+        "videoSummary": ["here's a summary"],
+        "text": ["here's a comment"],
+        "parentId": ["parent1"]
+    })
+
+    task = text_prompt.GenerateLlmTextAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    with_prompt_args = self.mock_prompt_generator.with_prompt.call_args
+    actual_prompt = with_prompt_args.args[0]
+    self.assertIn("here's a comment", actual_prompt)
 
 
 if __name__ == "__main__":

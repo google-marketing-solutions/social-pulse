@@ -1,11 +1,15 @@
 cloud-sql-python-connector[psycopg2]
+coverage
 db-dtypes
 google_api_python_client
 luigi
 pandas
+parameterized
 protobuf
 psycopg2-binary
 pyarrow
+pytest
+pytest-cov
 vertexai
 yoyo-migrations
 

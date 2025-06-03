@@ -1,43 +1,27 @@
-import string
+
 import unittest
+
 import pandas as pd
-from video_prompt import GenerateLlmVideoAnalysisPrompts
-from video_prompt import SENTIMENT_SCORE_PROMPT_TEMPLATE
-from video_prompt import VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
+import parameterized
+import sentiment_task_mixins as test_mixins
+from tasks import video_prompt
 
 
-class TestGenerateLlmVideoAnalysisPrompts(unittest.TestCase):
+class TestGenerateLlmVideoAnalysisPrompts(
+    unittest.TestCase,
+    test_mixins.SetupMockSentimentTaskDepependenciesMixin
+):
 
   def setUp(self):
     """Set up for test methods."""
     super().setUp()
-    # Mock external dependencies
-    self.mock_settings = unittest.mock.MagicMock()
-    with unittest.mock.patch("socialpulse_common.config.Settings",
-                             return_value=self.mock_settings):
-      self.task = GenerateLlmVideoAnalysisPrompts(
-          dataset_name="test_dataset", execution_id="test_exec_id")
-      self.task.topic = "TestProduct"  # Set a default topic for testing
 
-    # Mock constants
-    self.mock_base_sentiment_response_schema = {
-        "items": {"properties": {"sentiment": {}, "relevance": {}}}
-    }
-    self.mock_justification_response_schema = {
-        "positive_quotes": {}, "negative_quotes": {}
-    }
-    with (unittest.mock
-          .patch("pipeline.scoring.constants.BASE_SENTIMENT_RESPONSE_SCHEMA",
-                 self.mock_base_sentiment_response_schema)), \
-         (unittest.mock
-          .patch("pipeline.scoring.constants.JUSTIFICATION_RESPONSE_SCHEMA",
-                 self.mock_justification_response_schema)):
-      # Re-instantiate the task to ensure mocked constants are picked up
-      self.task = GenerateLlmVideoAnalysisPrompts(
-          dataset_name="test_dataset", execution_id="test_exec_id")
-      self.task.topic = "TestProduct"
+    self.setup_all_mock_dependencies()
+    self._setup_mock_prompt_generator()
 
-    # Mock LlmPromptGenerator
+    self.mock_execution_params.topic = "some_topic"
+
+  def _setup_mock_prompt_generator(self):
     self.mock_prompt_generator = unittest.mock.MagicMock()
     (self.mock_prompt_generator.with_prompt
      .return_value) = self.mock_prompt_generator
@@ -59,129 +43,205 @@ class TestGenerateLlmVideoAnalysisPrompts(unittest.TestCase):
                                      return_value=self.mock_prompt_generator))
     self.mock_llm_prompt_generator_class = self.patcher_generator.start()
 
-    # Patch logging to prevent actual log output during tests
-    self.patcher_logging = unittest.mock.patch("logging.info")
-    self.mock_logging_info = self.patcher_logging.start()
-    self.patcher_logging_exception = unittest.mock.patch("logging.exception")
-    self.mock_logging_exception = self.patcher_logging_exception.start()
-
   def tearDown(self):
     """Clean up after test methods."""
-    self.patcher_generator.stop()
-    self.patcher_logging.stop()
-    self.patcher_logging_exception.stop()
     super().tearDown()
+    self.patcher_generator.stop()
 
-  def test_validate_data(self):
-    """Test validate_data method."""
-    data = pd.DataFrame({"col1": [1], "col2": [2]})
-    self.assertTrue(self.task.validate_data(data))
+  @parameterized.parameterized.expand([
+      (
+          "Video ID",
+          pd.DataFrame({
+              "videoTitle": ["title1"],
+              "videoDescription": ["desc1"],
+              "videoUrl": ["https://video_url"],
+              "channelId": ["channel1"],
+              "channelTitle": ["channelTitle1"],
+              "publishedAt": ["date1"]
+          }),
+          "videoId"
+      ),
+      (
+          "Video Title",
+          pd.DataFrame({
+              "videoId": ["id1"],
+              "videoDescription": ["desc1"],
+              "videoUrl": ["https://video_url"],
+              "channelId": ["channel1"],
+              "channelTitle": ["channelTitle1"],
+              "publishedAt": ["date1"]
+          }),
+          "videoTitle"
+      ),
+      (
+          "Video Description",
+          pd.DataFrame({
+              "videoId": ["id1"],
+              "videoTitle": ["title1"],
+              "videoUrl": ["https://video_url"],
+              "channelId": ["channel1"],
+              "channelTitle": ["channelTitle1"],
+              "publishedAt": ["date1"]
+          }),
+          "videoDescription"
+      ),
+      (
+          "Video URL",
+          pd.DataFrame({
+              "videoId": ["id1"],
+              "videoTitle": ["title1"],
+              "videoDescription": ["desc1"],
+              "channelId": ["channel1"],
+              "channelTitle": ["channelTitle1"],
+              "publishedAt": ["date1"]
+          }),
+          "videoUrl"
+      ),
+      (
+          "Channel ID",
+          pd.DataFrame({
+              "videoId": ["id1"],
+              "videoTitle": ["title1"],
+              "videoDescription": ["desc1"],
+              "videoUrl": ["https://video_url"],
+              "channelTitle": ["channelTitle1"],
+              "publishedAt": ["date1"]
+          }),
+          "channelId"
+      ),
+      (
+          "Channel Title",
+          pd.DataFrame({
+              "videoId": ["id1"],
+              "videoTitle": ["title1"],
+              "videoDescription": ["desc1"],
+              "videoUrl": ["https://video_url"],
+              "channelId": ["channel1"],
+              "publishedAt": ["date1"]
+          }),
+          "channelTitle"
+      ),
+      (
+          "Published At",
+          pd.DataFrame({
+              "videoId": ["id1"],
+              "videoTitle": ["title1"],
+              "videoDescription": ["desc1"],
+              "videoUrl": ["https://video_url"],
+              "channelId": ["channel1"],
+              "channelTitle": ["channelTitle1"]
+          }),
+          "publishedAt"
+      )
+  ])
+  def test_fails_if_required_column_is_missing(
+      self,
+      _,
+      input_pd,
+      missing_col_name
+  ):
+    """Test that the task fails if a required column is missing.
 
-  @unittest.mock.patch("tasks.core.SentimentDataRepoTarget")
-  def test_run_success(self, mock_sentiment_data_repo_target):
-    """Test run method for successful execution."""
-    mock_input_target = unittest.mock.MagicMock()
-    mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
-        "videoUrl": ["http://example.com/video1"],
-        "sourceDataId": ["id1"]
+    Given the input data is missing a required column
+    When the task is executed
+    Then a ValueError is raised
+    And the error specifies the missing columns
+
+    Args:
+      _: Placeholder for the parameterized test name.
+      input_pd: A pandas DataFrame representing the input data to the task,
+          with one required column missing.
+      missing_col_name: The name of the missing column that should be present in
+          the raised error message.
+    """
+    self.mock_input_target.load_sentiment_data.return_value = input_pd
+    with self.assertRaises(ValueError) as cm:
+      task = video_prompt.GenerateLlmVideoAnalysisPrompts(
+          execution_id="some_execution_id",
+          my_required_task=self.mock_required_task
+      )
+      task.run()
+
+    self.assertIn(missing_col_name, str(cm.exception))
+
+  def test_a_prompt_column_is_added_to_output_dataframe(self):
+    """Tests that a column is added to the output with a prompt.
+
+    Given a properly populated input sentiment dataset
+    When the task is executed
+    Then a prompt column is present in the output sentiment dataset
+    """
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "videoId": ["id1"],
+        "videoTitle": ["title1"],
+        "videoDescription": ["desc1"],
+        "channelId": ["channel1"],
+        "channelTitle": ["channelTitle1"],
+        "publishedAt": ["date1"],
+        "videoUrl": ["url1"]
     })
 
-    self.task.input = unittest.mock.MagicMock(return_value=mock_input_target)
-    mock_output_target_instance = mock_sentiment_data_repo_target.return_value
-    mock_output_target_instance.write_sentiment_data.return_value = None
+    task = video_prompt.GenerateLlmVideoAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
 
-    self.task.run(brand_or_product="TestBrand")
+    write_sentiment_args = (
+        self.mock_sentiment_data_repo.write_sentiment_data.call_args
+    )
+    output_df = write_sentiment_args.args[1]
+    self.assertIn("prompt", output_df.columns)
 
-    mock_input_target.load_sentiment_data.assert_called_once()
-    mock_output_target_instance.write_sentiment_data.assert_called_once()
-    args = mock_output_target_instance.write_sentiment_data.call_args
-    output_df = args[0]
-    self.assertIsInstance(output_df, pd.DataFrame)
-    self.assertIn("promptId", output_df.columns)
-    self.assertIn("promptText", output_df.columns)
-    self.assertIn("generatedAt", output_df.columns)
-    self.assertIn("sourceDataId", output_df.columns)
-    self.assertEqual(len(output_df), 1)
-    self.assertEqual(output_df["promptText"].iloc[0], "generated_llm_prompt")
-    self.assertEqual(output_df["sourceDataId"].iloc[0], "id1")
-    self.mock_logging_info.assert_called()
-    self.mock_logging_exception.assert_not_called()
+  def test_prompt_column_has_topic_added_to_llm_prompt(self):
+    """Tests that a column is added to the output with a prompt.
 
-  @unittest.mock.patch("tasks.core.SentimentDataRepoTarget")
-  def test_run_failure_loading_data(self, mock_sentiment_data_repo_target):
-    """Test run method for failure when loading data."""
-    mock_input_target = unittest.mock.MagicMock()
-    mock_input_target.load_sentiment_data.side_effect = Exception("Test error")
-    self.task.input = unittest.mock.MagicMock(return_value=mock_input_target)
-
-    with self.assertRaises(Exception):
-      self.task.run(brand_or_product="TestBrand")
-
-    self.mock_logging_exception.assert_called_once()
-    mock_input_target.load_sentiment_data.assert_called_once()
-    (mock_sentiment_data_repo_target.return_value
-     .write_sentiment_data.assert_not_called())
-
-  def test_attach_request(self):
-    """Test _attach_request method."""
-    data = pd.DataFrame({
-        "videoUrl": ["http://test.com/video_A", "http://test.com/video_B"],
-        "sourceDataId": ["id_A", "id_B"]
+    Given the workflow exec has the topic "included_topic"
+    When the task is executed
+    Then the prompt includes the topic
+    """
+    self.mock_execution_params.topic = "included_topic"
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "videoId": ["id1"],
+        "videoTitle": ["title1"],
+        "videoDescription": ["desc1"],
+        "channelId": ["channel1"],
+        "channelTitle": ["channelTitle1"],
+        "publishedAt": ["date1"],
+        "videoUrl": ["url1"]
     })
 
-    self.task.topic = "TestProduct"
-
-    result_df = self.task._attach_request(data)
-
-    self.assertIsInstance(result_df, pd.DataFrame)
-    self.assertEqual(len(result_df), 2)
-    self.assertIn("prompt", result_df.columns)
-    self.assertEqual(result_df["prompt"].iloc[0], "generated_llm_prompt")
-    self.assertEqual(result_df["prompt"].iloc[1], "generated_llm_prompt")
-
-    # Verify LlmPromptGenerator was called correctly for each row
-    self.assertEqual(self.mock_llm_prompt_generator_class.call_count, 2)
-
-    # Verify calls for the first row
-    self.mock_prompt_generator.with_prompt.assert_any_call(
-        self._generate_expected_base_prompt("TestProduct"))
-    self.mock_prompt_generator.with_system_instruction.assert_any_call(
-        VIDEO_EXTRACTION_SYSTEM_INSTRUCTION)
-    self.mock_prompt_generator.with_temperature.assert_any_call(0.5)
-    self.mock_prompt_generator.with_response_mime_type.assert_any_call(
-        "application/json"
+    task = video_prompt.GenerateLlmVideoAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
     )
-    self.mock_prompt_generator.with_file_data.assert_any_call([
-        ("video/*", "http://test.com/video_A")
-    ])
-    self.mock_prompt_generator.build.assert_called()
+    task.run()
 
-    # Verify calls for the second row (example, just checking file_data changes)
-    self.mock_prompt_generator.with_file_data.assert_any_call([
-        ("video/*", "http://test.com/video_B")
-    ])
+    with_prompt_args = self.mock_prompt_generator.with_prompt.call_args
+    provided_prompt = with_prompt_args[0][0]
+    self.assertIn("included_topic", provided_prompt)
 
-  def test_generate_base_prompt(self):
-    """Test _generate_base_prompt method."""
-    self.task.topic = "Laptop, Smartphone"
-    expected_prompt = string.Template(
-        SENTIMENT_SCORE_PROMPT_TEMPLATE
-    ).substitute(
-        topic_list="Laptop, Smartphone"
+  def test_prompt_is_generated_with_video_url(self):
+    """Tests that the video url is added to the prompt."""
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
+        "videoId": ["id1"],
+        "videoTitle": ["title1"],
+        "videoDescription": ["desc1"],
+        "channelId": ["channel1"],
+        "channelTitle": ["channelTitle1"],
+        "publishedAt": ["date1"],
+        "videoUrl": ["http://video.url"]
+    })
+
+    task = video_prompt.GenerateLlmVideoAnalysisPrompts(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
     )
-    self.assertEqual(self.task._generate_base_prompt(), expected_prompt)
+    task.run()
 
-  def _generate_expected_base_prompt(self, topic):
-    """Helper to generate the expected base prompt."""
-    scoring_prompt = string.Template(SENTIMENT_SCORE_PROMPT_TEMPLATE)
-    return scoring_prompt.substitute(topic_list=topic)
-
-  def _get_expected_response_schema(self):
-    """Helper to get the expected merged response schema."""
-    response_schema = self.mock_base_sentiment_response_schema
-    response_schema["items"]["properties"].update(
-        self.mock_justification_response_schema)
-    return response_schema
+    self.mock_prompt_generator.with_file_data.assert_called_with([
+        ("video/*", "http://video.url")
+    ])
 
 
 if __name__ == "__main__":

@@ -80,10 +80,8 @@ class GenerateLlmTextAnalysisPrompts(tasks_core.SentimentTask):
       "commentId",
       "videoId",
       "authorId",
-      "publishedAt",
+      "videoSummary",
       "text",
-      "likeCount",
-      "numOfReplies",
       "parentId",
   ]
 
@@ -91,7 +89,7 @@ class GenerateLlmTextAnalysisPrompts(tasks_core.SentimentTask):
       "prompt",
   ]
 
-  def _validate_data(self, data: pd.Dataframe):
+  def _validate_data(self, data: pd.DataFrame):
     """Function for validating the YouTube comments dataframe.
 
     This method validates the YouTube comments dataframe by checking the
@@ -129,7 +127,7 @@ class GenerateLlmTextAnalysisPrompts(tasks_core.SentimentTask):
           input_target.table_name,
       )
       generated_prompts_df = input_target.load_sentiment_data()
-      if _validate_data(generated_prompts_df):
+      if self._validate_data(generated_prompts_df):
         logging.info(
             "[%s] Generating text Llm prompts...", self.task_family
         )

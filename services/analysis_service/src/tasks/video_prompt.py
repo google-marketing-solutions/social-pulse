@@ -15,13 +15,12 @@
 import copy
 import logging
 import string
+
 import pandas as pd
 from pipeline.scoring import constants
 from prompts import generator
-from socialpulse_common import config
 from tasks import core as tasks_core
 
-settings = config.Settings()
 
 VIDEO_EXTRACTION_SYSTEM_INSTRUCTION = """You are a video analyst that carefully
     looks through all frames of provided videos, extracting out the pieces
@@ -72,6 +71,7 @@ class GenerateLlmVideoAnalysisPrompts(tasks_core.SentimentTask):
       "videoId",
       "videoTitle",
       "videoDescription",
+      "videoUrl",
       "channelId",
       "channelTitle",
       "publishedAt",
@@ -81,7 +81,7 @@ class GenerateLlmVideoAnalysisPrompts(tasks_core.SentimentTask):
       "prompt",
   ]
 
-  def _validate_data(self, data: pd.Dataframe):
+  def _validate_data(self, data: pd.DataFrame):
     """Function for validating the YouTube data Dataframe.
 
     This method validates the TouTube data dataframe by checking the
@@ -119,7 +119,7 @@ class GenerateLlmVideoAnalysisPrompts(tasks_core.SentimentTask):
           input_target.table_name,
       )
       generated_prompts_df = input_target.load_sentiment_data()
-      if _validate_data(generated_prompts_df):
+      if self._validate_data(generated_prompts_df):
         logging.info(
             "[%s] Generating video Llm prompts...", self.task_family
         )
@@ -168,7 +168,7 @@ class GenerateLlmVideoAnalysisPrompts(tasks_core.SentimentTask):
     prompt_generator: generator.LlmPromptGenerator = (
         generator.LlmPromptGenerator(
         ).with_prompt(
-            self._generate_base_prompt(row)
+            self._generate_base_prompt()
         ).with_system_instruction(
             VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
         ).with_response_schema(
