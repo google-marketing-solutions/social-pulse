@@ -12,18 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import logging
 import unittest
-from unittest import mock
 
 import luigi
-from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+import sentiment_task_mixins as test_mixins
 from tasks import core
-from tasks.ports import persistence
-
-
-logger = logging.getLogger(__name__)
 
 
 class RequiredTask(luigi.WrapperTask):
@@ -38,7 +31,10 @@ class TestChildSentimentTask(core.SentimentTask):
     pass
 
 
-class CoreTest(unittest.TestCase):
+class CoreTest(
+    unittest.TestCase,
+    test_mixins.SetupMockSentimentTaskDepependenciesMixin
+):
   def setUp(self):
     super().setUp()
 
@@ -46,44 +42,8 @@ class CoreTest(unittest.TestCase):
     # child task created by the first executed test.
     luigi.Task.clear_instance_cache()
 
-    self._setup_mock_workflow_params()
-    self._setup_mock_setniment_data_repo()
-
-  def _setup_mock_workflow_params(self):
-    self.mock_wfe_params_loader_service = mock.Mock(
-        spec=persistence.WorkflowExecutionLoaderService
-    )
-    self.mock_execution_params = mock.Mock(spec=wfe.WorkflowExecutionParams)
-    self.mock_wfe_params_loader_service.load_execution.return_value = (
-        self.mock_execution_params
-    )
-    service.registry.register(
-        persistence.WorkflowExecutionLoaderService,
-        self.mock_wfe_params_loader_service
-    )
-
-  def _setup_mock_setniment_data_repo(self):
-    self.mock_sentiment_data_repo = mock.Mock(
-        spec=persistence.SentimentDataRepo
-    )
-    service.registry.register(
-        persistence.SentimentDataRepo,
-        self.mock_sentiment_data_repo
-    )
-
-  def test_sentiment_task_loads_workflow_execution_params_using_id(self):
-    """Loads workflow execution parameters using the provided ID.
-
-    Given an implementation of SentimentTask
-    When it's instantiated with an execution ID of "some_execution_id'
-    Then the execution params should be loaded from the service
-    """
-    task = TestChildSentimentTask("some_execution_id", RequiredTask())
-
-    self.mock_wfe_params_loader_service.load_execution.assert_called_once_with(
-        "some_execution_id"
-    )
-    self.assertEqual(self.mock_execution_params, task.workflow_exec)
+    self.setup_mock_setniment_data_repo()
+    self.setup_mock_workflow_params()
 
   def test_task_data_set_name_constructed_from_family_and_execution_id(self):
     """Constructs a data set name from the task family and execution ID.
@@ -119,6 +79,35 @@ class CoreTest(unittest.TestCase):
 
     self.assertIsInstance(output_target, core.SentimentDataRepoTarget)
     self.assertEqual(output_target.table_name, expected_table_name)
+
+
+class WorkflowExecutionParamsLoaderMixinTest(
+    unittest.TestCase,
+    test_mixins.SetupMockSentimentTaskDepependenciesMixin
+):
+  def setUp(self):
+    super().setUp()
+
+    # Need to clear Luigi's task cache, otherwise it'll re-use whatever test
+    # child task created by the first executed test.
+    luigi.Task.clear_instance_cache()
+
+    self.setup_mock_setniment_data_repo()
+    self.setup_mock_workflow_params()
+
+  def test_sentiment_task_loads_workflow_execution_params_using_id(self):
+    """Loads workflow execution parameters using the provided ID.
+
+    Given an implementation of SentimentTask
+    When it's instantiated with an execution ID of "some_execution_id'
+    Then the execution params should be loaded from the service
+    """
+    task = TestChildSentimentTask("some_execution_id", RequiredTask())
+
+    self.mock_wfe_params_loader_service.load_execution.assert_called_once_with(
+        "some_execution_id"
+    )
+    self.assertEqual(self.mock_execution_params, task.workflow_exec)
 
 
 if __name__ == "__main__":

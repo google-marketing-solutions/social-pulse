@@ -12,18 +12,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """Module for chaining sentiment analysis tasks together."""
+
 import logging
 
-from infrastructure.persistence.stubbed import workflow_data_repo as wdr
 import luigi
-from socialpulse_common import service
-from tasks import ports
+from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from tasks import core
+from tasks import llm_response_processing
+from tasks import run_sentiment_job
+from tasks import text_prompt
+from tasks import video_prompt
+from tasks import youtube_comments
+from tasks import youtube_data
 
 
-log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
-)
-logging.basicConfig(level=logging.DEBUG, format=log_format)
+logger = logging.getLogger(__name__)
+
+
+SOURCE_TO_TASK_MAPPING = {
+    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
+        youtube_data.FindYoutubeVideos,
+    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
+        youtube_comments.FindYoutubeComments
+}
+
+SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING = {
+    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
+        video_prompt.GenerateLlmVideoAnalysisPrompts,
+    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
+        text_prompt.GenerateLlmTextAnalysisPrompts
+}
 
 
 class ExecutionStartTask(luigi.Task):
@@ -49,7 +67,10 @@ class ExecutionStartTask(luigi.Task):
     return self._has_completed
 
 
-class WorkflowExecution(luigi.WrapperTask):
+class WorkflowExecution(
+    luigi.WrapperTask,
+    core.WorkflowExecutionParamsLoaderMixin
+):
   """Represents a workflow execution.
 
   This task is a wrapper task that orchestrates the execution of a series of
@@ -62,6 +83,10 @@ class WorkflowExecution(luigi.WrapperTask):
   # Uniquely identifies the workflow execution this task is working in.
   execution_id = luigi.Parameter()
 
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.load_workflow_execution_params(self.execution_id)
+
   def requires(self):
     """Specifies the required tasks for this workflow execution.
 
@@ -73,35 +98,88 @@ class WorkflowExecution(luigi.WrapperTask):
       The workflow execution task chain.
     """
     starting_task = ExecutionStartTask(execution_id=self.execution_id)
+    task_chain = [starting_task]
 
-    # Below is an example of how this WorkflowExecution task should be used,
-    # where tasks are created and linked to each other
-    #
-    # task_a = TaskA(
-    #     execution_id=self.execution_id,
-    #     my_required_task=starting_task
-    # )
-    # task_b = TaskB(
-    #     execution_id=self.execution_id,
-    #     my_required_task=task_a
-    # )
-    # yield [starting_task, task_a, task_b]
+    content_source = self.workflow_exec.source
+    if (
+        content_source not in SOURCE_TO_TASK_MAPPING or
+        content_source not in SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING
+    ):
+      raise ValueError(f"Unknown social media source:  {content_source}")
 
-    yield [starting_task]
+    self._attach_retrieve_content_tasks(task_chain)
+    self._attach_analysis_tasks(task_chain)
 
+    yield task_chain
 
-if __name__ == "__main__":
-  print("################# Firing off workflow exeuciton... ###############")
+  def _attach_retrieve_content_tasks(self, task_chain: list[luigi.Task]):
+    """Attaches content retrieval tasks to the task chain.
 
-  service.registry.register(
-      ports.persistence.WorkflowExecutionLoaderService,
-      wdr.StubWorkflowExecutionLoaderService()
-  )
+    Args:
+      task_chain: The task chain to attach the retrieval tasks to.
+    """
+    last_task_in_chain = task_chain[-1]
+    source = self.workflow_exec.source
+    logger.debug("Looking for content retrieve tasks for source: %s", source)
 
-  run_result = luigi.build(
-      [WorkflowExecution(execution_id="some_execution_id")],
-      detailed_summary=True,
-      local_scheduler=True
-  )
+    if (
+        source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO or
+        source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT
+    ):
+      video_gather_task_cls = SOURCE_TO_TASK_MAPPING[
+          wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
+      ]
+      video_gather_task = video_gather_task_cls(
+          execution_id=self.execution_id,
+          my_required_task=last_task_in_chain
+      )
+      task_chain.append(video_gather_task)
 
-  print("################# Workflow execution complete! ###############")
+      if source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
+        comment_gather_task_cls = SOURCE_TO_TASK_MAPPING[
+            wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT
+        ]
+        comment_gather_task = comment_gather_task_cls(
+            execution_id=self.execution_id,
+            my_required_task=video_gather_task
+        )
+        task_chain.append(comment_gather_task)
+
+  def _attach_analysis_tasks(self, task_chain: list[luigi.Task]):
+    """Attaches data prep and analysis tasks to the task chain.
+
+    Args:
+      task_chain: The task chain to attach the analysis tasks to.
+    """
+    last_task_in_chain = task_chain[-1]
+    source = self.workflow_exec.source
+
+    # Add appropriate prompt generation task.
+    logger.debug("Looking for prompt generation task for source: %s", source)
+    prompt_generation_task_cls = SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING[
+        source
+    ]
+
+    logger.debug(
+        "Instantiating prompt generating task: %s", prompt_generation_task_cls
+    )
+    prompt_generation_task = prompt_generation_task_cls(
+        execution_id=self.execution_id,
+        my_required_task=last_task_in_chain
+    )
+    task_chain.append(prompt_generation_task)
+
+    # Add LLM job execution and response processing tasks.
+    llm_job_task = run_sentiment_job.RunSentimentAnalysisJobTask(
+        execution_id=self.execution_id,
+        my_required_task=prompt_generation_task
+    )
+    task_chain.append(llm_job_task)
+
+    process_response_task = (
+        llm_response_processing.ProcessLlmSentimentResponses(
+            execution_id=self.execution_id,
+            my_required_task=llm_job_task
+        )
+    )
+    task_chain.append(process_response_task)

@@ -70,3 +70,14 @@
    ```
    yoyo apply
    ```
+
+### Running the unit tests
+
+Pytest is used to run the unit tests, so you can run `pytest` in the appropriate
+service directory.  For example:
+
+```
+cd services/analysis_service
+pytest /tests
+
+```

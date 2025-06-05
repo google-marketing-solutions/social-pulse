@@ -44,13 +44,16 @@ SENTIMENT_SCORE_PROMPT_TEMPLATE = """Ignoring any previous questions and
     In addition, generate a relevance score, that represents how revelevant the
     video comment is towards the product or brand.  Where 0 means the
     video comment doesn't allude to product or brand at all, and 100 means
-    the video comment is exclusively about the product or brand.  For example,
-    if the comment is simply praising the video creator for creating a good
-    video (ie, "Great video! I really liked it!"), than the relevance score
-    should be 0.  If the comment specifically mentions the product or brand, or
-    if it mentions a feature of the product (ie, "I really like how you can
-    use the widget to search for X"), then it should have a relevance score of
-    100.
+    the video comment is exclusively about the product or brand.  When
+    generating a score, use the following guidelines:
+
+    1) If the comment is comprised of all emojis, it's considered not relevant.
+    2) If the comment is simply praising the video creator for creating a good
+       video (ie, "Great video! I really liked it!"), than it's considered not
+       relevant.
+    3) If the comment specifically mentions the product or brand, or
+       if it mentions a feature of the product (ie, "I really like how you can
+       use the widget to search for X"), then it's considered very relevant.
 
     To help you analyze the video comment, here's a summary of the
     video that the comments were posted to:

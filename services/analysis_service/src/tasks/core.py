@@ -74,7 +74,38 @@ class SentimentDataRepoTarget(luigi.Target):
     )
 
 
-class SentimentTask(luigi.Task, abc.ABC):
+class WorkflowExecutionParamsLoaderMixin():
+  """Mixin class providing a loader for workflow execution parameters.
+
+  Provides a method to load workflow execution parameters based on an execution
+  ID.  When added to a class and the `load_workflow_execution_params` function
+  is called, it adds the following instance properties:
+
+  1) `workflow_exec` - a `WorkflowExecutionParams` object loaded from storage
+        using the provided execution ID.
+  """
+
+  def load_workflow_execution_params(
+      self,
+      execution_id: str
+  ) -> wfe.WorkflowExecutionParams:
+    """Loads workflow execution parameters using an exeuciton ID.
+
+    Args:
+      execution_id: The execution ID to load params for.
+    """
+    logging.debug(
+        "Loading workflow execution params for: %s", execution_id
+    )
+    workflow_exec_loader_service = service.registry.get(
+        persistence.WorkflowExecutionLoaderService
+    )
+    self.workflow_exec: wfe.WorkflowExecutionParams = (
+        workflow_exec_loader_service.load_execution(execution_id)
+    )
+
+
+class SentimentTask(luigi.Task, abc.ABC, WorkflowExecutionParamsLoaderMixin):
   """Abstract class representing a sentiment analysis task.
 
   A SentimentTask handles the requires() functionality, because SentimentTasks
@@ -104,17 +135,7 @@ class SentimentTask(luigi.Task, abc.ABC):
     logging.debug(
         "Initializing %s for execution_id=%s", self.task_id, self.execution_id
     )
-
-    workflow_exec_loader_service = service.registry.get(
-        persistence.WorkflowExecutionLoaderService
-    )
-
-    logging.debug(
-        "Loading workflow execution params for: %s", self.execution_id
-    )
-    self.workflow_exec: wfe.WorkflowExecutionParams = (
-        workflow_exec_loader_service.load_execution(self.execution_id)
-    )
+    self.load_workflow_execution_params(self.execution_id)
 
   @property
   def dataset_name(self) -> str:
