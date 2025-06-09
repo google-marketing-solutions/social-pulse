@@ -92,8 +92,12 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
         logger.info("[%s] No parts in LLM response.", self.task_family)
         return pd.Series(EMPTY_SENTIMENT_RESPONSE)
 
+      # Response comes with unnecessary lists we need to deal with
+      #   1) There's a list of "parts" objects
+      #   2) There's a list of "text" objects
       text = parts[0]["text"]
-      analysis = json.loads(text)
+      analysis = json.loads(text)[0]
+
       return pd.Series({
           "summary": analysis.get("summary", ""),
           "relevanceScore": analysis.get("relevanceScore", 0.0),

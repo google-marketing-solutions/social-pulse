@@ -24,8 +24,8 @@ from googleapiclient import errors
 from tasks.ports import apis as ports_apis
 logger = logging.getLogger(__name__)
 
-_API_SERVICE_NAME = "youtube"
-_API_VERSION = "v3"
+_DEFAULT_API_SERVICE_NAME = "youtube"
+_DEFAULT_API_VERSION = "v3"
 _MAX_VIDEO_IDS_PER_SEARCH_RESPONSE = 50
 _MAX_VIDEO_IDS_PER_DETAIL_REQUEST = 50
 _MAX_VIDEO_IDS_PER_COMMENTS_REQUEST = 100
@@ -38,26 +38,33 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
   Manages API key authentication, pagination, and basic error handling.
   """
 
-  def __init__(self, api_key: str):
+  def __init__(
+      self,
+      api_key: str,
+      service_name: str = _DEFAULT_API_SERVICE_NAME,
+      version: str = _DEFAULT_API_VERSION
+  ):
     """Initializes the YoutubeApiHttpClient.
 
     Args:
       api_key (str): The YouTube Data API key.
+      service_name (str): The name of the YouTube Data API service.
+      version (str): The version of the YouTube Data API.
     """
-
     if not api_key:
       logger.error("YouTube API key is required.")
       raise ValueError("API key is required for YoutubeApiHttpClient.")
-    self._api_key = api_key
+
     try:
-      # Build the discovery client for the YouTube API
       self._client = discovery.build(
-          _API_SERVICE_NAME,
-          _API_VERSION,
-          developerKey=self._api_key,
+          service_name,
+          version,
+          developerKey=api_key,
       )
-      logger.info("YT API client built successfully (service=%s, version=%s).",
-                  _API_SERVICE_NAME, _API_VERSION)
+      logger.info(
+          "YT API client built successfully (service=%s, version=%s).",
+          service_name, version
+      )
     except errors.HttpError as e:
       logger.exception(
           "HTTP error building YouTube API client (is API enabled?): %s", e

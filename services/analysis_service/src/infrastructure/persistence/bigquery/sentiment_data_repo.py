@@ -39,6 +39,11 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     self._gcp_project_id = gcp_project_id
     self._bq_dataset_name = bq_dataset_name
 
+    logger.info(
+        "BigQuery based repo built successfully (project=%s, dataset=%s).",
+        self._gcp_project_id, self._bq_dataset_name
+    )
+
   def exists(self, table_name: str) -> bool:
     """Checks if a sentiment data set BQ table exists.
 
@@ -49,9 +54,9 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
       True if the table exists, False otherwise.
     """
     try:
-      table_name_ref = f"{self._bq_dataset_name}.{table_name}"
-
+      table_name_ref = self._generate_table_ref(table_name)
       logger.debug("Checking if table exists:  %s", table_name_ref)
+
       self._client.get_table(table_name_ref)
       return True
     except exceptions.NotFound:
@@ -70,7 +75,9 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
       A pandas DataFrame containing the sentiment data.
     """
 
-    query = f"SELECT * FROM {self._generate_table_ref(table_name)}"
+    query = f"SELECT * FROM `{self._generate_table_ref(table_name)}`"
+    logger.debug("Executing query: %s", query)
+
     query_job = self._client.query(query)
     return query_job.to_dataframe()
 

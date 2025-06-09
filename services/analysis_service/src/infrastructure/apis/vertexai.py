@@ -16,7 +16,6 @@
 import logging
 import time
 
-from socialpulse_common import config
 from tasks.ports import apis
 import vertexai
 from vertexai import batch_prediction
@@ -31,8 +30,21 @@ GEMINI_PRO_MODEL_ID = "gemini-2.0-flash-001"
 class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
   """Concrete implementation that utilizes VertexAI and Gemini LLM."""
 
-  def __init__(self):
-    self._settings = config.Settings()
+  def __init__(
+      self,
+      project_id: str,
+      region: str,
+      bq_dataset_name: str,
+  ):
+    self._project_id = project_id
+    self._region = region
+    self._bq_dataset_name = bq_dataset_name
+
+    vertexai.init(project=self._project_id, location=self._region)
+    logger.info(
+        "VertexAI API client built successfully (project=%s, location=%s).",
+        self._project_id, self._region
+    )
 
   def submit_batch_job(
       self, input_table_name: str, output_table_name: str
@@ -52,8 +64,8 @@ class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
     Raises:
       ValueError: If the batch prediction job fails.
     """
-    input_table_uri = f"bq://{input_table_name}"
-    output_table_uri = f"bq://{output_table_name}"
+    input_table_uri = f"bq://{self._generate_table_ref(input_table_name)}"
+    output_table_uri = f"bq://{self._generate_table_ref(output_table_name)}"
 
     batch_job = self._generate_batch_job(input_table_uri, output_table_uri)
 
@@ -70,6 +82,20 @@ class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
       raise ValueError(
           f"Job '{batch_job.resource_name}' failed: {batch_job.error}"
       )
+
+  def _generate_table_ref(self, table_name: str) -> str:
+    """Generates a fully qualified table reference string.
+
+    This method constructs a string that represents the full path to a table
+    within BigQuery, including the project ID, dataset name, and table name.
+
+    Args:
+      table_name: The name of the table.
+
+    Returns:
+      A string representing the fully qualified table reference.
+    """
+    return f"{self._project_id}.{self._bq_dataset_name}.{table_name}"
 
   def _generate_batch_job(
       self, input_table_uri: str, output_table_uri: str
@@ -88,10 +114,11 @@ class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
     Returns:
       A batch prediction job object.
     """
-    project_id = self._settings.cloud.project_id
-    location = self._settings.cloud.region
-
-    vertexai.init(project=project_id, location=location)
+    logger.debug(
+        "Submitting batch job.  INPUT=%s, OUTPUT=%s",
+        input_table_uri,
+        output_table_uri
+    )
     return batch_prediction.BatchPredictionJob.submit(
         source_model=GEMINI_PRO_MODEL_ID,
         input_dataset=input_table_uri,

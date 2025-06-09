@@ -130,28 +130,18 @@ class GenerateLlmTextAnalysisPrompts(tasks_core.SentimentTask):
           input_target.table_name,
       )
       generated_prompts_df = input_target.load_sentiment_data()
-      if self._validate_data(generated_prompts_df):
-        logging.info(
-            "[%s] Generating text Llm prompts...", self.task_family
-        )
+      self._validate_data(generated_prompts_df)
 
-        generated_prompts_df["prompt"] = (
-            generated_prompts_df.apply(self.construct_text_llm_prompt, axis=1)
-        )
+      generated_prompts_df["request"] = (
+          generated_prompts_df.apply(self.construct_text_llm_prompt, axis=1)
+      )
+      self.output().write_sentiment_data(generated_prompts_df)
 
-        # Ensure all final output columns are present
-        for col in self._FINAL_OUTPUT_COLUMNS:
-          if col not in generated_prompts_df.columns:
-            generated_prompts_df[col] = pd.NA
-
-        self.output().write_sentiment_data(
-            generated_prompts_df[self._FINAL_OUTPUT_COLUMNS]
-        )
-        logging.info(
-            "[%s] Successfully generated and saved %d prompts.",
-            self.task_family,
-            len(generated_prompts_df),
-        )
+      logging.info(
+          "[%s] Successfully generated and saved %d prompts.",
+          self.task_family,
+          len(generated_prompts_df),
+      )
 
     except Exception as e:  # pylint: disable=broad-exception-caught
       logging.exception(
@@ -163,7 +153,7 @@ class GenerateLlmTextAnalysisPrompts(tasks_core.SentimentTask):
       )
       raise
 
-  def construct_text_llm_prompt(self, row: pd.Series) -> pd.Series:
+  def construct_text_llm_prompt(self, row: pd.Series) -> str:
     """Function for constructing a LLM prompt.
 
     This method generates a prompt for the LLM based on the content of the row.
@@ -191,9 +181,7 @@ class GenerateLlmTextAnalysisPrompts(tasks_core.SentimentTask):
         )
     )
 
-    return pd.Series({
-        "prompt": prompt_generator.build()
-    })
+    prompt_generator.build()
 
   def _generate_base_prompt(self, row: pd.Series) -> str:
     """Generates the base prompt for the LLM.

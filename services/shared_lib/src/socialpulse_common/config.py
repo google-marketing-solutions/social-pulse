@@ -34,6 +34,7 @@ class _DbSettings(pydantic.BaseModel):
 class _CloudSettings(pydantic.BaseModel):
   project_id: str = pydantic.Field()
   region: str = pydantic.Field(default="us-central1")
+  dataset_name: str = pydantic.Field(default="social_pulse_sentiment_data")
 
 
 class _YoutubeApiSettings(pydantic.BaseModel):
