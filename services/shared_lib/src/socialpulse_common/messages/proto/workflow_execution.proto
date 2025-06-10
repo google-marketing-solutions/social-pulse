@@ -38,6 +38,15 @@ enum TopicType {
   SENTIMENT_DATA_TYPE_DISTRIBUTION = 3;
 }
 
+/**
+ * Status types of a workflow execution.
+ */
+enum Status {
+  STATUS_UNKNOWN = 0;
+  STATUS_NEW = 1;
+  STATUS_IN_PROGRESS = 2;
+  STATUS_COMPLETED = 3;
+}
 
 /**
  * Represents a specific execution of a sentiment workflow.
@@ -62,4 +71,7 @@ message WorkflowExecutionParams {
   // Start and end time of the analysis this execution will perform.
   google.protobuf.Timestamp start_time = 6;
   google.protobuf.Timestamp end_time = 7;
+
+  // The last completed task
+  string last_completed_task_id = 8;
 }

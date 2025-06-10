@@ -145,12 +145,12 @@ class TestGenerateLlmTextAnalysisPrompts(
 
     self.assertIn(missing_col_name, str(cm.exception))
 
-  def test_a_prompt_column_is_added_to_output_dataframe(self):
-    """Tests that a column is added to the output with a prompt.
+  def test_a_request_column_is_added_to_output_dataframe(self):
+    """Tests that a request column is added to the output dataframe.
 
     Given a properly populated input sentiment dataset
     When the task is executed
-    Then a prompt column is present in the output sentiment dataset
+    Then a request column is present in the output sentiment dataset
     """
     self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
         "commentId": ["comment1"],
@@ -171,7 +171,7 @@ class TestGenerateLlmTextAnalysisPrompts(
         self.mock_sentiment_data_repo.write_sentiment_data.call_args
     )
     output_df = write_sentiment_args.args[1]
-    self.assertIn("prompt", output_df.columns)
+    self.assertIn("request", output_df.columns)
 
   def test_prompt_is_generated_with_topic(self):
     self.mock_execution_params.topic = "some_important_topic"

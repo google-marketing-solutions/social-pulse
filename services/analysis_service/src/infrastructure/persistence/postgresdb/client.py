@@ -122,8 +122,20 @@ class PostgresDbClient():
         self._connection_pool.putconn(conn)
 
   def insert_row(self, query: str, params: tuple[any, ...] = None) -> str:
-    """Inserts a single row into the database based on the given query."""
+    """Inserts a single row into the database based on the given query.
 
+    Args:
+      query (str): The SQL INSERT query to execute.
+      params (tuple, optional): Parameters to pass to the query. Defaults to
+        None.
+
+    Returns:
+      str: The ID of the newly inserted row, assuming the query uses
+      RETURNING clause to return the ID.
+
+    Raises:
+      psycopg2.Error: If there is an error executing the query.
+    """
     conn = None
     new_id = None
 
@@ -135,6 +147,34 @@ class PostgresDbClient():
         conn.commit()
 
         return new_id
+    except Exception:
+      conn.rollback()
+      raise
+    finally:
+      if conn is not None:
+        self._connection_pool.putconn(conn)
+
+  def update_row(self, query: str, params: tuple[any, ...] = None) -> None:
+    """Updates a single row in the database based on the given query.
+
+    Args:
+      query (str): The SQL UPDATE query to execute.
+      params (tuple, optional): Parameters to pass to the query. Defaults to
+        None.
+
+    Returns:
+      None
+
+    Raises:
+      psycopg2.Error: If there is an error executing the query.
+    """
+    conn = None
+
+    try:
+      conn = self._connection_pool.getconn()
+      with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        conn.commit()
     except Exception:
       conn.rollback()
       raise

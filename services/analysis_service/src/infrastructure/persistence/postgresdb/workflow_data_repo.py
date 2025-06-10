@@ -130,3 +130,28 @@ class PostgresDbWorkflowExecutionLoader(
 
     new_id = self._postgres_client.insert_row(query, params)
     return new_id
+
+  def mark_last_completed_task(
+      self,
+      execution_id: str,
+      task_name: str
+  ) -> None:
+    """Marks the last completed task for a workflow execution.
+
+    Args:
+      execution_id: The ID of the workflow execution.
+      task_name: The name of the task that was just completed.
+
+    Raises:
+      psycopg2.Error: If there is an error executing the query.
+    """
+
+    query: str = """
+        UPDATE WorkflowExecutionParams
+        SET lastCompletedTask = %s,
+            status = 'STATUS_IN_PROGRESS',
+            lastUpdatedOn = NOW()
+        WHERE executionId = %s;
+    """
+    params = (task_name, execution_id)
+    self._postgres_client.update_row(query, params)

@@ -31,7 +31,7 @@ class ProcessLlmSentimentResponsesTest(
       self,
       llm_sentiment_response: dict[str, any]
   ) -> str:
-    encoded_sentiment_response = json.dumps(llm_sentiment_response)
+    encoded_sentiment_response = json.dumps([llm_sentiment_response])
     outer_response = {
         "candidates": [
             {

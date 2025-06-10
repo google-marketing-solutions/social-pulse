@@ -16,14 +16,16 @@
 import logging
 
 import luigi
+from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution_pb2 as wfe
-from tasks import core
+from tasks import core as task_core
 from tasks import llm_response_processing
 from tasks import run_sentiment_job
 from tasks import text_prompt
 from tasks import video_prompt
 from tasks import youtube_comments
 from tasks import youtube_data
+from tasks.ports import persistence
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,23 @@ SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING = {
     wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
         text_prompt.GenerateLlmTextAnalysisPrompts
 }
+
+
+@task_core.SentimentTask.event_handler(luigi.Event.SUCCESS)
+def handle_task_complete(sentiment_task: task_core.SentimentTask) -> None:
+  """Handles a SentimentTaks completion event."""
+  task_name = sentiment_task.get_task_family()
+  workflow_exec_id = sentiment_task.workflow_exec.execution_id
+  logger.info(
+      "Marking task '%s' as complete for workflow execution '%s.",
+      task_name,
+      workflow_exec_id
+  )
+
+  workflow_exec_repo = service.registry.get(
+      persistence.WorkflowExecutionLoaderService
+  )
+  workflow_exec_repo.mark_last_completed_task(workflow_exec_id, task_name)
 
 
 class ExecutionStartTask(luigi.Task):
@@ -69,7 +88,7 @@ class ExecutionStartTask(luigi.Task):
 
 class WorkflowExecution(
     luigi.WrapperTask,
-    core.WorkflowExecutionParamsLoaderMixin
+    task_core.WorkflowExecutionParamsLoaderMixin
 ):
   """Represents a workflow execution.
 

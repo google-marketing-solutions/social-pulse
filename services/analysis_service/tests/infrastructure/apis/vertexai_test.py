@@ -61,24 +61,6 @@ class VertexAiLlmBatchJobApiClientTest(unittest.TestCase):
         self.mock_batch_prediction_job
     )
 
-  def test_init_vertexai_client_with_env_config_settings(self):
-    """Tests that the Vertex AI client is initialized with values from the env.
-
-    Given the env is configured with values for the cloud project ID and region
-    When the batch job is submitted
-    Then the VertexAI client is initialized with those values.
-    """
-    self.mock_settings.cloud.project_id = "test-project"
-    self.mock_settings.cloud.region = "us-central1"
-
-    client = vertexai_lib.VertexAiLlmBatchJobApiClient()
-    client.submit_batch_job("test_input_table", "test_output_table")
-
-    self.mock_vertexai_init.assert_called_once_with(
-        project=self.mock_settings.cloud.project_id,
-        location=self.mock_settings.cloud.region
-    )
-
   def test_batch_job_is_submitted_with_correct_bq_uris(self):
     """Tests that the VertexAI job is submitted with the correct BigQuery URIs.
 
@@ -89,13 +71,17 @@ class VertexAiLlmBatchJobApiClientTest(unittest.TestCase):
     input_table_name = "test_input_table"
     output_table_name = "test_output_table"
 
-    client = vertexai_lib.VertexAiLlmBatchJobApiClient()
+    client = vertexai_lib.VertexAiLlmBatchJobApiClient(
+        "project_id",
+        "region_id",
+        "dataset_name"
+    )
     client.submit_batch_job(input_table_name, output_table_name)
 
     self.mock_batch_prediction_job_class.submit.assert_called_once_with(
         source_model=mock.ANY,
-        input_dataset=f"bq://{input_table_name}",
-        output_uri_prefix=f"bq://{output_table_name}"
+        input_dataset="bq://project_id.dataset_name.test_input_table",
+        output_uri_prefix="bq://project_id.dataset_name.test_output_table"
     )
 
   def test_submit_batch_job_waits_for_job_to_complete(self):
@@ -116,7 +102,11 @@ class VertexAiLlmBatchJobApiClientTest(unittest.TestCase):
         setattr(self.mock_batch_prediction_job, "has_ended", True)
     self.mock_batch_prediction_job.refresh.side_effect = refresh_side_effect
 
-    client = vertexai_lib.VertexAiLlmBatchJobApiClient()
+    client = vertexai_lib.VertexAiLlmBatchJobApiClient(
+        "project_id",
+        "region_id",
+        "dataset_name"
+    )
     client.submit_batch_job("test_input_table", "test_output_table")
 
     self.assertEqual(
@@ -135,7 +125,11 @@ class VertexAiLlmBatchJobApiClientTest(unittest.TestCase):
     self.mock_batch_prediction_job.has_succeeded = False
     self.mock_batch_prediction_job.error = "test-error"
 
-    client = vertexai_lib.VertexAiLlmBatchJobApiClient()
+    client = vertexai_lib.VertexAiLlmBatchJobApiClient(
+        "project_id",
+        "region_id",
+        "dataset_name"
+    )
     with self.assertRaisesRegex(
         ValueError, "Job 'failed_job' failed: test-error"):
       client.submit_batch_job("input_table_name", "output_table_name")

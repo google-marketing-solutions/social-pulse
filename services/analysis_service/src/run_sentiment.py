@@ -234,7 +234,6 @@ class RunSentimentAnalysis():
 
 
 if __name__ == "__main__":
-
   print("--- Arguments Received ---")
   print(f"Verbose logging?: {args.verbose}")
   print(f"Source: {args.source}")
