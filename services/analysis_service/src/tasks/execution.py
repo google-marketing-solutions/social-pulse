@@ -48,7 +48,15 @@ SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING = {
 
 @task_core.SentimentTask.event_handler(luigi.Event.SUCCESS)
 def handle_task_complete(sentiment_task: task_core.SentimentTask) -> None:
-  """Handles a SentimentTaks completion event."""
+  """Handles a SentimentTask completion event.
+
+  This function is triggered when a task inheriting from
+  `task_core.SentimentTask` successfully completes. It logs the completion and
+  updates the workflow execution state in the persistence layer.
+
+  Args:
+    sentiment_task: The completed SentimentTask instance.
+  """
   task_name = sentiment_task.get_task_family()
   workflow_exec_id = sentiment_task.workflow_exec.execution_id
   logger.info(
@@ -58,7 +66,7 @@ def handle_task_complete(sentiment_task: task_core.SentimentTask) -> None:
   )
 
   workflow_exec_repo = service.registry.get(
-      persistence.WorkflowExecutionLoaderService
+      persistence.WorkflowExecutionPersistenceService
   )
   workflow_exec_repo.mark_last_completed_task(workflow_exec_id, task_name)
 
@@ -80,6 +88,58 @@ class ExecutionStartTask(luigi.Task):
 
   def run(self):
     logging.info("Starting workflow execution '%s'", self.execution_id)
+    self._has_completed = True
+
+  def complete(self):
+    return self._has_completed
+
+
+class ExecutionFinishTask(
+    luigi.Task,
+    task_core.WorkflowExecutionParamsLoaderMixin
+):
+  """Represents the end of a sentiment analysis workflow execution.
+
+  This task is responsible for logging the end of a workflow execution, as well
+  as setting the finished status on the workflow execution.
+  """
+
+  task_namespace = "execution"
+
+  execution_id = luigi.Parameter()
+
+  # Task to run as the requirement for this task (non-significant param)
+  my_required_task = luigi.TaskParameter(significant=False)
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.load_workflow_execution_params(self.execution_id)
+    self._has_completed = False
+
+  def requires(self) -> luigi.Task:
+    """Specifies the required task for this task.
+
+    The dependency is determined by the `my_required_task` parameter, which is
+    set when the task is instantiated.
+
+    Returns:
+      A luigi.Task instance representing the required task.
+    """
+    if not self.my_required_task:
+      return  []
+    else:
+      return self.my_required_task
+
+  def run(self):
+    logging.info("Finishing workflow execution '%s'", self.execution_id)
+    workflow_persistence_srv = service.registry.get(
+        persistence.WorkflowExecutionPersistenceService
+    )
+
+    workflow_persistence_srv.update_status(
+        self.execution_id,
+        wfe.Status.STATUS_COMPLETED
+    )
     self._has_completed = True
 
   def complete(self):
@@ -116,19 +176,53 @@ class WorkflowExecution(
     Yields:
       The workflow execution task chain.
     """
-    starting_task = ExecutionStartTask(execution_id=self.execution_id)
-    task_chain = [starting_task]
+    if self.workflow_exec.status == wfe.Status.STATUS_COMPLETED:
+      logger.info(
+          "Workflow execution '%s' is already completed, stopping execution.",
+          self.execution_id
+      )
+      return []
+
+    workflow_persistence_srv = service.registry.get(
+        persistence.WorkflowExecutionPersistenceService
+    )
 
     content_source = self.workflow_exec.source
     if (
         content_source not in SOURCE_TO_TASK_MAPPING or
         content_source not in SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING
     ):
+      workflow_persistence_srv.update_status(
+          self.execution_id,
+          wfe.Status.STATUS_FAILED
+      )
       raise ValueError(f"Unknown social media source:  {content_source}")
+
+    starting_task = ExecutionStartTask(execution_id=self.execution_id)
+    task_chain = [starting_task]
 
     self._attach_retrieve_content_tasks(task_chain)
     self._attach_analysis_tasks(task_chain)
 
+    if self.workflow_exec.last_completed_task_id:
+      logger.info(
+          "Restarting workflow execution '%s' from task '%s'",
+          self.execution_id,
+          self.workflow_exec.last_completed_task_id
+      )
+      task_chain = self._prune_completed_tasks_from_chain(
+          task_chain,
+          self.workflow_exec.last_completed_task_id
+      )
+
+    last_task_in_chain = task_chain[-1]
+    finishing_task = ExecutionFinishTask(
+        my_required_task=last_task_in_chain,
+        execution_id=self.execution_id
+    )
+    task_chain.append(finishing_task)
+
+    logger.debug("Workflow execution task chain: %s", task_chain)
     yield task_chain
 
   def _attach_retrieve_content_tasks(self, task_chain: list[luigi.Task]):
@@ -202,3 +296,30 @@ class WorkflowExecution(
         )
     )
     task_chain.append(process_response_task)
+
+  def _prune_completed_tasks_from_chain(
+      self,
+      task_chain: list[task_core.SentimentTask],
+      last_completed_task: str
+  ) -> list[task_core.SentimentTask]:
+    """Prunes completed tasks from the task chain.
+
+    Finds the last completed task in the task chain, and then prunes it and all
+    preceding tasks from the chain.
+
+    Args:
+      task_chain: The task chain to prune completed tasks from.
+      last_completed_task: The task family name of the last completed task.
+    Returns:
+      Task chain (list of SentimentTasks) pruned of completed tasks.
+    """
+    for i, task in enumerate(task_chain):
+      if task.get_task_family() == last_completed_task:
+        return task_chain[i + 1:]
+    else:
+      logger.info(
+          "Last completed task '%s' not found in chain, so restarting from "
+          "beginning",
+          last_completed_task
+      )
+      return task_chain

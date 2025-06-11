@@ -28,6 +28,9 @@ class ExecutionTest(
     super().setUp()
     self.setup_all_mock_dependencies()
 
+    self.mock_execution_params.status = wfe.Status.STATUS_NEW
+    self.mock_execution_params.last_completed_task_id = None
+
   def assert_task_in_list(
       self,
       task_list: list[tasks_core.SentimentTask],
@@ -66,6 +69,19 @@ class ExecutionTest(
         f"Task of type {task_cls} should not be in the list, but it was found."
     )
 
+  def test_returns_empty_list_if_workflow_exec_param_status_is_completed(self):
+    """Returns an empty list if the workflow execution parameter status is completed.
+
+    Given the workflow execution parameter status is COMPLETED
+    When the WorkflowExecution task starts its lifecycle.
+    Then an empty list is returned.
+    """
+    self.mock_execution_params.status = wfe.Status.STATUS_COMPLETED
+
+    execution_task = execution.WorkflowExecution(execution_id="test_id")
+    tasks = execution_task.requires()
+    self.assertEqual(list(tasks), [])
+
   def test_fails_if_workflow_exec_param_source_is_unknown(self):
     """Fails if the workflow execution parameter source is unknown.
 
@@ -82,6 +98,10 @@ class ExecutionTest(
       execution_task.complete()
 
     self.assertIn("Unknown social media source", str(ve.exception))
+    self.mock_wfe_params_loader_service.update_status.assert_called_once_with(
+        "test_id",
+        wfe.Status.STATUS_FAILED
+    )
 
   def test_adds_retrieve_youtube_video_for_video_content(self):
     """Adds the FindYoutubeVideos task to the task chain for video content.
@@ -131,4 +151,53 @@ class ExecutionTest(
     self.assert_task_in_list(
         task_list,
         execution.youtube_comments.FindYoutubeComments
+    )
+
+  def test_restarted_workflows_continue_from_last_completed_task(self):
+    """Restarts a workflow from the last completed task.
+
+    Given a workflow that has a video content source
+      And the FindYoutubeVideos task was the last task completed
+    When the WorkflowExecution task starts its lifecycle
+    Then the FindYoutubeVideos won't be in the task chain
+    """
+    self.mock_execution_params.status = wfe.Status.STATUS_IN_PROGRESS
+    self.mock_execution_params.last_completed_task_id = "FindYoutubeVideos"
+    self.mock_execution_params.source = (
+        wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
+    )
+
+    execution_task = execution.WorkflowExecution(execution_id="test_id")
+    # requires() produces a list of lists of tasks.
+    task_list = list(execution_task.requires())[0]
+
+    self.assert_task_not_in_list(
+        task_list,
+        execution.youtube_data.FindYoutubeVideos
+    )
+    self.assert_task_not_in_list(
+        task_list,
+        execution.youtube_comments.FindYoutubeComments
+    )
+
+  def test_restarts_workflow_if_last_completed_task_is_unknown(self):
+    """Restarts a workflow if the last completed task is unknown.
+
+    Given a workflow where the last completed task is unknown
+    When the WorkflowExecution task starts its lifecycle
+    Then the FindYoutubeVideos won't be in the task chain
+    """
+    self.mock_execution_params.status = wfe.Status.STATUS_IN_PROGRESS
+    self.mock_execution_params.last_completed_task_id = "foo"
+    self.mock_execution_params.source = (
+        wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
+    )
+
+    execution_task = execution.WorkflowExecution(execution_id="test_id")
+    # requires() produces a list of lists of tasks.
+    task_list = list(execution_task.requires())[0]
+
+    self.assert_task_in_list(
+        task_list,
+        execution.youtube_data.FindYoutubeVideos
     )

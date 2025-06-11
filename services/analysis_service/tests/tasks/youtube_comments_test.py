@@ -64,7 +64,7 @@ class YoutubeCommentsTest(unittest.TestCase):
   def _setup_mock_workflow_exec_loader(self):
     """Sets up and registers the mock WorkflowExecutionLoaderService."""
     self.mocked_wfe_params_loader_service = mock.Mock(
-        spec=persistence.WorkflowExecutionLoaderService
+        spec=persistence.WorkflowExecutionPersistenceService
     )
 
     self.mock_workflow_exec = mock.Mock(spec=wfe.WorkflowExecutionParams)
@@ -75,7 +75,7 @@ class YoutubeCommentsTest(unittest.TestCase):
     )
 
     service.registry.register(
-        persistence.WorkflowExecutionLoaderService,
+        persistence.WorkflowExecutionPersistenceService,
         self.mocked_wfe_params_loader_service,
     )
 

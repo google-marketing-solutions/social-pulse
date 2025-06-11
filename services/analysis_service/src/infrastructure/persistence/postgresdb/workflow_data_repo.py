@@ -24,10 +24,10 @@ from . import client
 logger = logging.getLogger(__name__)
 
 
-class PostgresDbWorkflowExecutionLoader(
-    persistence.WorkflowExecutionLoaderService
+class PostgresDbWorkflowExecutionPersistenceService(
+    persistence.WorkflowExecutionPersistenceService
 ):
-  """Class for loading workflow data params from PostgresDB."""
+  """Class for loading and updating workflow data params from PostgresDB."""
 
   def __init__(self, postgres_client: client.PostgresDbClient):
     self._postgres_client = postgres_client
@@ -154,4 +154,24 @@ class PostgresDbWorkflowExecutionLoader(
         WHERE executionId = %s;
     """
     params = (task_name, execution_id)
+    self._postgres_client.update_row(query, params)
+
+  def update_status(
+      self,
+      execution_id: str,
+      status: wfe.Status
+  ) -> None:
+    """Updates the status of a workflow execution.
+
+    Args:
+      execution_id: The ID of the workflow execution.
+      status: The new status of the workflow execution.
+    """
+    query: str = """
+        UPDATE WorkflowExecutionParams
+        SET status = %s,
+            lastUpdatedOn = NOW()
+        WHERE executionId = %s;
+    """
+    params = (wfe.Status.Name(status), execution_id)
     self._postgres_client.update_row(query, params)

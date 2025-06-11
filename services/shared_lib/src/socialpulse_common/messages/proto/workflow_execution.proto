@@ -46,6 +46,7 @@ enum Status {
   STATUS_NEW = 1;
   STATUS_IN_PROGRESS = 2;
   STATUS_COMPLETED = 3;
+  STATUS_FAILED = 4;
 }
 
 /**
@@ -74,4 +75,7 @@ message WorkflowExecutionParams {
 
   // The last completed task
   string last_completed_task_id = 8;
+
+  // Current workflow status.
+  Status status = 9;
 }

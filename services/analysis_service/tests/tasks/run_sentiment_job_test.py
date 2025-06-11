@@ -43,10 +43,10 @@ class TestRunSentimentAnalysisJobTask(unittest.TestCase):
 
   def _setup_workflow_exec_loader_mock(self):
     self.mock_workflow_exec_loader = mock.create_autospec(
-        persistence.WorkflowExecutionLoaderService, instance=True
+        persistence.WorkflowExecutionPersistenceService, instance=True
     )
     service.registry.register(
-        persistence.WorkflowExecutionLoaderService,
+        persistence.WorkflowExecutionPersistenceService,
         self.mock_workflow_exec_loader
     )
 

@@ -20,7 +20,7 @@ from tasks.ports import persistence
 
 
 class StubWorkflowExecutionLoaderService(
-    persistence.WorkflowExecutionLoaderService
+    persistence.WorkflowExecutionPersistenceService
 ):
   """Stub implementation of the WorkflowExecutionLoaderService.
 

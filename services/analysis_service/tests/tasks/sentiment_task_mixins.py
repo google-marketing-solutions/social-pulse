@@ -45,14 +45,14 @@ class SetupMockSentimentTaskDepependenciesMixin():
   def setup_mock_workflow_params(self):
     """Sets up a mock WorkflowExecutionLoaderService."""
     self.mock_wfe_params_loader_service = mock.Mock(
-        spec=persistence.WorkflowExecutionLoaderService
+        spec=persistence.WorkflowExecutionPersistenceService
     )
     self.mock_execution_params = mock.Mock(spec=wfe.WorkflowExecutionParams)
     self.mock_wfe_params_loader_service.load_execution.return_value = (
         self.mock_execution_params
     )
     service.registry.register(
-        persistence.WorkflowExecutionLoaderService,
+        persistence.WorkflowExecutionPersistenceService,
         self.mock_wfe_params_loader_service
     )
 

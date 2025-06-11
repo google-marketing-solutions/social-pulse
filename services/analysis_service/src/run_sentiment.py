@@ -136,13 +136,13 @@ class RunSentimentAnalysis():
     self._start_date = start_date
     self._end_date = end_date
 
-    self._register_workflow_exec_loader()
+    self._register_workflow_exec_persistence_service()
     self._register_sentiment_data_repo()
     self._register_youtube_api()
     self._register_vertex_ai()
 
-  def _register_workflow_exec_loader(self) -> None:
-    """Registers the workflow execution loader."""
+  def _register_workflow_exec_persistence_service(self) -> None:
+    """Registers the workflow execution persistence service."""
     postgres_client = client.PostgresDbClient(
         host=settings.db.host,
         port=settings.db.port,
@@ -150,12 +150,14 @@ class RunSentimentAnalysis():
         user=settings.db.username,
         password=settings.db.password
     )
-    self._workflow_exec_repo = (
-        workflow_data_repo.PostgresDbWorkflowExecutionLoader(postgres_client)
+    self._workflow_exec_loader_service = (
+        workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
+            postgres_client
+        )
     )
     service.registry.register(
-        persistence.WorkflowExecutionLoaderService,
-        self._workflow_exec_repo
+        persistence.WorkflowExecutionPersistenceService,
+        self._workflow_exec_loader_service
     )
 
   def _register_sentiment_data_repo(self) -> None:
@@ -220,8 +222,11 @@ class RunSentimentAnalysis():
     return wfe_params
 
   def run(self) -> None:
+    """Orchestrates and runs the sentiment analysis workflow."""
     workflow_exec = self._create_workflow_exec_params()
-    workflow_exec_id = self._workflow_exec_repo.create_execution(workflow_exec)
+    workflow_exec_id = self._workflow_exec_loader_service.create_execution(
+        workflow_exec
+    )
     logger.info("Created workflow execution with id: %s", workflow_exec_id)
 
     run_result = luigi.build(

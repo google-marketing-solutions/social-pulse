@@ -32,7 +32,7 @@ by the micro-services.
   python -m build
   ```
 
-5. Re-install the packaged commons distribution
+5. Re-install the packaged commons distribution in the microservice
   ```
   cd ../analysis_service
   pip install -r requirements.txt

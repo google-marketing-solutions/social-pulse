@@ -20,11 +20,12 @@ from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution_pb2 as wfe
 
 
-class WorkflowExecutionLoaderService(service.RegisterableService):
-  """Service for loading workflow execution parameters.
+class WorkflowExecutionPersistenceService(service.RegisterableService):
+  """Service for creating, reading, and updating workflow execution parameters.
 
   This service provides an interface for retrieving workflow execution
-  parameters based on a given execution ID.
+  parameters based on a given execution ID.  It also provides functions for
+  creating and updating workflow execution parameters.
   """
 
   @abc.abstractmethod
@@ -48,6 +49,34 @@ class WorkflowExecutionLoaderService(service.RegisterableService):
 
     Args:
       execution_params: The workflow execution parameters.
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def mark_last_completed_task(
+      self,
+      execution_id: str,
+      task_name: str
+  ) -> None:
+    """Marks the last completed task for a workflow execution.
+
+    Args:
+      execution_id: The ID of the workflow execution.
+      task_name: The name of the task that was completed.
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def update_status(
+      self,
+      execution_id: str,
+      status: wfe.Status
+  ) -> None:
+    """Updates the status of a workflow execution.
+
+    Args:
+      execution_id: The ID of the workflow execution.
+      status: The new status of the workflow execution.
     """
     raise NotImplementedError
 

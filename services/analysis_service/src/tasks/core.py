@@ -98,7 +98,7 @@ class WorkflowExecutionParamsLoaderMixin():
         "Loading workflow execution params for: %s", execution_id
     )
     workflow_exec_loader_service = service.registry.get(
-        persistence.WorkflowExecutionLoaderService
+        persistence.WorkflowExecutionPersistenceService
     )
     self.workflow_exec: wfe.WorkflowExecutionParams = (
         workflow_exec_loader_service.load_execution(execution_id)

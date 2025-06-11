@@ -34,10 +34,10 @@ class YoutubeDataTest(unittest.TestCase):
 
     # Mock Workflow Execution Parameter Loading
     self.mocked_wfe_params_loader_service = mock.Mock(
-        spec=persistence.WorkflowExecutionLoaderService
+        spec=persistence.WorkflowExecutionPersistenceService
     )
     service.registry.register(
-        persistence.WorkflowExecutionLoaderService,
+        persistence.WorkflowExecutionPersistenceService,
         self.mocked_wfe_params_loader_service,
     )
 
