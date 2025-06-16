@@ -1,0 +1,182 @@
+#  Copyright 2025 Google LLC
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      https://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+"""Module for core sentiment analysis task classes/enums."""
+
+import abc
+import logging
+
+import luigi
+import pandas as pd
+from socialpulse_common import service
+from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from tasks.ports import persistence
+
+
+class SentimentDataRepoTarget(luigi.Target):
+  """Target that wraps a sentiment data repo.
+
+  This target is used to represent a sentiment data set stored in a
+  SentimentDataRepo. It provides methods to check if the data set exists,
+  load the data set, and write data to the data set.
+
+  Attributes:
+    table_name: The name of the table in the sentiment data repo.
+    _sentiment_data_repo: The SentimentDataRepo instance.
+  """
+
+  def __init__(self, table_name: str):
+    self.table_name = table_name
+
+    self._sentiment_data_repo = service.registry.get(
+        persistence.SentimentDataRepo
+    )
+
+  def exists(self) -> bool:
+    """Checks if the sentiment data set exists.
+
+    Returns:
+      True if the data set exists, False otherwise.
+    """
+    return self._sentiment_data_repo.exists(self.table_name)
+
+  def load_sentiment_data(self) -> pd.DataFrame:
+    """Loads the sentiment data set wrapped by this target.
+
+    Returns:
+      A pandas DataFrame containing the sentiment data.
+
+    Raises:
+      Exception: If there is an error loading the data.
+    """
+    return self._sentiment_data_repo.load_sentiment_data(self.table_name)
+
+  def write_sentiment_data(self, sentiment_dataset: pd.DataFrame) -> None:
+    """Writes the sentiment data set wrapped by this target to the repo.
+
+    Args:
+      sentiment_dataset: The pandas DataFrame containing the sentiment data to
+        write.
+    """
+    self._sentiment_data_repo.write_sentiment_data(
+        self.table_name,
+        sentiment_dataset
+    )
+
+
+class WorkflowExecutionParamsLoaderMixin():
+  """Mixin class providing a loader for workflow execution parameters.
+
+  Provides a method to load workflow execution parameters based on an execution
+  ID.  When added to a class and the `load_workflow_execution_params` function
+  is called, it adds the following instance properties:
+
+  1) `workflow_exec` - a `WorkflowExecutionParams` object loaded from storage
+        using the provided execution ID.
+  """
+
+  def load_workflow_execution_params(
+      self,
+      execution_id: str
+  ) -> wfe.WorkflowExecutionParams:
+    """Loads workflow execution parameters using an exeuciton ID.
+
+    Args:
+      execution_id: The execution ID to load params for.
+    """
+    logging.debug(
+        "Loading workflow execution params for: %s", execution_id
+    )
+    workflow_exec_loader_service = service.registry.get(
+        persistence.WorkflowExecutionPersistenceService
+    )
+    self.workflow_exec: wfe.WorkflowExecutionParams = (
+        workflow_exec_loader_service.load_execution(execution_id)
+    )
+
+
+class SentimentTask(luigi.Task, abc.ABC, WorkflowExecutionParamsLoaderMixin):
+  """Abstract class representing a sentiment analysis task.
+
+  A SentimentTask handles the requires() functionality, because SentimentTasks
+  can be run in a dynamic order, depending on the workflow exeuciton params.
+  However, subclasses should implement the `output` and `run` methods
+  themselves.
+  """
+
+  # Uniquely identifies the workflow execution this task is working in.
+  execution_id = luigi.Parameter()
+
+  # Task to run as the requirement for this task (non-significant param)
+  my_required_task = luigi.TaskParameter(significant=False)
+
+  def __init__(self, *args, **kwargs):
+    """Initializes the sentiment analysis task.
+
+    Passes argument setting to the parent Luigi task, but this also uses the
+    workflow execution loader service to load the workflow execution params
+    for the current task.
+
+    Args:
+      *args: Variable length argument list.
+      **kwargs: Arbitrary keyword arguments.
+    """
+    super().__init__(*args, **kwargs)
+    logging.debug(
+        "Initializing %s for execution_id=%s", self.task_id, self.execution_id
+    )
+    self.load_workflow_execution_params(self.execution_id)
+
+  @property
+  def dataset_name(self) -> str:
+    """The fully qualified data set name for this given task.
+
+    This method constructs a unique name for a data set associated with a
+    specific task and workflow execution. The name is generated by combining
+    the task's family name and the execution ID.
+
+    Returns:
+      A string representing the fully qualified table name, formatted as
+      "{task_family}_{execution_id}".
+    """
+    return f"{self.task_family}_{self.execution_id}"
+
+  def requires(self) -> luigi.Task:
+    """Specifies the required task for this task.
+
+    The dependency is determined by the `my_required_task` parameter, which is
+    set when the task is instantiated.
+
+    Returns:
+      A luigi.Task instance representing the required task.
+    """
+    if not self.my_required_task:
+      return  []
+    else:
+      return self.my_required_task
+
+  def output(self) -> SentimentDataRepoTarget:
+    """Defines the output target for this task using SentimentDataRepoTarget.
+
+    The output is a dataset managed by the SentimentDataRepo, named using
+    the task family and execution ID.
+
+    Returns:
+      An instance of SentimentDataRepoTarget representing the task's
+      output dataset.
+    """
+    return SentimentDataRepoTarget(self.dataset_name)
+
+  @abc.abstractmethod
+  def run(self) -> None:
+    pass

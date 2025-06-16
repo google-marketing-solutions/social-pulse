@@ -1,0 +1,31 @@
+[project]
+name = "analysis_service"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "", email = "jmistral@google.com"},
+]
+dependencies = []
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+log_level = "DEBUG"
+log_cli = false
+addopts = "--cov=src --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+# Specify where coverage should look for source files
+source = ["src"]
+
+[tool.coverage.report]
+exclude_also = [
+    # Exclude test files
+    "tests/*",
+]

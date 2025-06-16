@@ -1,0 +1,4 @@
+protobuf
+pydantic-settings
+pytest
+python-dotenv
