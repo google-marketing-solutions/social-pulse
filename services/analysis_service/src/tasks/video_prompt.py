@@ -17,8 +17,8 @@ import logging
 import string
 
 import pandas as pd
-from pipeline.scoring import constants
 from prompts import generator
+from tasks import constants
 from tasks import core as tasks_core
 
 
