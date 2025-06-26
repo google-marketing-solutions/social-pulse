@@ -16,9 +16,9 @@ import copy
 import logging
 import string
 import pandas as pd
-from pipeline.scoring import constants
 from prompts import generator
 from socialpulse_common import config
+from tasks import constants
 from tasks import core as tasks_core
 
 settings = config.Settings()
