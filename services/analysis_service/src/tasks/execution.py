@@ -19,10 +19,9 @@ import luigi
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution_pb2 as wfe
 from tasks import core as task_core
+from tasks import generate_prompt
 from tasks import llm_response_processing
 from tasks import run_sentiment_job
-from tasks import text_prompt
-from tasks import video_prompt
 from tasks import youtube_comments
 from tasks import youtube_data
 from tasks.ports import persistence
@@ -36,13 +35,6 @@ SOURCE_TO_TASK_MAPPING = {
         youtube_data.FindYoutubeVideos,
     wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
         youtube_comments.FindYoutubeComments
-}
-
-SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING = {
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
-        video_prompt.GenerateLlmVideoAnalysisPrompts,
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
-        text_prompt.GenerateLlmTextAnalysisPrompts
 }
 
 
@@ -188,10 +180,7 @@ class WorkflowExecution(
     )
 
     content_source = self.workflow_exec.source
-    if (
-        content_source not in SOURCE_TO_TASK_MAPPING or
-        content_source not in SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING
-    ):
+    if (content_source not in SOURCE_TO_TASK_MAPPING):
       workflow_persistence_srv.update_status(
           self.execution_id,
           wfe.Status.STATUS_FAILED
@@ -265,18 +254,9 @@ class WorkflowExecution(
       task_chain: The task chain to attach the analysis tasks to.
     """
     last_task_in_chain = task_chain[-1]
-    source = self.workflow_exec.source
 
     # Add appropriate prompt generation task.
-    logger.debug("Looking for prompt generation task for source: %s", source)
-    prompt_generation_task_cls = SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING[
-        source
-    ]
-
-    logger.debug(
-        "Instantiating prompt generating task: %s", prompt_generation_task_cls
-    )
-    prompt_generation_task = prompt_generation_task_cls(
+    prompt_generation_task = generate_prompt.GenerateLlmPromptForContentTask(
         execution_id=self.execution_id,
         my_required_task=last_task_in_chain
     )
