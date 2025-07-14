@@ -2,6 +2,7 @@ __pycache__
 dist/
 *.egg-info/
 .vscode
+.coverage
 
 # Ignore protobuf generated Python files
 **/*_pb2.py

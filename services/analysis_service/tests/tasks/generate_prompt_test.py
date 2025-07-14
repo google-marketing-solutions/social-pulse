@@ -2,6 +2,7 @@ import unittest
 
 import pandas as pd
 from prompts import promptconfig
+from prompts.configs import core as prompt_core
 import sentiment_task_mixins as test_mixins
 from tasks import generate_prompt
 
@@ -49,7 +50,7 @@ class TestGenerateLlmVideoAnalysisPrompts(
 
   def _setup_mock_prompt_config(self):
     self.mock_prompt_config = unittest.mock.Mock(
-        spec=promptconfig.PromptConfig
+        spec=prompt_core.PromptConfig
     )
     self.mock_prompt_config.get_input_columns.return_value = [
         "column1",
@@ -75,7 +76,7 @@ class TestGenerateLlmVideoAnalysisPrompts(
     )
 
     self._prompt_config_factory_patcher = unittest.mock.patch(
-        "tasks.generate_prompt.config.PromptConfigFactory",
+        "tasks.generate_prompt.promptconfig.PromptConfigFactory",
         return_value=self.mock_prompt_config_factory
     )
     self.mock_prompt_config_factory_class = (

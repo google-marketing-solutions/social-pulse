@@ -22,10 +22,8 @@ enum SocialMediaSource {
  */
 enum TopicType {
   TOPIC_TYPE_UNKNOWN = 0;
-  TOPIC_TYPE_PRODUCT = 1;
-  TOPIC_TYPE_FEATURE = 2;
-  TOPIC_TYPE_BRAND = 3;
-  TOPIC_TYPE_INTEREST = 4;
+  TOPIC_TYPE_BRAND_OR_PRODUCT = 1;
+  TOPIC_TYPE_NON_BRAND = 2;
 }
 
 /**
@@ -34,8 +32,7 @@ enum TopicType {
  enum SentimentDataType {
   SENTIMENT_DATA_TYPE_UNKNOWN = 0;
   SENTIMENT_DATA_TYPE_SENTIMENT_SCORE = 1;
-  SENTIMENT_DATA_TYPE_JUSTIFICATION = 2;
-  SENTIMENT_DATA_TYPE_DISTRIBUTION = 3;
+  SENTIMENT_DATA_TYPE_SHARE_OF_VOICE = 2;
 }
 
 /**
@@ -62,8 +59,8 @@ message WorkflowExecutionParams {
   string execution_id = 1;
   // Source of the social media content.
   SocialMediaSource source = 2;
-  // Types of sentiment data that should be produced by this execution.
-  repeated SentimentDataType data_outputs = 3;
+  // Type of sentiment data that should be produced by this execution.
+  repeated SentimentDataType data_output = 3;
 
   // Information on the topic the analysis will be performed on.
   TopicType topic_type = 4;
@@ -78,4 +75,7 @@ message WorkflowExecutionParams {
 
   // Current workflow status.
   Status status = 9;
+
+  // Flag to include justifications when producing sentiment scores.
+  bool include_justifications = 10;
 }

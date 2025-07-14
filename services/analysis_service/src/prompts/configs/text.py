@@ -66,7 +66,7 @@ TEXT_SENTIMENT_SCORE_PROMPT_TEMPLATE = """Ignoring any previous questions and
   """
 
 
-class TextPromptConfig(core.PromptConfig):
+class BasicSentimentScoreFromCommentPromptConfig(core.PromptConfig):
   """Configuration for generating text analysis prompts."""
 
   def get_input_columns(self) -> list[str]:
@@ -93,7 +93,7 @@ class TextPromptConfig(core.PromptConfig):
     )
 
   def get_response_schema(self) -> str:
-    return core.BASE_SENTIMENT_RESPONSE_SCHEMA
+    return core.SentimentResponseSchemaBuilder().build()
 
   def get_file_data(self, row: pd.Series) -> list[tuple[str, str]] | None:
     return None

@@ -64,7 +64,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params = wfe.WorkflowExecutionParams()
     wfe_params.execution_id = row[0]
     wfe_params.source = source_lookup[row[1]].number
-    wfe_params.data_outputs.extend(self._parse_data_outputs(row[2]))
+    wfe_params.data_output.extend(self._parse_data_outputs(row[2]))
     wfe_params.topic_type = topic_type_lookup[row[3]].number
     wfe_params.topic = row[4]
 
@@ -116,7 +116,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
     """
     data_outputs_as_names = [
         wfe.SentimentDataType.Name(output)
-        for output in execution_params.data_outputs
+        for output in execution_params.data_output
     ]
 
     params = (

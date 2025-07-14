@@ -30,6 +30,9 @@ class ExecutionTest(
 
     self.mock_execution_params.status = wfe.Status.STATUS_NEW
     self.mock_execution_params.last_completed_task_id = None
+    self.mock_execution_params.data_output = (
+        wfe.SENTIMENT_DATA_TYPE_SENTIMENT_SCORE
+    )
 
   def assert_task_in_list(
       self,

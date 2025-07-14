@@ -80,7 +80,7 @@ parser.add_argument(
          "sentiment analysis for."
 )
 parser.add_argument(
-    "--outputs",
+    "--output",
     type=str,
     nargs="+",
     default=["SENTIMENT_DATA_TYPE_SENTIMENT_SCORE"],
@@ -126,13 +126,13 @@ class RunSentimentAnalysis():
       self,
       topic: str,
       source: str,
-      outputs: list[str],
+      output: list[str],
       start_date: datetime.date,
       end_date: datetime.date | None
   ):
     self._topic = topic
     self._source = source
-    self._outputs = outputs
+    self._output = output
     self._start_date = start_date
     self._end_date = end_date
 
@@ -201,8 +201,8 @@ class RunSentimentAnalysis():
     wfe_params.source = wfe.SocialMediaSource.Value(self._source)
     wfe_params.topic = self._topic
 
-    for output in self._outputs:
-      wfe_params.data_outputs.append(
+    for output in self._output:
+      wfe_params.data_output.append(
           wfe.SentimentDataType.Value(output)
       )
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
   print(f"Verbose logging?: {args.verbose}")
   print(f"Source: {args.source}")
   print(f"Topic: {args.topic}")
-  print(f"Data Outputs: {args.outputs}")
+  print(f"Data Output: {args.output}")
   print(f"Start Date: {args.start_date} (Type: {type(args.start_date)})")
   print(f"End Date: {args.end_date} (Type: {type(args.end_date)})")
   print("--------------------------\n")
@@ -251,7 +251,7 @@ if __name__ == "__main__":
   analysis = RunSentimentAnalysis(
       topic=args.topic,
       source=args.source,
-      outputs=args.outputs,
+      output=args.output,
       start_date=args.start_date,
       end_date=args.end_date
   )

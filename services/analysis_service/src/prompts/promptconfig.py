@@ -24,14 +24,6 @@ from socialpulse_common.messages import workflow_execution_pb2 as wfe
 logger = logging.getLogger(__name__)
 
 
-SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING = {
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
-        video.VideoPromptConfig,
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
-        text.TextPromptConfig
-}
-
-
 class PromptConfigFactory:
   """Factory for creating PromptConfig instances."""
 
@@ -39,8 +31,29 @@ class PromptConfigFactory:
     self._workflow_exec = workflow_exec
 
   def get_prompt_config(self) -> core.PromptConfig:
-    """Returns the appropriate PromptConfig based on workflow parameters."""
-    prompt_config_cls = SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING[
-        self._workflow_exec.source
-    ]
+    """Returns the appropriate PromptConfig based on workflow parameters.
+
+    Raises:
+      ValueError: If a prompt config cannot be found for the given workflow
+        execution parameters.
+    """
+    source = self._workflow_exec.source
+    output = self._workflow_exec.data_output[0]
+    prompt_config_cls = None
+
+    if source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
+      if output == wfe.SENTIMENT_DATA_TYPE_SENTIMENT_SCORE:
+        prompt_config_cls = video.BasicSentimentScoreFromVideoPromptConfig
+      elif output == wfe.SENTIMENT_DATA_TYPE_SHARE_OF_VOICE:
+        prompt_config_cls = (
+            video.ShareOfVoiceSentimentScoresFromVideoPromptConfig
+        )
+    else:
+      prompt_config_cls = text.BasicSentimentScoreFromCommentPromptConfig
+
+    if not prompt_config_cls:
+      raise ValueError(
+          "Could not find a prompt config for the workflow: "
+          f"{str(self._workflow_exec)}"
+      )
     return prompt_config_cls(self._workflow_exec)
