@@ -17,6 +17,9 @@
 LLM_REQUEST_COL_NAME = "request"
 
 
+SENTIMENT_RESULTS_DATASET_PREFIX = "SentimentDataset"
+
+
 BASE_SENTIMENT_RESPONSE_SCHEMA: dict[str, str] = {
     "type": "array",
     "items": {

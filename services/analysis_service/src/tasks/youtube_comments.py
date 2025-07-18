@@ -83,7 +83,14 @@ class FindYoutubeComments(tasks_core.SentimentTask):
       flattened_comments_df = self._flatten_comment_replies(
           normalized_threads_df
       )
-      self.output().write_sentiment_data(flattened_comments_df)
+      merged_df = pd.merge(
+          flattened_comments_df,
+          videos_df[["videoId", "summary"]],
+          on="videoId",
+          how="left"
+      )
+
+      self.output().write_sentiment_data(merged_df)
 
     except Exception as e:
       logging.exception(

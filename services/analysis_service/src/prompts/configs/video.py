@@ -141,7 +141,7 @@ class ShareOfVoiceSentimentScoresFromVideoPromptConfig(core.PromptConfig):
     return VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
 
   def generate_llm_prompt(self, row: pd.Series) -> str:
-    scoring_prompt = string.Template(VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE)
+    scoring_prompt = string.Template(VIDEO_SHARE_OF_VOICE_SCORE_PROMPT_TEMPLATE)
     topic = self._workflow_exec.topic
     return scoring_prompt.substitute(topic=topic)
 

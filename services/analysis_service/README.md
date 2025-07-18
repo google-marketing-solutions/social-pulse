@@ -2,14 +2,19 @@
 
 ### Setting up environment
 
-1. Create a virtual environmnet for the microservice.
+1. Using a Google Cloud Project, create a Big Query dataset called
+   "social_pulse_sentiment_data" and make sure you pick the specific location
+   of "us-central1" to host it.  This is required so that the Gemini models can
+   be found by Big Query.
 
-2. Install the required packages.
+2. Create a virtual environmnet for the microservice.
+
+3. Install the required packages.
    ```
    pip install -r requirements.txt
    ```
 
-3. Create a .env file in the microservice root directory, and copy and paste
+4. Create a .env file in the microservice root directory, and copy and paste
    the following into the file.  Then provide your values as instructed below.
    ```
    # Cloud Settings
@@ -87,38 +92,37 @@ pytest /tests
 You execute the run_sentiment.py tool to run a workflow execution and generate sentiment analysis data.
 
 ```
-./run_sentiment.py -h
-
-usage: run_sentiment.py [-h] [-v] --source
-                        {SOCIAL_MEDIA_SOURCE_UNKNOWN,SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO,SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT,SOCIAL_MEDIA_SOURCE_REDDIT_POST,SOCIAL_MEDIA_SOURCE_X_POST,SOCIAL_MEDIA_SOURCE_APP_STORE_REVIEW}
-                        --topic TOPIC
-                        [--outputs {SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_JUSTIFICATION,SENTIMENT_DATA_TYPE_DISTRIBUTION} [{SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_JUSTIFICATION,SENTIMENT_DATA_TYPE_DISTRIBUTION} ...]]
-                        --start-date START_DATE [--end-date END_DATE]
+./run_sentiment.py --help
+usage: run_sentiment.py [-h] [-v] --source SOURCE --topic TOPIC
+                        [--output {SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} [{SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} ...]]
+                        --start-date START_DATE [--end-date END_DATE] [--parent_execution_id PARENT_EXECUTION_ID]
 
 Generate sentiment analysis for a given topic from a social media source.
 
 options:
   -h, --help            show this help message and exit
   -v, --verbose         Increase output verbosity, by setting logging to DEBUG level.
-  --source {SOCIAL_MEDIA_SOURCE_UNKNOWN,SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO,SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT,SOCIAL_MEDIA_SOURCE_REDDIT_POST,SOCIAL_MEDIA_SOURCE_X_POST,SOCIAL_MEDIA_SOURCE_APP_STORE_REVIEW}
-                        Social media content source to retrieve ('Youtube', 'Twitter', etc.).
+  --source SOURCE       Social media content source to retrieve ('Youtube', 'Twitter', etc.).
   --topic TOPIC         Topic (brand, product or feature) to generate the sentiment analysis for.
-  --outputs {SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_JUSTIFICATION,SENTIMENT_DATA_TYPE_DISTRIBUTION} [{SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_JUSTIFICATION,SENTIMENT_DATA_TYPE_DISTRIBUTION} ...]
+  --output {SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} [{SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} ...]
                         Types of sentiment data to output. Defaults to sentiment score.
   --start-date START_DATE
                         Start date of the analysis window (format: YYYY-MM-DD).
   --end-date END_DATE   End date of the analysis window (format: YYYY-MM-DD). Defaults to today.
+  --parent_execution_id PARENT_EXECUTION_ID
+                        Parent workflow execution ID.
 ```
 
 Please note the following when executing the run_sentiment.py CLI:
 
-1.  Currently, only the SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO and     SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT content types are supported.
+1. Currently, only the SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO and
+   SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT content types are supported.
 
 2. Currently, only the SENTIMENT_DATA_TYPE_SENTIMENT_SCORE output type is
-supported.
+   supported.
 
 3. Whatever value you provide for the topic parameter is used as-is for doing a
-search on the relevant social media content.  For example, if the topic is set
-to “Product X text-to-image” and the source is Youtube videos, then a search
-will be done on Youtube with “Product X text-to-image” to find the videos and
-comments to analyze for sentiment.
+   search on the relevant social media content.  For example, if the topic is
+   set to “Product X text-to-image” and the source is Youtube videos, them a
+   search will be done on Youtube with “Product X text-to-image” to find the
+   videos and comments to analyze for sentiment.

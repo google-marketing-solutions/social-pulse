@@ -127,3 +127,16 @@ class SentimentDataRepo(service.RegisterableService, abc.ABC):
         write.
     """
     raise NotImplementedError
+
+  def copy_sentiment_data(
+      self,
+      source_dataset_name: str,
+      target_dataset_name: str
+  ) -> None:
+    """Copies a sentiment data set to a provided name.
+
+    Args:
+      source_dataset_name: The name of the data set to copy from.
+      target_dataset_name: The name of the new data set to create.
+    """
+    raise NotImplementedError

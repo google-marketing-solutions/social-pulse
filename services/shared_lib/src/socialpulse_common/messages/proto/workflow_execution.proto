@@ -78,4 +78,7 @@ message WorkflowExecutionParams {
 
   // Flag to include justifications when producing sentiment scores.
   bool include_justifications = 10;
+
+  // ID of a parent workflow exec this one depends on
+  string parent_execution_id = 11;
 }

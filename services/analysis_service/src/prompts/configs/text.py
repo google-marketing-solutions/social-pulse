@@ -74,7 +74,7 @@ class BasicSentimentScoreFromCommentPromptConfig(core.PromptConfig):
         "commentId",
         "videoId",
         "authorId",
-        "videoSummary",
+        "summary",
         "text",
         "parentId",
     ]
@@ -88,7 +88,7 @@ class BasicSentimentScoreFromCommentPromptConfig(core.PromptConfig):
 
     return scoring_prompt.substitute(
         brand_or_product=brand_or_product,
-        video_summary=row["videoSummary"],
+        video_summary=row["summary"],
         video_comment=row["text"]
     )
 

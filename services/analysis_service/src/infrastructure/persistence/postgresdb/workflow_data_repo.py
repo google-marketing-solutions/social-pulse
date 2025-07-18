@@ -49,17 +49,20 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  topicType, "
         "  topic, "
         "  dateRangeStart, "
-        "  dateRangeEnd "
+        "  dateRangeEnd, "
+        "  status, "
+        "  lastCompletedTask, "
+        "  parentExecutionId "
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
-        (execution_id,)
+        (execution_id,),
     )
     if not row:
       raise ValueError(f"No workflow execution found with ID: {execution_id}")
 
     source_lookup = wfe.SocialMediaSource.DESCRIPTOR.values_by_name
     topic_type_lookup = wfe.TopicType.DESCRIPTOR.values_by_name
-
+    status_lookup = wfe.Status.DESCRIPTOR.values_by_name
     logger.debug("Raw row data = %s", row)
     wfe_params = wfe.WorkflowExecutionParams()
     wfe_params.execution_id = row[0]
@@ -75,6 +78,11 @@ class PostgresDbWorkflowExecutionPersistenceService(
     end_time_proto = timestamp_pb2.Timestamp()
     end_time_proto.FromDatetime(row[6])
     wfe_params.end_time.CopyFrom(end_time_proto)
+
+    wfe_params.status = status_lookup[row[7]].number
+    wfe_params.last_completed_task_id = row[8] if row[8] else ""
+
+    wfe_params.parent_execution_id = row[9] if row[9] else ""
 
     return wfe_params
 
@@ -109,15 +117,20 @@ class PostgresDbWorkflowExecutionPersistenceService(
           topicType,
           topic,
           dateRangeStart,
-          dateRangeEnd
+          dateRangeEnd,
+          parentExecutionId
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
     """
     data_outputs_as_names = [
         wfe.SentimentDataType.Name(output)
         for output in execution_params.data_output
     ]
+    parent_exeuction_id = (
+        execution_params.parent_execution_id
+        if execution_params.parent_execution_id else None
+    )
 
     params = (
         wfe.SocialMediaSource.Name(execution_params.source),
@@ -125,7 +138,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         wfe.TopicType.Name(execution_params.topic_type),
         execution_params.topic,
         execution_params.start_time.ToDatetime(),
-        execution_params.end_time.ToDatetime()
+        execution_params.end_time.ToDatetime(),
+        parent_exeuction_id
     )
 
     new_id = self._postgres_client.insert_row(query, params)
