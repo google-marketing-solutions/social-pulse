@@ -123,7 +123,7 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     )
     old_table_ref = self._generate_table_ref(source_dataset_name)
     new_table_ref = self._generate_table_ref(target_dataset_name)
-    self._validate_rename_table_names(source_dataset_name, target_dataset_name)
+    self._validate_table_names(source_dataset_name, target_dataset_name)
 
     job_config = bigquery.CopyJobConfig()
     job_config.write_disposition = bigquery.WriteDisposition.WRITE_EMPTY

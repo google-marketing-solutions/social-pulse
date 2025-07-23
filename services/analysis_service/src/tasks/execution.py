@@ -17,7 +17,7 @@ import logging
 
 import luigi
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 from tasks import cleanup
 from tasks import core as task_core
 from tasks import generate_prompt
@@ -33,9 +33,9 @@ logger = logging.getLogger(__name__)
 
 
 SOURCE_TO_TASK_MAPPING = {
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
+    wfe.SocialMediaSource.YOUTUBE_VIDEO:
         youtube_data.FindYoutubeVideos,
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
+    wfe.SocialMediaSource.YOUTUBE_COMMENT:
         youtube_comments.FindYoutubeComments
 }
 
@@ -132,7 +132,7 @@ class ExecutionFinishTask(
 
     workflow_persistence_srv.update_status(
         self.execution_id,
-        wfe.Status.STATUS_COMPLETED
+        wfe.Status.COMPLETED
     )
     self._has_completed = True
 
@@ -170,7 +170,7 @@ class WorkflowExecution(
     Yields:
       The workflow execution task chain.
     """
-    if self.workflow_exec.status == wfe.Status.STATUS_COMPLETED:
+    if self.workflow_exec.status == wfe.Status.COMPLETED:
       logger.info(
           "Workflow execution '%s' is already completed, stopping execution.",
           self.execution_id
@@ -185,7 +185,7 @@ class WorkflowExecution(
     if (content_source not in SOURCE_TO_TASK_MAPPING):
       workflow_persistence_srv.update_status(
           self.execution_id,
-          wfe.Status.STATUS_FAILED
+          wfe.Status.FAILED
       )
       raise ValueError(f"Unknown social media source:  {content_source}")
 
@@ -217,18 +217,18 @@ class WorkflowExecution(
     source = self.workflow_exec.source
     logger.debug("Looking for content retrieve tasks for source: %s", source)
 
-    if source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
+    if source == wfe.SocialMediaSource.YOUTUBE_VIDEO:
       video_gather_task_cls = SOURCE_TO_TASK_MAPPING[
-          wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
+          wfe.SocialMediaSource.YOUTUBE_VIDEO
       ]
       video_gather_task = video_gather_task_cls(
           execution_id=self.execution_id,
           my_required_task=last_task_in_chain
       )
       task_chain.append(video_gather_task)
-    elif source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
+    elif source == wfe.SocialMediaSource.YOUTUBE_COMMENT:
       comment_gather_task_cls = SOURCE_TO_TASK_MAPPING[
-          wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT
+          wfe.SocialMediaSource.YOUTUBE_COMMENT
       ]
       comment_gather_task = comment_gather_task_cls(
           execution_id=self.execution_id,

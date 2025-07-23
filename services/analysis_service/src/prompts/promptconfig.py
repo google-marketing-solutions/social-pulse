@@ -18,7 +18,7 @@ import logging
 from prompts.configs import core
 from prompts.configs import text
 from prompts.configs import video
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 
 
 logger = logging.getLogger(__name__)
@@ -41,10 +41,10 @@ class PromptConfigFactory:
     output = self._workflow_exec.data_output[0]
     prompt_config_cls = None
 
-    if source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
-      if output == wfe.SENTIMENT_DATA_TYPE_SENTIMENT_SCORE:
+    if source == wfe.SocialMediaSource.YOUTUBE_VIDEO:
+      if output == wfe.SentimentDataType.SENTIMENT_SCORE:
         prompt_config_cls = video.BasicSentimentScoreFromVideoPromptConfig
-      elif output == wfe.SENTIMENT_DATA_TYPE_SHARE_OF_VOICE:
+      elif output == wfe.SentimentDataType.SHARE_OF_VOICE:
         prompt_config_cls = (
             video.ShareOfVoiceSentimentScoresFromVideoPromptConfig
         )

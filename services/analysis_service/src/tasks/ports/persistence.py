@@ -17,7 +17,7 @@ import abc
 
 import pandas as pd
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 
 
 class WorkflowExecutionPersistenceService(service.RegisterableService):

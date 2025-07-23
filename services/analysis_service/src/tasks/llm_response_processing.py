@@ -28,6 +28,7 @@ RESPONSE_COLUMN_NAME = "response"
 
 # Sentiment analysis columns extracted from the LLM response
 SUMMARY_COL_NAME = "summary"
+SENTIMENTS_COL_NAME = "sentiments"
 RELEVANCE_SCORE_COL_NAME = "relevanceScore"
 SENTIMENT_SCORE_COL_NAME = "sentimentScore"
 
@@ -35,8 +36,12 @@ SENTIMENT_SCORE_COL_NAME = "sentimentScore"
 # An empty sentiment analysis response, in case the LLM failed to provide one
 EMPTY_SENTIMENT_RESPONSE = {
     SUMMARY_COL_NAME: "",
-    RELEVANCE_SCORE_COL_NAME: 0.0,
-    SENTIMENT_SCORE_COL_NAME: 0.0,
+    SENTIMENTS_COL_NAME: [
+        {
+            RELEVANCE_SCORE_COL_NAME: 0.0,
+            SENTIMENT_SCORE_COL_NAME: 0.0,
+        }
+    ],
 }
 
 
@@ -97,8 +102,8 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
       analysis = json.loads(text)
 
       return pd.Series({
-          "summary": analysis.get("summary", ""),
-          "sentiments": analysis.get("sentiments", []),
+          SUMMARY_COL_NAME: analysis.get(SUMMARY_COL_NAME, ""),
+          SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
       })
     except Exception as e:  # pylint: disable=broad-exception-caught
       logger.exception(

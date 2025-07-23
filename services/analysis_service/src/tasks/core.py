@@ -19,7 +19,7 @@ import logging
 import luigi
 import pandas as pd
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 from tasks.ports import persistence
 
 

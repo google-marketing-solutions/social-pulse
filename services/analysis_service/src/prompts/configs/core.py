@@ -16,7 +16,7 @@ import abc
 import copy
 
 import pandas as pd
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 
 
 LLM_REQUEST_COL_NAME = "request"

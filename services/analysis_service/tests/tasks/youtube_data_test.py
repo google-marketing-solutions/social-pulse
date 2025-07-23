@@ -19,7 +19,7 @@ from unittest import mock
 import pandas as pd
 
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 from tasks import core as tasks_core
 from tasks import youtube_data
 from tasks.ports import apis as ports_apis
@@ -68,8 +68,8 @@ class YoutubeDataTest(unittest.TestCase):
     """Helper to create a standard mock workflow exec."""
     mock_exec = wfe.WorkflowExecutionParams()
     mock_exec.topic = "Test Topic"
-    mock_exec.start_time.FromDatetime(datetime.datetime(2025, 4, 1))
-    mock_exec.end_time.FromDatetime(datetime.datetime(2025, 5, 30))
+    mock_exec.start_time = datetime.datetime(2025, 4, 1)
+    mock_exec.end_time = datetime.datetime(2025, 5, 30)
 
     return mock_exec
 
