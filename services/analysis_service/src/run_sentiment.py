@@ -240,6 +240,15 @@ class RunSentimentAnalysis():
         local_scheduler=True
     )
 
+    if (
+        run_result.status != luigi.LuigiStatusCode.SUCCESS and
+        run_result.status != luigi.LuigiStatusCode.SUCCESS_WITH_RETRY
+    ):
+      self._workflow_exec_loader_service.update_status(
+          workflow_exec_id,
+          wfe.Status.FAILED
+      )
+
     logger.info("Luigi run result:\n%s", run_result.summary_text)
 
 

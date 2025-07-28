@@ -13,6 +13,7 @@
 #  limitations under the License.
 """Flatten LLM Response."""
 import json
+from json import decoder
 import logging
 import pandas as pd
 
@@ -98,6 +99,7 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
       if "parts" not in content or not content["parts"]:
         logger.info("[%s] No parts in LLM response.", self.task_family)
         return pd.Series(EMPTY_SENTIMENT_RESPONSE)
+
       text = parts[0]["text"]
       analysis = json.loads(text)
 
@@ -105,15 +107,15 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
           SUMMARY_COL_NAME: analysis.get(SUMMARY_COL_NAME, ""),
           SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
       })
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except decoder.JSONDecodeError as jde:
       logger.exception(
           "[%s] Error navigating LLM prediction JSON structure: %s. "
           "Snippet: %s",
           self.task_family,
-          e,
+          jde,
           prediction_json_str[:250] if prediction_json_str else ""
       )
-      raise
+      return pd.Series(EMPTY_SENTIMENT_RESPONSE)
 
   def run(self) -> None:
     """Loads LLM results, parses JSON, flattens, and saves."""
