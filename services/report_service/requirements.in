@@ -1,0 +1,13 @@
+cloud-sql-python-connector[psycopg2]
+coverage
+db-dtypes
+parameterized
+protobuf
+psycopg2-binary
+pyarrow
+pytest
+pytest-cov
+yoyo-migrations
+
+# Shared social pulse library
+-e file:../shared_lib

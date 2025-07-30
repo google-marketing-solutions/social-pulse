@@ -1,0 +1,29 @@
+[project]
+name = "report_service"
+version = "0.1.0"
+description = "Microservice for generating, managing and exporting reports."
+authors = [
+    {name = "", email = "jmistral@google.com"},
+]
+dependencies = []
+requires-python = "==3.12.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+log_level = "DEBUG"
+log_cli = false
+addopts = "--cov=src --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["src"]
+
+[tool.coverage.report]
+exclude_also = [
+    "tests/*",
+]
