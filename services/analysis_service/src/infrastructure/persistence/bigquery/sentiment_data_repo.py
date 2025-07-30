@@ -105,6 +105,66 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     # Wait for the load job to complete
     load_data_job.result()
 
+  def copy_sentiment_data(
+      self,
+      source_dataset_name: str,
+      target_dataset_name: str
+  ) -> None:
+    """Copies a sentiment data set to a provided name.
+
+    Args:
+      source_dataset_name: The name of the data set to copy from.
+      target_dataset_name: The name of the new data set to create.
+    """
+    logger.info(
+        "Copying data from table '%s' to table '%s'.",
+        source_dataset_name,
+        target_dataset_name
+    )
+    old_table_ref = self._generate_table_ref(source_dataset_name)
+    new_table_ref = self._generate_table_ref(target_dataset_name)
+    self._validate_table_names(source_dataset_name, target_dataset_name)
+
+    job_config = bigquery.CopyJobConfig()
+    job_config.write_disposition = bigquery.WriteDisposition.WRITE_EMPTY
+    copy_job = self._client.copy_table(
+        old_table_ref,
+        new_table_ref,
+        job_config=job_config,
+    )
+    copy_job.result()  # Waits for the job to complete
+    logger.info("Table successfully created: %s", new_table_ref)
+
+  def _validate_table_names(
+      self,
+      source_dataset_name: str,
+      target_dataset_name: str
+  ) -> None:
+    """Validates that the dataset names are valid for copying.
+
+    Args:
+      source_dataset_name: The name of the data set to copy from.
+      target_dataset_name: The name of the new data set to create.
+
+    Raises:
+      ValueError: If the old table does not exist or the new table already
+        exists.
+    """
+    if not self.exists(source_dataset_name):
+      logger.error(
+          "Existing table provided wasn't found: %s", source_dataset_name
+      )
+      raise ValueError(
+          f"Could not copy table, since it doesn't exist: {source_dataset_name}"
+      )
+
+    if self.exists(target_dataset_name):
+      logger.error("New table was found, aborting: %s", target_dataset_name)
+      raise ValueError(
+          f"Could not copy to new table, since it already exists: "
+          f"{target_dataset_name}"
+      )
+
   def _generate_table_ref(self, table_name: str) -> str:
     """Generates a fully qualified table reference string.
 

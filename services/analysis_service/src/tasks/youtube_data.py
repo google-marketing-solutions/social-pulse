@@ -90,13 +90,11 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
         max_results=max_results
     )
 
-    if self.workflow_exec.HasField("start_time"):
-      start_date = self.workflow_exec.start_time.ToDatetime().date()
-      criteria.published_after = start_date
+    if self.workflow_exec.start_time:
+      criteria.published_after = self.workflow_exec.start_time.date()
 
-    if self.workflow_exec.HasField("end_time"):
-      end_date = self.workflow_exec.end_time.ToDatetime().date()
-      criteria.published_before = end_date
+    if self.workflow_exec.end_time:
+      criteria.published_before = self.workflow_exec.end_time.date()
 
     logging.info(
         "[%s] Constructed search criteria: %s", self.task_family, criteria

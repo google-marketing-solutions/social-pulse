@@ -18,7 +18,7 @@ from unittest import mock
 import luigi
 import pandas as pd
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 from tasks import core as tasks_core
 from tasks import youtube_comments
 from tasks.ports import apis as ports_apis
@@ -135,7 +135,10 @@ class YoutubeCommentsTest(unittest.TestCase):
 
   def test_run_loads_input_from_required_task_target(self):
     """Verifies that run() loads data from preceding task's output target."""
-    expected_input_df = pd.DataFrame({"videoId": ["vidTest"]})
+    expected_input_df = pd.DataFrame({
+        "videoId": ["vidTest"],
+        "summary": ["a video summary"]
+    })
     self.mock_input_video_target.load_sentiment_data.return_value = (
         expected_input_df
     )
@@ -151,7 +154,10 @@ class YoutubeCommentsTest(unittest.TestCase):
     """Tests main run logic: load input, fetch comments, flatten, write."""
 
     # Configure input data (from FindYoutubeVideos)
-    input_videos_df = pd.DataFrame({"videoId": ["vidWithReplies"]})
+    input_videos_df = pd.DataFrame({
+        "videoId": ["vidWithReplies"],
+        "summary": ["a video summary"]
+    })
     self.mock_input_video_target.load_sentiment_data.return_value = (
         input_videos_df
     )
@@ -167,6 +173,7 @@ class YoutubeCommentsTest(unittest.TestCase):
             "likeCount": [10, 2],
             "numOfReplies": [1, 0],  # Top-level has 1, reply has 0
             "parentId": [pd.NA, "top1"],
+            "summary": ["a video summary", "a video summary"],
         }
     ).astype({"likeCount": "int64", "numOfReplies": "int64"})
 

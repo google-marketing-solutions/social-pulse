@@ -31,7 +31,7 @@ class ProcessLlmSentimentResponsesTest(
       self,
       llm_sentiment_response: dict[str, any]
   ) -> str:
-    encoded_sentiment_response = json.dumps([llm_sentiment_response])
+    encoded_sentiment_response = json.dumps(llm_sentiment_response)
     outer_response = {
         "candidates": [
             {
@@ -96,12 +96,12 @@ class ProcessLlmSentimentResponsesTest(
       )
       task.run()
 
-  def test_returns_empty_analysis_if_response_has_invalid_json(self):
-    """Returns empty analysis if response has invalid JSON.
+  def test_raises_error_if_response_has_invalid_json(self):
+    """Raises an error if the LLM response has invalid JSON.
 
     Given the LLM response has invalid JSON
     When the task is executed
-    Then an empty analysis is returned
+    Then an error is raised
     """
     self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
         {
@@ -109,21 +109,12 @@ class ProcessLlmSentimentResponsesTest(
         }
     ])
 
-    task = lrp.ProcessLlmSentimentResponses(
-        execution_id="some_execution_id",
-        my_required_task=self.mock_required_task
-    )
-    task.run()
-
-    self.assert_output_dataframe_matches(
-        pd.DataFrame([
-            {
-                "summary": "",
-                "relevanceScore": 0.0,
-                "sentimentScore": 0.0,
-            }
-        ])
-    )
+    with self.assertRaises(Exception):
+      task = lrp.ProcessLlmSentimentResponses(
+          execution_id="some_execution_id",
+          my_required_task=self.mock_required_task
+      )
+      task.run()
 
   def test_returns_empty_analysis_if_no_candidates_in_llm_response(self):
     """Returns empty analysis if no candidates in LLM response.
@@ -148,8 +139,12 @@ class ProcessLlmSentimentResponsesTest(
         pd.DataFrame([
             {
                 "summary": "",
-                "relevanceScore": 0.0,
-                "sentimentScore": 0.0,
+                "sentiments": [
+                    {
+                        "relevanceScore": 0.0,
+                        "sentimentScore": 0.0,
+                    }
+                ]
             }
         ])
     )
@@ -188,8 +183,12 @@ class ProcessLlmSentimentResponsesTest(
         pd.DataFrame([
             {
                 "summary": "",
-                "relevanceScore": 0.0,
-                "sentimentScore": 0.0,
+                "sentiments": [
+                    {
+                        "relevanceScore": 0.0,
+                        "sentimentScore": 0.0,
+                    }
+                ]
             }
         ])
     )
@@ -204,12 +203,17 @@ class ProcessLlmSentimentResponsesTest(
 
     llm_sentiment_response = {
         "summary": "a summary",
-        "relevanceScore": 0.5,
-        "sentimentScore": 0.7
+        "sentiments": [
+            {
+                "relevanceScore": 0.5,
+                "sentimentScore": 0.7
+            }
+        ]
     }
     response_json_string = self.generate_test_llm_response(
         llm_sentiment_response
     )
+    print(response_json_string)
     self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
         {"response": response_json_string}
     ])
@@ -224,8 +228,12 @@ class ProcessLlmSentimentResponsesTest(
         pd.DataFrame([
             {
                 "summary": "a summary",
-                "relevanceScore": 0.5,
-                "sentimentScore": 0.7,
+                "sentiments": [
+                    {
+                        "relevanceScore": 0.5,
+                        "sentimentScore": 0.7
+                    }
+                ]
             }
         ])
     )

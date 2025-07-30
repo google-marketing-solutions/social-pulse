@@ -17,12 +17,13 @@ import logging
 
 import luigi
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
+from tasks import cleanup
 from tasks import core as task_core
+from tasks import generate_prompt
 from tasks import llm_response_processing
+from tasks import load_parent_data
 from tasks import run_sentiment_job
-from tasks import text_prompt
-from tasks import video_prompt
 from tasks import youtube_comments
 from tasks import youtube_data
 from tasks.ports import persistence
@@ -32,17 +33,10 @@ logger = logging.getLogger(__name__)
 
 
 SOURCE_TO_TASK_MAPPING = {
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
+    wfe.SocialMediaSource.YOUTUBE_VIDEO:
         youtube_data.FindYoutubeVideos,
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
+    wfe.SocialMediaSource.YOUTUBE_COMMENT:
         youtube_comments.FindYoutubeComments
-}
-
-SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING = {
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO:
-        video_prompt.GenerateLlmVideoAnalysisPrompts,
-    wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
-        text_prompt.GenerateLlmTextAnalysisPrompts
 }
 
 
@@ -138,7 +132,7 @@ class ExecutionFinishTask(
 
     workflow_persistence_srv.update_status(
         self.execution_id,
-        wfe.Status.STATUS_COMPLETED
+        wfe.Status.COMPLETED
     )
     self._has_completed = True
 
@@ -176,7 +170,7 @@ class WorkflowExecution(
     Yields:
       The workflow execution task chain.
     """
-    if self.workflow_exec.status == wfe.Status.STATUS_COMPLETED:
+    if self.workflow_exec.status == wfe.Status.COMPLETED:
       logger.info(
           "Workflow execution '%s' is already completed, stopping execution.",
           self.execution_id
@@ -188,32 +182,20 @@ class WorkflowExecution(
     )
 
     content_source = self.workflow_exec.source
-    if (
-        content_source not in SOURCE_TO_TASK_MAPPING or
-        content_source not in SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING
-    ):
+    if (content_source not in SOURCE_TO_TASK_MAPPING):
       workflow_persistence_srv.update_status(
           self.execution_id,
-          wfe.Status.STATUS_FAILED
+          wfe.Status.FAILED
       )
       raise ValueError(f"Unknown social media source:  {content_source}")
 
     starting_task = ExecutionStartTask(execution_id=self.execution_id)
     task_chain = [starting_task]
 
+    self._attach_load_parent_workflow_dataset(task_chain)
     self._attach_retrieve_content_tasks(task_chain)
     self._attach_analysis_tasks(task_chain)
-
-    if self.workflow_exec.last_completed_task_id:
-      logger.info(
-          "Restarting workflow execution '%s' from task '%s'",
-          self.execution_id,
-          self.workflow_exec.last_completed_task_id
-      )
-      task_chain = self._prune_completed_tasks_from_chain(
-          task_chain,
-          self.workflow_exec.last_completed_task_id
-      )
+    self._attach_cleanup_task(task_chain)
 
     last_task_in_chain = task_chain[-1]
     finishing_task = ExecutionFinishTask(
@@ -222,7 +204,7 @@ class WorkflowExecution(
     )
     task_chain.append(finishing_task)
 
-    logger.debug("Workflow execution task chain: %s", task_chain)
+    logger.info("Workflow execution task chain: %s", task_chain)
     yield task_chain
 
   def _attach_retrieve_content_tasks(self, task_chain: list[luigi.Task]):
@@ -235,28 +217,24 @@ class WorkflowExecution(
     source = self.workflow_exec.source
     logger.debug("Looking for content retrieve tasks for source: %s", source)
 
-    if (
-        source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO or
-        source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT
-    ):
+    if source == wfe.SocialMediaSource.YOUTUBE_VIDEO:
       video_gather_task_cls = SOURCE_TO_TASK_MAPPING[
-          wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO
+          wfe.SocialMediaSource.YOUTUBE_VIDEO
       ]
       video_gather_task = video_gather_task_cls(
           execution_id=self.execution_id,
           my_required_task=last_task_in_chain
       )
       task_chain.append(video_gather_task)
-
-      if source == wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT:
-        comment_gather_task_cls = SOURCE_TO_TASK_MAPPING[
-            wfe.SocialMediaSource.SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT
-        ]
-        comment_gather_task = comment_gather_task_cls(
-            execution_id=self.execution_id,
-            my_required_task=video_gather_task
-        )
-        task_chain.append(comment_gather_task)
+    elif source == wfe.SocialMediaSource.YOUTUBE_COMMENT:
+      comment_gather_task_cls = SOURCE_TO_TASK_MAPPING[
+          wfe.SocialMediaSource.YOUTUBE_COMMENT
+      ]
+      comment_gather_task = comment_gather_task_cls(
+          execution_id=self.execution_id,
+          my_required_task=last_task_in_chain
+      )
+      task_chain.append(comment_gather_task)
 
   def _attach_analysis_tasks(self, task_chain: list[luigi.Task]):
     """Attaches data prep and analysis tasks to the task chain.
@@ -265,18 +243,9 @@ class WorkflowExecution(
       task_chain: The task chain to attach the analysis tasks to.
     """
     last_task_in_chain = task_chain[-1]
-    source = self.workflow_exec.source
 
     # Add appropriate prompt generation task.
-    logger.debug("Looking for prompt generation task for source: %s", source)
-    prompt_generation_task_cls = SOURCE_TO_PROMPT_GENERATION_TASK_MAPPING[
-        source
-    ]
-
-    logger.debug(
-        "Instantiating prompt generating task: %s", prompt_generation_task_cls
-    )
-    prompt_generation_task = prompt_generation_task_cls(
+    prompt_generation_task = generate_prompt.GenerateLlmPromptForContentTask(
         execution_id=self.execution_id,
         my_required_task=last_task_in_chain
     )
@@ -297,29 +266,32 @@ class WorkflowExecution(
     )
     task_chain.append(process_response_task)
 
-  def _prune_completed_tasks_from_chain(
-      self,
-      task_chain: list[task_core.SentimentTask],
-      last_completed_task: str
-  ) -> list[task_core.SentimentTask]:
-    """Prunes completed tasks from the task chain.
-
-    Finds the last completed task in the task chain, and then prunes it and all
-    preceding tasks from the chain.
+  def _attach_load_parent_workflow_dataset(self, task_chain: list[luigi.Task]):
+    """Attaches loading the parent workflow dataset task to the task chain.
 
     Args:
-      task_chain: The task chain to prune completed tasks from.
-      last_completed_task: The task family name of the last completed task.
-    Returns:
-      Task chain (list of SentimentTasks) pruned of completed tasks.
+      task_chain: The task chain to attach the loading task to.
     """
-    for i, task in enumerate(task_chain):
-      if task.get_task_family() == last_completed_task:
-        return task_chain[i + 1:]
-    else:
-      logger.info(
-          "Last completed task '%s' not found in chain, so restarting from "
-          "beginning",
-          last_completed_task
-      )
-      return task_chain
+    if not self.workflow_exec.parent_execution_id:
+      # No-op:  No parent workflow to load data from, so returning
+      return
+
+    last_task_in_chain = task_chain[-1]
+    load_parent_data_task = load_parent_data.LoadParentWorkflowDatasetTask(
+        execution_id=self.execution_id,
+        my_required_task=last_task_in_chain
+    )
+    task_chain.append(load_parent_data_task)
+
+  def _attach_cleanup_task(self, task_chain: list[luigi.Task]):
+    """Attaches a cleanup task to the task chain.
+
+    Args:
+      task_chain: The task chain to attach the cleanup task to.
+    """
+    last_task_in_chain = task_chain[-1]
+    cleanup_task = cleanup.CleanupTask(
+        execution_id=self.execution_id,
+        my_required_task=last_task_in_chain
+    )
+    task_chain.append(cleanup_task)

@@ -17,7 +17,7 @@ import abc
 
 import pandas as pd
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 
 
 class WorkflowExecutionPersistenceService(service.RegisterableService):
@@ -125,5 +125,18 @@ class SentimentDataRepo(service.RegisterableService, abc.ABC):
       dataset_name: The name of the table to write data to.
       sentiment_dataset: The pandas DataFrame containing the sentiment data to
         write.
+    """
+    raise NotImplementedError
+
+  def copy_sentiment_data(
+      self,
+      source_dataset_name: str,
+      target_dataset_name: str
+  ) -> None:
+    """Copies a sentiment data set to a provided name.
+
+    Args:
+      source_dataset_name: The name of the data set to copy from.
+      target_dataset_name: The name of the new data set to create.
     """
     raise NotImplementedError

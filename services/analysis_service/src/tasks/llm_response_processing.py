@@ -13,6 +13,7 @@
 #  limitations under the License.
 """Flatten LLM Response."""
 import json
+from json import decoder
 import logging
 import pandas as pd
 
@@ -28,6 +29,7 @@ RESPONSE_COLUMN_NAME = "response"
 
 # Sentiment analysis columns extracted from the LLM response
 SUMMARY_COL_NAME = "summary"
+SENTIMENTS_COL_NAME = "sentiments"
 RELEVANCE_SCORE_COL_NAME = "relevanceScore"
 SENTIMENT_SCORE_COL_NAME = "sentimentScore"
 
@@ -35,8 +37,12 @@ SENTIMENT_SCORE_COL_NAME = "sentimentScore"
 # An empty sentiment analysis response, in case the LLM failed to provide one
 EMPTY_SENTIMENT_RESPONSE = {
     SUMMARY_COL_NAME: "",
-    RELEVANCE_SCORE_COL_NAME: 0.0,
-    SENTIMENT_SCORE_COL_NAME: 0.0,
+    SENTIMENTS_COL_NAME: [
+        {
+            RELEVANCE_SCORE_COL_NAME: 0.0,
+            SENTIMENT_SCORE_COL_NAME: 0.0,
+        }
+    ],
 }
 
 
@@ -87,28 +93,26 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
 
       candidate = llm_response["candidates"][0]
       content = candidate["content"]
+
+      # Response comes with unnecessary list of 'parts' we need to deal with
       parts = content["parts"]
       if "parts" not in content or not content["parts"]:
         logger.info("[%s] No parts in LLM response.", self.task_family)
         return pd.Series(EMPTY_SENTIMENT_RESPONSE)
 
-      # Response comes with unnecessary lists we need to deal with
-      #   1) There's a list of "parts" objects
-      #   2) There's a list of "text" objects
       text = parts[0]["text"]
-      analysis = json.loads(text)[0]
+      analysis = json.loads(text)
 
       return pd.Series({
-          "summary": analysis.get("summary", ""),
-          "relevanceScore": analysis.get("relevanceScore", 0.0),
-          "sentimentScore": analysis.get("sentimentScore", 0.0),
+          SUMMARY_COL_NAME: analysis.get(SUMMARY_COL_NAME, ""),
+          SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
       })
-    except Exception as e:  # pylint: disable=broad-exception-caught
+    except decoder.JSONDecodeError as jde:
       logger.exception(
           "[%s] Error navigating LLM prediction JSON structure: %s. "
           "Snippet: %s",
           self.task_family,
-          e,
+          jde,
           prediction_json_str[:250] if prediction_json_str else ""
       )
       return pd.Series(EMPTY_SENTIMENT_RESPONSE)
@@ -129,7 +133,7 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
     )
 
     self._validate_input_dataset(llm_results)
-    llm_results[["summary", "relevanceScore", "sentimentScore"]] = (
+    llm_results[["summary", "sentiments"]] = (
         llm_results.apply(self.extract_response_columns, axis=1)
     )
     llm_results = llm_results.drop(columns=[RESPONSE_COLUMN_NAME])

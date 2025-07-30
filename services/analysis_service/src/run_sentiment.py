@@ -18,7 +18,6 @@ import argparse
 import datetime
 import logging
 
-from google.protobuf import timestamp_pb2
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
 from infrastructure.persistence.bigquery import sentiment_data_repo
@@ -27,7 +26,7 @@ from infrastructure.persistence.postgresdb import workflow_data_repo
 import luigi
 from socialpulse_common import config
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 from tasks import execution
 from tasks.ports import apis
 from tasks.ports import persistence
@@ -70,6 +69,10 @@ parser.add_argument(
     "--source",
     type=str,
     required=True,
+    default="YOUTUBE_VIDEO",
+    choices=[
+        source.name for source in wfe.SocialMediaSource
+    ],
     help="Social media content source to retrieve ('Youtube', 'Twitter', etc.)."
 )
 parser.add_argument(
@@ -80,13 +83,12 @@ parser.add_argument(
          "sentiment analysis for."
 )
 parser.add_argument(
-    "--outputs",
+    "--output",
     type=str,
     nargs="+",
-    default=["SENTIMENT_DATA_TYPE_SENTIMENT_SCORE"],
+    default=["SENTIMENT_SCORE"],
     choices=[
-        value_descriptor.name
-        for value_descriptor in wfe.SentimentDataType.DESCRIPTOR.values
+        data_type.name for data_type in wfe.SentimentDataType
     ],
     help="Types of sentiment data to output. Defaults to sentiment score."
 )
@@ -102,6 +104,12 @@ parser.add_argument(
     default=datetime.date.today(),
     help="End date of the analysis window (format: YYYY-MM-DD). "
          "Defaults to today."
+)
+parser.add_argument(
+    "--parent_execution_id",
+    type=str,
+    default=None,
+    help="Parent workflow execution ID."
 )
 args = parser.parse_args()
 
@@ -126,15 +134,17 @@ class RunSentimentAnalysis():
       self,
       topic: str,
       source: str,
-      outputs: list[str],
+      output: list[str],
       start_date: datetime.date,
-      end_date: datetime.date | None
+      end_date: datetime.date | None,
+      parent_execution_id: str | None
   ):
     self._topic = topic
     self._source = source
-    self._outputs = outputs
+    self._output = output
     self._start_date = start_date
     self._end_date = end_date
+    self._parent_execution_id = parent_execution_id
 
     self._register_workflow_exec_persistence_service()
     self._register_sentiment_data_repo()
@@ -198,26 +208,21 @@ class RunSentimentAnalysis():
     """
     wfe_params = wfe.WorkflowExecutionParams()
 
-    wfe_params.source = wfe.SocialMediaSource.Value(self._source)
+    wfe_params.source = wfe.SocialMediaSource[self._source]
     wfe_params.topic = self._topic
+    wfe_params.topic_type = wfe.TopicType.BRAND_OR_PRODUCT
 
-    for output in self._outputs:
-      wfe_params.data_outputs.append(
-          wfe.SentimentDataType.Value(output)
+    for output in self._output:
+      wfe_params.data_output.append(
+          wfe.SentimentDataType[output]
       )
 
-    start_time_proto = timestamp_pb2.Timestamp()
-    start_time_proto.FromDatetime(
-        datetime.datetime.combine(self._start_date, datetime.time.min)
-    )
-    wfe_params.start_time.CopyFrom(start_time_proto)
-
+    wfe_params.start_time = self._start_date
     if self._end_date:
-      end_time_proto = timestamp_pb2.Timestamp()
-      end_time_proto.FromDatetime(
-          datetime.datetime.combine(self._end_date, datetime.time.max)
-      )
-      wfe_params.end_time.CopyFrom(end_time_proto)
+      wfe_params.end_time = self._end_date
+
+    if self._parent_execution_id:
+      wfe_params.parent_execution_id = self._parent_execution_id
 
     return wfe_params
 
@@ -235,6 +240,15 @@ class RunSentimentAnalysis():
         local_scheduler=True
     )
 
+    if (
+        run_result.status != luigi.LuigiStatusCode.SUCCESS and
+        run_result.status != luigi.LuigiStatusCode.SUCCESS_WITH_RETRY
+    ):
+      self._workflow_exec_loader_service.update_status(
+          workflow_exec_id,
+          wfe.Status.FAILED
+      )
+
     logger.info("Luigi run result:\n%s", run_result.summary_text)
 
 
@@ -243,16 +257,18 @@ if __name__ == "__main__":
   print(f"Verbose logging?: {args.verbose}")
   print(f"Source: {args.source}")
   print(f"Topic: {args.topic}")
-  print(f"Data Outputs: {args.outputs}")
+  print(f"Data Output: {args.output}")
   print(f"Start Date: {args.start_date} (Type: {type(args.start_date)})")
   print(f"End Date: {args.end_date} (Type: {type(args.end_date)})")
+  print(f"Parent Execution ID: {args.parent_execution_id}")
   print("--------------------------\n")
 
   analysis = RunSentimentAnalysis(
       topic=args.topic,
       source=args.source,
-      outputs=args.outputs,
+      output=args.output,
       start_date=args.start_date,
-      end_date=args.end_date
+      end_date=args.end_date,
+      parent_execution_id=args.parent_execution_id
   )
   analysis.run()

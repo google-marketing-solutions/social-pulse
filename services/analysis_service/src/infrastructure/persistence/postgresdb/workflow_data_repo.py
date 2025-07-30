@@ -14,14 +14,26 @@
 """Module for loading workflow data params from the Social Post PostgresDB."""
 import logging
 
-from google.protobuf import timestamp_pb2
-from socialpulse_common.messages import workflow_execution_pb2 as wfe
+from socialpulse_common.messages import workflow_execution as wfe
 from tasks.ports import persistence
 
 from . import client
 
 
 logger = logging.getLogger(__name__)
+
+
+# Column index constants
+EXECUTION_ID_COL_INDEX = 0
+SOURCE_COL_INDEX = 1
+DATAOUTPUTS_COL_INDEX = 2
+TOPICTYPE_COL_INDEX = 3
+TOPIC_COL_INDEX = 4
+STARTDATE_COL_INDEX = 5
+ENDDATE_COL_INDEX = 6
+STATUS_COL_INDEX = 7
+LASTCOMPLETEDTASK_COL_INDEX = 8
+PARENT_EXECUTION_ID_COL_INDEX = 9
 
 
 class PostgresDbWorkflowExecutionPersistenceService(
@@ -49,32 +61,39 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  topicType, "
         "  topic, "
         "  dateRangeStart, "
-        "  dateRangeEnd "
+        "  dateRangeEnd, "
+        "  status, "
+        "  lastCompletedTask, "
+        "  parentExecutionId "
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
-        (execution_id,)
+        (execution_id,),
     )
     if not row:
       raise ValueError(f"No workflow execution found with ID: {execution_id}")
 
-    source_lookup = wfe.SocialMediaSource.DESCRIPTOR.values_by_name
-    topic_type_lookup = wfe.TopicType.DESCRIPTOR.values_by_name
-
     logger.debug("Raw row data = %s", row)
     wfe_params = wfe.WorkflowExecutionParams()
-    wfe_params.execution_id = row[0]
-    wfe_params.source = source_lookup[row[1]].number
-    wfe_params.data_outputs.extend(self._parse_data_outputs(row[2]))
-    wfe_params.topic_type = topic_type_lookup[row[3]].number
-    wfe_params.topic = row[4]
 
-    start_time_proto = timestamp_pb2.Timestamp()
-    start_time_proto.FromDatetime(row[5])
-    wfe_params.start_time.CopyFrom(start_time_proto)
+    wfe_params.execution_id = row[EXECUTION_ID_COL_INDEX]
+    wfe_params.source = wfe.SocialMediaSource[row[SOURCE_COL_INDEX]]
+    wfe_params.data_output = self._parse_data_outputs(
+        row[DATAOUTPUTS_COL_INDEX]
+    )
+    wfe_params.topic_type = wfe.TopicType[row[TOPICTYPE_COL_INDEX]]
+    wfe_params.topic = row[TOPIC_COL_INDEX]
+    wfe_params.start_time = row[STARTDATE_COL_INDEX]
+    wfe_params.end_time = row[ENDDATE_COL_INDEX]
 
-    end_time_proto = timestamp_pb2.Timestamp()
-    end_time_proto.FromDatetime(row[6])
-    wfe_params.end_time.CopyFrom(end_time_proto)
+    wfe_params.status = wfe.Status[row[STATUS_COL_INDEX]]
+    wfe_params.last_completed_task_id = (
+        row[LASTCOMPLETEDTASK_COL_INDEX]
+        if row[LASTCOMPLETEDTASK_COL_INDEX] else ""
+    )
+    wfe_params.parent_execution_id = (
+        row[PARENT_EXECUTION_ID_COL_INDEX]
+        if row[PARENT_EXECUTION_ID_COL_INDEX] else ""
+    )
 
     return wfe_params
 
@@ -83,10 +102,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
       from_db: list[str]
   ) -> list[wfe.SentimentDataType]:
     data_outputs = []
-    sentiment_data_type_lookup = wfe.SentimentDataType.DESCRIPTOR.values_by_name
-
     for data_output in from_db:
-      data_outputs.append(sentiment_data_type_lookup[data_output].number)
+      data_outputs.append(wfe.SentimentDataType[data_output])
     return data_outputs
 
   def create_execution(
@@ -109,23 +126,28 @@ class PostgresDbWorkflowExecutionPersistenceService(
           topicType,
           topic,
           dateRangeStart,
-          dateRangeEnd
+          dateRangeEnd,
+          parentExecutionId
         )
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
     """
     data_outputs_as_names = [
-        wfe.SentimentDataType.Name(output)
-        for output in execution_params.data_outputs
+        output.name for output in execution_params.data_output
     ]
+    parent_exeuction_id = (
+        execution_params.parent_execution_id
+        if execution_params.parent_execution_id else None
+    )
 
     params = (
-        wfe.SocialMediaSource.Name(execution_params.source),
+        execution_params.source.name,
         data_outputs_as_names,
-        wfe.TopicType.Name(execution_params.topic_type),
+        execution_params.topic_type.name,
         execution_params.topic,
-        execution_params.start_time.ToDatetime(),
-        execution_params.end_time.ToDatetime()
+        execution_params.start_time,
+        execution_params.end_time,
+        parent_exeuction_id
     )
 
     new_id = self._postgres_client.insert_row(query, params)
@@ -149,7 +171,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
     query: str = """
         UPDATE WorkflowExecutionParams
         SET lastCompletedTask = %s,
-            status = 'STATUS_IN_PROGRESS',
+            status = 'IN_PROGRESS',
             lastUpdatedOn = NOW()
         WHERE executionId = %s;
     """
@@ -173,5 +195,5 @@ class PostgresDbWorkflowExecutionPersistenceService(
             lastUpdatedOn = NOW()
         WHERE executionId = %s;
     """
-    params = (wfe.Status.Name(status), execution_id)
+    params = (status.name, execution_id)
     self._postgres_client.update_row(query, params)
