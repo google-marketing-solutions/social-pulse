@@ -18,6 +18,7 @@ import logging
 from prompts.configs import core
 from prompts.configs import text
 from prompts.configs import video
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import workflow_execution as wfe
 
 
@@ -41,10 +42,10 @@ class PromptConfigFactory:
     output = self._workflow_exec.data_output[0]
     prompt_config_cls = None
 
-    if source == wfe.SocialMediaSource.YOUTUBE_VIDEO:
-      if output == wfe.SentimentDataType.SENTIMENT_SCORE:
+    if source == common_msg.SocialMediaSource.YOUTUBE_VIDEO:
+      if output == common_msg.SentimentDataType.SENTIMENT_SCORE:
         prompt_config_cls = video.BasicSentimentScoreFromVideoPromptConfig
-      elif output == wfe.SentimentDataType.SHARE_OF_VOICE:
+      elif output == common_msg.SentimentDataType.SHARE_OF_VOICE:
         prompt_config_cls = (
             video.ShareOfVoiceSentimentScoresFromVideoPromptConfig
         )

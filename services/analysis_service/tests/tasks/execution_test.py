@@ -15,6 +15,7 @@
 import unittest
 
 import sentiment_task_mixins as test_mixins
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import workflow_execution as wfe
 from tasks import core as tasks_core
 from tasks import execution
@@ -31,7 +32,7 @@ class ExecutionTest(
     self.mock_execution_params.status = wfe.Status.NEW
     self.mock_execution_params.last_completed_task_id = None
     self.mock_execution_params.data_output = [
-        wfe.SentimentDataType.SENTIMENT_SCORE
+        common_msg.SentimentDataType.SENTIMENT_SCORE
     ]
 
   def assert_task_in_list(
@@ -93,7 +94,7 @@ class ExecutionTest(
     Then a ValueError is raised
     """
     self.mock_execution_params.source = (
-        wfe.SocialMediaSource.UNKNOWN
+        common_msg.SocialMediaSource.UNKNOWN
     )
 
     with self.assertRaises(ValueError) as ve:
@@ -115,7 +116,7 @@ class ExecutionTest(
     And FindYoutubeComments task is not added.
     """
     self.mock_execution_params.source = (
-        wfe.SocialMediaSource.YOUTUBE_VIDEO
+        common_msg.SocialMediaSource.YOUTUBE_VIDEO
     )
 
     execution_task = execution.WorkflowExecution(execution_id="test_id")
@@ -139,7 +140,7 @@ class ExecutionTest(
     And FindYoutubeComments task is added to the task chain
     """
     self.mock_execution_params.source = (
-        wfe.SocialMediaSource.YOUTUBE_COMMENT
+        common_msg.SocialMediaSource.YOUTUBE_COMMENT
     )
 
     execution_task = execution.WorkflowExecution(execution_id="test_id")
@@ -161,7 +162,7 @@ class ExecutionTest(
     self.mock_execution_params.status = wfe.Status.IN_PROGRESS
     self.mock_execution_params.last_completed_task_id = "foo"
     self.mock_execution_params.source = (
-        wfe.SocialMediaSource.YOUTUBE_VIDEO
+        common_msg.SocialMediaSource.YOUTUBE_VIDEO
     )
 
     execution_task = execution.WorkflowExecution(execution_id="test_id")
