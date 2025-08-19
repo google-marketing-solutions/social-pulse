@@ -1,6 +1,8 @@
 cloud-sql-python-connector[psycopg2]
 coverage
 db-dtypes
+flask
+functions-framework
 google_api_python_client
 luigi
 pandas
