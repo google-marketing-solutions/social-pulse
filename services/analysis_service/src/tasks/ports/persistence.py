@@ -80,6 +80,18 @@ class WorkflowExecutionPersistenceService(service.RegisterableService):
     """
     raise NotImplementedError
 
+  @abc.abstractmethod
+  def find_ready_executions(self) -> list[wfe.WorkflowExecutionParams]:
+    """Finds all workflow executions that are ready to be processed.
+
+    This includes workflows with a 'NEW' status that either have no parent
+    or have a parent that is 'COMPLETED'.
+
+    Returns:
+        A list of WorkflowExecutionParams objects for ready workflows.
+    """
+    raise NotImplementedError
+
 
 class SentimentDataRepo(service.RegisterableService, abc.ABC):
   """Service for reading/writing data to the sentiment data set repo.

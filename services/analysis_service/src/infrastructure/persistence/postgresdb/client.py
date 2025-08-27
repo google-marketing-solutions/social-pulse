@@ -25,7 +25,7 @@ MAX_OPEN_CONNS = 5
 logger = logging.getLogger(__name__)
 
 
-class PostgresDbClient():
+class PostgresDbClient:
   """Client for interacting with a Postgres database.
 
   This class is implemented as a singleton to ensure only one connection pool
@@ -46,7 +46,7 @@ class PostgresDbClient():
       port: str | None = None,
       user: str | None = None,
       password: str | None = None,
-      database: str | None = None
+      database: str | None = None,
   ):
     if self._is_initialized:
       return
@@ -63,7 +63,7 @@ class PostgresDbClient():
         self.host,
         self.port,
         self.user,
-        self.database
+        self.database,
     )
     self._connection_pool = self._init_connection_pool()
     self._is_initialized = True
@@ -85,13 +85,11 @@ class PostgresDbClient():
         port=self.port,
         dbname=self.database,
         user=self.user,
-        password=self.password
+        password=self.password,
     )
 
   def retrieve_row(
-      self,
-      query: str,
-      params: tuple[any, ...] = None
+      self, query: str, params: tuple[any, ...] = None
   ) -> tuple[any, ...]:
     """Retrieves a single row from the database based on the given query.
 
@@ -178,6 +176,38 @@ class PostgresDbClient():
     except Exception:
       conn.rollback()
       raise
+    finally:
+      if conn is not None:
+        self._connection_pool.putconn(conn)
+
+  def retrieve_rows(
+      self, query: str, params: tuple[any, ...] = None
+  ) -> list[tuple[any, ...]]:
+    """Retrieves multiple rows from the database based on the given query.
+
+    Args:
+        query (str): The SQL query to execute.
+        params (tuple, optional): Parameters to pass to the query. Defaults to
+          None.
+
+    Returns:
+        A list of tuples, where each tuple is a row. Returns an empty list
+        if no rows are found.
+
+    Raises:
+        psycopg2.Error: If there is an error executing the query.
+    """
+
+    results = []
+    conn = None
+
+    try:
+      conn = self._connection_pool.getconn()
+      with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+
+      return results
     finally:
       if conn is not None:
         self._connection_pool.putconn(conn)
