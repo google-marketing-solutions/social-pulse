@@ -14,29 +14,17 @@
 """Module for report persistence service interfaces/abstract classes."""
 
 import abc
-import dataclasses
+import enum
 import typing
 
-from socialpulse_common import service
-from socialpulse_common.messages import common as msg_common
 from socialpulse_common.messages import sentiment_report
 
 
-@dataclasses.dataclass
-class SentimentReportSearchFilter:
-  """Filter for searching sentiment reports.
-
-  Properties:
-    status: The status of the sentiment report to filter by.
-  """
-  status: msg_common.SentimentReportStatus
-
-
-class SentimentReportRepo(abc.ABC, service.RegisterableService):
+class SentimentReportRepo(abc.ABC):
   """Interface for CRUD operations on a sentiment report."""
 
   @abc.abstractmethod
-  def get_report(self, report_id: str):
+  def load_report(self, report_id: str):
     """Retrieves a sentiment report by its ID."""
     raise NotImplementedError
 
@@ -54,18 +42,39 @@ class SentimentReportRepo(abc.ABC, service.RegisterableService):
     raise NotImplementedError
 
 
-class SentimentReportSearchRepo(abc.ABC, service.RegisterableService):
+class SentimentReportsSortBy(enum.StrEnum):
+  """Enum of sentiment report columns to sort by."""
+  STATUS = "status"
+  TOPIC = "topic"
+  START_DATE = "start_date"
+  END_DATE = "end_date"
+
+
+class SentimentReportSearchCriteria:
+  """Criteria for filtering/sorting sentiment reports.
+
+  Properties:
+    status: The status of the sentiment report to filter by.
+    topic: The topic of the sentiment report to filter by.
+  """
+  status: sentiment_report.Status
+  topic_contains: str
+  sort_by: SentimentReportsSortBy
+  sort_ascending: bool = True
+
+
+class SentimentReportSearchRepo(abc.ABC):
   """Interface for searching sentiment reports."""
 
   @abc.abstractmethod
-  def find_reports(
+  def get_reports(
       self,
-      filters: typing.List[SentimentReportSearchFilter]
+      criteria: SentimentReportSearchCriteria
   ) -> typing.List[sentiment_report.SentimentReport]:
     """Retrieves sentiment reports by the provided filters.
 
     Args:
-      filters: A list of filters to apply to the search.
+      criteria: Criteria by which to filter/sort the results.
     Returns:
-      A list of sentiment reports matching the provided filters.
+      A list of sentiment reports matching the provided criteria.
     """

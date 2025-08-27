@@ -89,7 +89,7 @@
    ```
    psql -U social_pulse_reporting_user -d social_pulse_reporting_db -h localhost -W
 
-   SELECT has_database_privilege('social_pulse_reporting_user', 'social_pulse_reporting', 'CONNECT');
+   SELECT has_database_privilege('social_pulse_reporting_user', 'social_pulse_reporting_db', 'CONNECT');
    SELECT has_schema_privilege('social_pulse_reporting_user', 'public', 'CREATE');
    ```
 

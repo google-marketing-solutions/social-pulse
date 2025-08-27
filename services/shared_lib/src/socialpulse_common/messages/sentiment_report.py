@@ -13,62 +13,68 @@
 #  limitations under the License.
 """Module for Sentiment Reports dataclasses and enums."""
 
-import dataclasses
 import datetime
 import enum
 import typing
 
-import common as msg_common
+import pydantic
+import socialpulse_common.messages.common as msg_common
 
 
-class Status(enum.Enum):
+class Status(enum.StrEnum):
   """Status types of a sentiment report."""
-  NEW = 0
-  COLLECTING_DATA = 1
-  DATA_COLLECTED = 2
-  GENERATING_REPORT = 3
-  COMPLETED = 4
-  FAILED = 5
+  NEW = "NEW"
+  COLLECTING_DATA = "COLLECTING_DATA"
+  DATA_COLLECTED = "DATA_COLLECTED"
+  GENERATING_REPORT = "GENERATING_REPORT"
+  COMPLETED = "COMPLETED"
+  FAILED = "FAILED"
 
 
-class ReportArtifactType(enum.Enum):
+class ReportArtifactType(enum.StrEnum):
   """Types of artifacts that can be generated for a sentiment report."""
-  BQ_TABLE = 0
-  GOOGLE_SHEET = 1
+  BQ_TABLE = "BQ_TABLE"
+  GOOGLE_SHEET = "GOOGLE_SHEET"
 
 
-@dataclasses.dataclass
-class SentimentReportDataset:
+class SentimentReportDataset(pydantic.BaseModel):
   """Represents the sentiment data sets created to produce a report."""
-  report_id: str
-  source: msg_common.SocialMediaSource
-  data_output: msg_common.SentimentDataType
-  dataset_uri: str
+  model_config = pydantic.ConfigDict(use_enum_names=True)
+
+  report_id: typing.Optional[str] = None
+  source: typing.Optional[msg_common.SocialMediaSource] = None
+  data_output: typing.Optional[msg_common.SentimentDataType] = None
+  dataset_uri: typing.Optional[str] = None
 
 
-@dataclasses.dataclass
-class SentimentReport:
+class SentimentReport(pydantic.BaseModel):
   """Represents a specific sentiment report.
 
   A sentiment report can lead to multiple workflows that need to be executed,
   with each workflow analyzing sentiment of a certain topic, from a
   certain source, within a certain timeframe.
   """
+  model_config = pydantic.ConfigDict(use_enum_names=True)
+
   # Unique identifier for this report.
   report_id: typing.Optional[str] = None
+
+  # Timestamp of when this report was created
+  created_on: typing.Optional[datetime.datetime] = None
+
+  # Timestamp of when this report was last updated
+  last_updated_on: typing.Optional[datetime.datetime] = None
 
   # Current report status.
   status: typing.Optional[Status] = None
 
   # Which social media sources to find and analyze
-  sources: typing.List[msg_common.SocialMediaSource] = dataclasses.field(
-      default_factory=list
+  sources: list[msg_common.SocialMediaSource] = (
+      pydantic.Field(default_factory=list)
   )
 
-  # Types of output data types this report will produce.
-  report_data_types: typing.List[
-      msg_common.SentimentDataType
-  ] = dataclasses.field(default_factory=list)
+  # The type of data output for this report
+  data_output: msg_common.SentimentDataType = None
 
   # Start and end time of the analysis this execution will perform.
   start_time: typing.Optional[datetime.datetime] = None
@@ -81,9 +87,7 @@ class SentimentReport:
   topic: typing.Optional[str] = None
 
   # List of sentiment datasets created for this report
-  datasets: typing.List[SentimentReportDataset] = dataclasses.field(
-      default_factory=list
-  )
+  datasets: list[SentimentReportDataset] = pydantic.Field(default_factory=list)
 
   # Info on the final artifact created after all datasets are created.
   report_artifact_type: ReportArtifactType = ReportArtifactType.BQ_TABLE

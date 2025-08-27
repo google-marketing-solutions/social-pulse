@@ -14,12 +14,6 @@
 """Module level domain utilities and classes."""
 
 import datetime
-import uuid
-
-
-def _generate_id() -> str:
-  """Generates a unique universal ID."""
-  return str(uuid.uuid4())
 
 
 class Entity:
@@ -39,7 +33,7 @@ class Entity:
       created: Optional.  The creation timestamp of the entity.
       last_updated: Optional.  The last updated timestamp of the entity.
     """
-    self.entity_id = entity_id if entity_id else _generate_id()
+    self.entity_id = entity_id
 
     if created and last_updated and last_updated < created:
       raise ValueError(

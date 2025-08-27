@@ -29,8 +29,8 @@ class SentimentReportEntity(domain.Entity):
   sources: list[common_msg.SocialMediaSource]
   data_outputs: list[common_msg.SentimentDataType]
   include_justifications: bool
-  date_range_start: datetime.datetime
-  date_range_end: datetime.datetime
+  start_time: datetime.datetime
+  end_time: datetime.datetime
   report_artifact_type: report_msg.ReportArtifactType
   report_artifact_uri: str
   datasets: typing.List[report_msg.SentimentReportDataset]
@@ -42,34 +42,34 @@ class SentimentReportEntity(domain.Entity):
       topic: str,
       sources: list[common_msg.SocialMediaSource],
       data_output: common_msg.SentimentDataType,
-      include_justifications: bool,
-      date_range_start: datetime.datetime,
-      date_range_end: datetime.datetime | None = None
-  ) -> 'SentimentReportEntity':
+      start_time: datetime.datetime,
+      include_justifications: bool = False,
+      end_time: datetime.datetime | None = None
+  ) -> "SentimentReportEntity":
     """Factory for creating a SentimentReportEntity.
 
     Args:
       topic: The topic of the report.
       sources: The sources of the report.
       data_output: The data output of the report.
+      start_time: The start of the date range of the report.
       include_justifications: Whether to include justifications in the report.
-      date_range_start: The start of the date range of the report.
-      date_range_end: The end of the date range of the report.
+      end_time: The end of the date range of the report.
 
     Returns:
       A new SentimentReportEntity.
     """
-    if date_range_end is None:
-      date_range_end = datetime.datetime.now()
+    if end_time is None:
+      end_time = datetime.datetime.now()
 
     report = SentimentReportEntity(
         topic=topic,
-        status=report_msg.SentimentReportStatus.NEW,
+        status=report_msg.Status.NEW,
         sources=sources,
         data_outputs=[data_output],
         include_justifications=include_justifications,
-        date_range_start=date_range_start,
-        date_range_end=date_range_end,
+        start_time=start_time,
+        end_time=end_time,
     )
     return report
 
@@ -82,10 +82,10 @@ class SentimentReportEntity(domain.Entity):
       topic: str | None = None,
       status: report_msg.Status| None = None,
       sources: list[common_msg.SocialMediaSource] | None = None,
-      data_outputs: list[str] | None = None,
+      data_outputs: list[common_msg.SentimentDataType] | None = None,
       include_justifications: bool | None = None,
-      date_range_start: datetime.datetime | None = None,
-      date_range_end: datetime.datetime | None = None,
+      start_time: datetime.datetime | None = None,
+      end_time: datetime.datetime | None = None,
       datasets: list[report_msg.SentimentReportDataset] | None = None,
   ):
     """Initializes a complete SentimentReportEntity from the provided values.
@@ -104,8 +104,8 @@ class SentimentReportEntity(domain.Entity):
       sources: The social media sources included in the report.
       data_outputs: The types of data outputs produced by the report.
       include_justifications: Whether justifications are included in the report.
-      date_range_start: The start of the date range for the report's analysis.
-      date_range_end: The end of the date range for the report's analysis.
+      start_time: The start of the date range for the report's analysis.
+      end_time: The end of the date range for the report's analysis.
       datasets: A list of sentiment datasets associated with the report.
     """
     super().__init__(
@@ -114,14 +114,67 @@ class SentimentReportEntity(domain.Entity):
         last_updated=last_updated,
     )
 
-    self.topic = topic
-    self.status = status
-    self.sources = sources
-    self.data_outputs = data_outputs
-    self.include_justifications = include_justifications
-    self.date_range_start = date_range_start
-    self.date_range_end = date_range_end
-    self.datasets = datasets
+    self._topic = topic
+    self._status = status
+    self._sources = sources
+    self._data_outputs = data_outputs
+    self._include_justifications = include_justifications
+    self._start_time = start_time
+    self._end_time = end_time
+    self._datasets = datasets
+
+    self._validate_fields()
+
+  def _validate_fields(self):
+    """Validates the fields of the entity."""
+    if not self._topic:
+      raise ValueError("Topic cannot be empty.")
+    if not self._sources:
+      raise ValueError("Sources cannot be empty.")
+    if not self._data_outputs:
+      raise ValueError("Data output cannot be empty.")
+    if not all(data_output for data_output in self._data_outputs):
+      raise ValueError("Data output cannot contain an empty output.")
+
+  @property
+  def topic(self) -> str:
+    """The topic of the report."""
+    return self._topic
+
+  @property
+  def status(self) -> report_msg.Status:
+    """The current status of the report."""
+    return self._status
+
+  @property
+  def sources(self) -> list[common_msg.SocialMediaSource]:
+    """The social media sources included in the report."""
+    return self._sources
+
+  @property
+  def data_outputs(self) -> list[common_msg.SentimentDataType]:
+    """The types of data outputs produced by the report."""
+    return self._data_outputs
+
+  @property
+  def include_justifications(self) -> bool:
+    """Whether justifications are included in the report."""
+    return self._include_justifications
+
+  @property
+  def start_time(self) -> datetime.datetime:
+    """The start of the date range for the report's analysis."""
+    return self._start_time
+
+  @property
+  def end_time(self) -> datetime.datetime:
+    """The end of the date range for the report's analysis."""
+    return self._end_time
+
+  @property
+  def datasets(self) -> list[report_msg.SentimentReportDataset]:
+    """A list of sentiment datasets associated with the report."""
+    return self._datasets
 
   def mark_as_collecting_data(self):
     """Marks the report as collecting data."""
@@ -137,6 +190,40 @@ class SentimentReportEntity(domain.Entity):
     Args:
       datasets: The datasets for the report.
     """
-    self.status = report_msg.Status.COMPLETED
-    self.last_updated = datetime.datetime.now()
-    self.datasets = datasets
+    self._validate_datasets(datasets)
+
+    self._status = report_msg.Status.COMPLETED
+    self._last_updated = datetime.datetime.now()
+    self._datasets = datasets
+
+  def _validate_datasets(
+      self,
+      datasets: list[report_msg.SentimentReportDataset]
+  ):
+    """Validates the datasets for the report.
+
+    Args:
+      datasets: The datasets for the report.
+    """
+    if not datasets:
+      raise ValueError("Datasets cannot be empty.")
+
+    for dataset in datasets:
+      if not dataset.dataset_uri:
+        raise ValueError("Dataset URI cannot be empty.")
+      if not dataset.source:
+        raise ValueError("Source cannot be empty.")
+      if not dataset.data_output:
+        raise ValueError("Data output cannot be empty.")
+
+    dataset_sources = [dataset.source for dataset in datasets]
+    all_sources_have_datasets = all(
+        source in dataset_sources for source in self.sources
+    )
+    if not all_sources_have_datasets:
+      missing_sources = [
+          source for source in self.sources if source not in dataset_sources
+      ]
+      raise ValueError(
+          f"Missing datasets for the following sources: {missing_sources}"
+      )

@@ -16,9 +16,8 @@ import logging
 from typing import Any
 
 from socialpulse_common.messages import workflow_execution as wfe
+from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
-
-from . import client
 
 
 logger = logging.getLogger(__name__)

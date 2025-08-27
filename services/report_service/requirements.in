@@ -1,12 +1,14 @@
 cloud-sql-python-connector[psycopg2]
 coverage
 db-dtypes
+fastapi
 parameterized
 protobuf
 psycopg2-binary
 pyarrow
 pytest
 pytest-cov
+uvicorn
 yoyo-migrations
 
 # Shared social pulse library

@@ -51,10 +51,10 @@ steps = [
     ),
     step(
         """
-        CREATE TABLE SentimentReportOutputs (
-            reportOutputId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        CREATE TABLE SentimentReportDatasets (
+            reportDatasetId UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             reportId UUID NOT NULL,
-            sources TEXT NOT NULL,
+            source TEXT NOT NULL,
             dataOutput TEXT NOT NULL,
             outputUri TEXT NOT NULL,
 

@@ -16,25 +16,25 @@
 import enum
 
 
-class SocialMediaSource(enum.Enum):
+class SocialMediaSource(enum.StrEnum):
   """Sources of social media content."""
-  UNKNOWN = 0
-  YOUTUBE_VIDEO = 1
-  YOUTUBE_COMMENT = 2
-  REDDIT_POST = 3
-  X_POST = 4
-  APP_STORE_REVIEW = 5
+  UNKNOWN = "UNKNOWN"
+  YOUTUBE_VIDEO = "YOUTUBE_VIDEO"
+  YOUTUBE_COMMENT = "YOUTUBE_COMMENT"
+  REDDIT_POST = "REDDIT_POST"
+  X_POST = "X_POST"
+  APP_STORE_REVIEW = "APP_STORE_REVIEW"
 
 
-class TopicType(enum.Enum):
+class TopicType(enum.StrEnum):
   """Types of topics, affecting any prompts generated downstream."""
-  UNKNOWN = 0
-  BRAND_OR_PRODUCT = 1
-  NON_BRAND = 2
+  UNKNOWN = "UNKNOWN"
+  BRAND_OR_PRODUCT = "BRAND_OR_PRODUCT"
+  NON_BRAND = "NON_BRAND"
 
 
-class SentimentDataType(enum.Enum):
+class SentimentDataType(enum.StrEnum):
   """Types of sentiment data an analysis can produce."""
-  UNKNOWN = 0
-  SENTIMENT_SCORE = 1
-  SHARE_OF_VOICE = 2
+  UNKNOWN = "UNKNOWN"
+  SENTIMENT_SCORE = "SENTIMENT_SCORE"
+  SHARE_OF_VOICE = "SHARE_OF_VOICE"

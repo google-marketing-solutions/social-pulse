@@ -22,21 +22,6 @@ from socialpulse_common import domain as entity_lib
 
 class EntityTest(unittest.TestCase):
 
-  @mock.patch.object(uuid, 'uuid4', autospec=True)
-  def test_uuid_is_generated_if_entity_not_given_during_init(self, mock_uuid):
-    """Entity generates its own UUID if none is provided during init.
-
-    When an entity is initiated with no UUID
-    Then the entity autogenerates its own UUID
-
-    Args:
-      mock_uuid: Mock UUID generator.
-    """
-    mock_uuid.return_value = 'a_uuid'
-    entity = entity_lib.Entity()
-
-    self.assertEqual(entity.entity_id, 'a_uuid')
-
   @mock.patch.object(datetime, 'datetime', autospec=True)
   def test_created_is_generated_if_entity_not_given_during_init(
       self, mock_datetime
