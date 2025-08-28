@@ -19,6 +19,21 @@ import sentiment_task_mixins as test_mixins
 from tasks import llm_response_processing as lrp
 
 
+EMPTY_ANALYSIS_RESPONSE = (
+    pd.DataFrame([
+        {
+            "summary": "",
+            "sentiments": [
+                {
+                    "relevanceScore": 0.0,
+                    "sentimentScore": 0.0,
+                }
+            ]
+        }
+    ])
+)
+
+
 class ProcessLlmSentimentResponsesTest(
     unittest.TestCase,
     test_mixins.SetupMockSentimentTaskDepependenciesMixin
@@ -96,12 +111,12 @@ class ProcessLlmSentimentResponsesTest(
       )
       task.run()
 
-  def test_raises_error_if_response_has_invalid_json(self):
-    """Raises an error if the LLM response has invalid JSON.
+  def test_returns_empty_analysis_if_response_has_invalid_json(self):
+    """Returns an empty analysis if the LLM response has invalid JSON.
 
     Given the LLM response has invalid JSON
     When the task is executed
-    Then an error is raised
+    Then an empty analysis is returned
     """
     self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame([
         {
@@ -109,12 +124,13 @@ class ProcessLlmSentimentResponsesTest(
         }
     ])
 
-    with self.assertRaises(Exception):
-      task = lrp.ProcessLlmSentimentResponses(
-          execution_id="some_execution_id",
-          my_required_task=self.mock_required_task
-      )
-      task.run()
+    task = lrp.ProcessLlmSentimentResponses(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    self.assert_output_dataframe_matches(EMPTY_ANALYSIS_RESPONSE)
 
   def test_returns_empty_analysis_if_no_candidates_in_llm_response(self):
     """Returns empty analysis if no candidates in LLM response.
@@ -135,19 +151,7 @@ class ProcessLlmSentimentResponsesTest(
     )
     task.run()
 
-    self.assert_output_dataframe_matches(
-        pd.DataFrame([
-            {
-                "summary": "",
-                "sentiments": [
-                    {
-                        "relevanceScore": 0.0,
-                        "sentimentScore": 0.0,
-                    }
-                ]
-            }
-        ])
-    )
+    self.assert_output_dataframe_matches(EMPTY_ANALYSIS_RESPONSE)
 
   def test_returns_empty_analysis_if_no_parts_in_llm_response(self):
     """Returns empty analysis if no parts in LLM response.
@@ -179,19 +183,7 @@ class ProcessLlmSentimentResponsesTest(
     )
     task.run()
 
-    self.assert_output_dataframe_matches(
-        pd.DataFrame([
-            {
-                "summary": "",
-                "sentiments": [
-                    {
-                        "relevanceScore": 0.0,
-                        "sentimentScore": 0.0,
-                    }
-                ]
-            }
-        ])
-    )
+    self.assert_output_dataframe_matches(EMPTY_ANALYSIS_RESPONSE)
 
   def test_extract_sentiment_fields_from_sentiment_response(self):
     """Extracts sentiment fields from the LLM response.

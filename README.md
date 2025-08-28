@@ -67,17 +67,31 @@ content.
 and analyzed.
 
 ## Getting Started
-1. Open up the [Shared Services Library README](./services/shared_lib/README.md)
+1. Choose or create a Google Cloud Platform (GCP) project to use to generate
+your sentiment analysis reports.  Make sure it has the following:
+  a. It's associated with a billing account
+  b. It has the YouTube Data API enabled
+  c. It has the Vertex AI API enabled
+  d. It has the BigQuery API enabled.
+
+2. If you are running the sentiment analysis code on a Linus/Unix system,
+   make sure to authenticate yourself to access the Google Could resources
+   using the `gcloud auth init` command.
+
+3. Setup a PostgresDB server for storing reporting configuration data.
+
+3. Open up the [Shared Services Library README](./services/shared_lib/README.md)
 file and follow the instructions there to set up the common library code used
 by the Analysis Service.
 
-2. Open up the [Analysis Service README](./services/analysis_service/README.md).file and follow the instructions there to get the command line set up.
+4. Open up the [Analysis Service README](./services/analysis_service/README.md)
+file and follow the instructions there to get the command line set up.
 
 ## FAQ
 
 *Q.  What social media content is currently supported?* \
-A. Currently only Youtube video and comments are supported, but we are working on
-bringing other content types to the solution.
+A. Currently only Youtube video and comments are supported, but we are working
+on bringing other content types to the solution.
 
 *Q.  What output formats are currently supported?* \
 A.  Currently, only sentiment scores are supported, but we are working on

@@ -13,6 +13,7 @@
 #  limitations under the License.
 """Module for loading workflow data params from the Social Post PostgresDB."""
 import logging
+from typing import Any
 
 from socialpulse_common.messages import workflow_execution as wfe
 from tasks.ports import persistence
@@ -73,33 +74,10 @@ class PostgresDbWorkflowExecutionPersistenceService(
       raise ValueError(f"No workflow execution found with ID: {execution_id}")
 
     logger.debug("Raw row data = %s", row)
-    wfe_params = wfe.WorkflowExecutionParams()
-
-    wfe_params.execution_id = row[EXECUTION_ID_COL_INDEX]
-    wfe_params.source = wfe.SocialMediaSource[row[SOURCE_COL_INDEX]]
-    wfe_params.data_output = self._parse_data_outputs(
-        row[DATAOUTPUTS_COL_INDEX]
-    )
-    wfe_params.topic_type = wfe.TopicType[row[TOPICTYPE_COL_INDEX]]
-    wfe_params.topic = row[TOPIC_COL_INDEX]
-    wfe_params.start_time = row[STARTDATE_COL_INDEX]
-    wfe_params.end_time = row[ENDDATE_COL_INDEX]
-
-    wfe_params.status = wfe.Status[row[STATUS_COL_INDEX]]
-    wfe_params.last_completed_task_id = (
-        row[LASTCOMPLETEDTASK_COL_INDEX]
-        if row[LASTCOMPLETEDTASK_COL_INDEX] else ""
-    )
-    wfe_params.parent_execution_id = (
-        row[PARENT_EXECUTION_ID_COL_INDEX]
-        if row[PARENT_EXECUTION_ID_COL_INDEX] else ""
-    )
-
-    return wfe_params
+    return self._map_row_to_wfe_params(row)
 
   def _parse_data_outputs(
-      self,
-      from_db: list[str]
+      self, from_db: list[str]
   ) -> list[wfe.SentimentDataType]:
     data_outputs = []
     for data_output in from_db:
@@ -107,8 +85,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
     return data_outputs
 
   def create_execution(
-      self,
-      execution_params: wfe.WorkflowExecutionParams
+      self, execution_params: wfe.WorkflowExecutionParams
   ) -> str:
     """Saves workflow execution parameters to PostgresDB via an SQL INSERT.
 
@@ -137,7 +114,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
     ]
     parent_exeuction_id = (
         execution_params.parent_execution_id
-        if execution_params.parent_execution_id else None
+        if execution_params.parent_execution_id
+        else None
     )
 
     params = (
@@ -147,17 +125,13 @@ class PostgresDbWorkflowExecutionPersistenceService(
         execution_params.topic,
         execution_params.start_time,
         execution_params.end_time,
-        parent_exeuction_id
+        parent_exeuction_id,
     )
 
     new_id = self._postgres_client.insert_row(query, params)
     return new_id
 
-  def mark_last_completed_task(
-      self,
-      execution_id: str,
-      task_name: str
-  ) -> None:
+  def mark_last_completed_task(self, execution_id: str, task_name: str) -> None:
     """Marks the last completed task for a workflow execution.
 
     Args:
@@ -178,11 +152,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
     params = (task_name, execution_id)
     self._postgres_client.update_row(query, params)
 
-  def update_status(
-      self,
-      execution_id: str,
-      status: wfe.Status
-  ) -> None:
+  def update_status(self, execution_id: str, status: wfe.Status) -> None:
     """Updates the status of a workflow execution.
 
     Args:
@@ -197,3 +167,56 @@ class PostgresDbWorkflowExecutionPersistenceService(
     """
     params = (status.name, execution_id)
     self._postgres_client.update_row(query, params)
+
+  def find_ready_executions(self) -> list[wfe.WorkflowExecutionParams]:
+    """Finds ready workflows using a SQL query with a self-join.
+
+    This includes workflows with a 'NEW' status that either have no parent
+    or have a parent that is 'COMPLETED'.
+
+    Returns:
+      A list of WorkflowExecutionParams objects for ready workflows.
+    """
+
+    query = """
+        SELECT
+            wep.executionId, wep.source, wep.dataOutputs, wep.topicType,
+            wep.topic, wep.dateRangeStart, wep.dateRangeEnd, wep.status,
+            wep.lastCompletedTask, wep.parentExecutionId
+        FROM
+            WorkflowExecutionParams wep
+        LEFT JOIN
+            WorkflowExecutionParams parent_wep ON wep.parentExecutionId = parent_wep.executionId
+        WHERE
+            (wep.status = 'NEW' AND wep.parentExecutionId IS NULL)
+            OR
+            (wep.status = 'NEW' AND parent_wep.status = 'COMPLETED');
+    """
+    rows = self._postgres_client.retrieve_rows(query)
+    return [self._map_row_to_wfe_params(row) for row in rows]
+
+  def _map_row_to_wfe_params(
+      self, row: tuple[Any, ...]
+  ) -> wfe.WorkflowExecutionParams:
+    """Maps a raw database row tuple to a WorkflowExecutionParams data object.
+
+    Args:
+      row: A tuple of database values, ordered by the column index constants.
+
+    Returns:
+      A populated WorkflowExecutionParams object.
+    """
+    wfe_params = wfe.WorkflowExecutionParams()
+    wfe_params.execution_id = row[EXECUTION_ID_COL_INDEX]
+    wfe_params.source = wfe.SocialMediaSource[row[SOURCE_COL_INDEX]]
+    wfe_params.data_output = self._parse_data_outputs(
+        row[DATAOUTPUTS_COL_INDEX]
+    )
+    wfe_params.topic_type = wfe.TopicType[row[TOPICTYPE_COL_INDEX]]
+    wfe_params.topic = row[TOPIC_COL_INDEX]
+    wfe_params.start_time = row[STARTDATE_COL_INDEX]
+    wfe_params.end_time = row[ENDDATE_COL_INDEX]
+    wfe_params.status = wfe.Status[row[STATUS_COL_INDEX]]
+    wfe_params.last_completed_task_id = row[LASTCOMPLETEDTASK_COL_INDEX] or ""
+    wfe_params.parent_execution_id = row[PARENT_EXECUTION_ID_COL_INDEX] or ""
+    return wfe_params
