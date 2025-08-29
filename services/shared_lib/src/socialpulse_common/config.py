@@ -91,6 +91,7 @@ class _CloudSettings(pydantic.BaseModel):
   project_id: str = pydantic.Field()
   region: str = pydantic.Field(default="us-central1")
   dataset_name: str = pydantic.Field(default="social_pulse_sentiment_data")
+  wfe_trigger_url: str = pydantic.Field()
 
   # This field will be computed dynamically
   workflow_runner_api_url: str | None = None
