@@ -18,7 +18,6 @@ provider "google" {
 # Enable necessary APIs
 resource "google_project_service" "apis" {
   for_each = toset([
-    "cloudfunctions.googleapis.com",
     "sqladmin.googleapis.com",
     "secretmanager.googleapis.com",
     "bigquery.googleapis.com",
@@ -46,7 +45,6 @@ resource "google_project_iam_member" "service_account_editor" {
   member  = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 }
 
-# 2. Cloud Functions
 # Storage bucket for Cloud Functions source code
 resource "google_storage_bucket" "functions_bucket" {
   name          = "social-pulse-cloud-functions-source"
@@ -56,25 +54,84 @@ resource "google_storage_bucket" "functions_bucket" {
   depends_on = [google_project_service.apis]
 }
 
-resource "google_storage_bucket_object" "archive_upload" {
-  name   = "social_pulse.zip" # Desired name of the object in GCS
-  bucket = "functions_bucket"  # Name of your GCS bucket
-  source = "${path.module}/social_pulse.zip" # Relative path to your local archive
+# Create a zip archive of the source code folder
+data "archive_file" "source_zip" {
+  type        = "zip"
+  output_path = "social_pulse.zip"
+  source_dir  = "../../social_pulse"
 }
 
-# Cloud Function setup
-resource "google_cloudfunctions_function" "run_sentiment_function" {
-  name                  = "run-sentiment-function"
-  description           = "Social Pulse sentiment analysis Cloud Function"
-  runtime               = "python312"
-  entry_point           = "run_sentiment_analysis"
-  project               = var.project_id
-  region                = var.region
-  available_memory_mb   = 128
-  source_archive_bucket = google_storage_bucket.functions_bucket.name
-  source_archive_object = "social_pulse.zip" # This file needs to be uploaded to the bucket
-  trigger_http          = true
-  depends_on            = [google_project_service.apis, google_storage_bucket.functions_bucket]
+# Upload the zip archive to the GCS bucket
+resource "google_storage_bucket_object" "source_zip_object" {
+  name         = "social_pulse.zip"
+  bucket       = google_storage_bucket.functions_bucket.name
+  source       = data.archive_file.source_zip.output_path
+  content_type = "application/zip"
+}
+
+# Cloud Build Trigger to build the container image
+resource "google_cloudbuild_trigger" "build-trigger" {
+  project = var.project_id
+  name    = "cloud-run-build-trigger"
+  substitutions = {
+    _SOURCE_BUCKET_NAME = google_storage_bucket.functions_bucket.name
+  }
+
+  trigger_template {
+    branch_name = "main"
+    repo_name   = "my-repo"
+  }
+
+  build {
+    step {
+      name = "gcr.io/cloud-builders/gsutil"
+      args = ["cp", "gs://${google_storage_bucket.functions_bucket.name}/${google_storage_bucket_object.source_zip_object.name}", "."]
+    }
+    step {
+      name = "gcr.io/cloud-builders/unzip"
+      args = ["source.zip"]
+    }
+    step {
+      name = "gcr.io/cloud-builders/docker"
+      args = ["build", "-t", "us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest", "."]
+    }
+    step {
+      name = "gcr.io/cloud-builders/docker"
+      args = ["push", "us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest"]
+    }
+    images = ["us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest"]
+    timeout = "600s"
+  }
+}
+
+# Create an Artifact Registry repository for the container image
+resource "google_artifact_registry_repository" "my_repo" {
+  project      = var.project_id
+  location     = "us-central1"
+  repository_id = "cloud-run-repo"
+  format       = "DOCKER"
+}
+
+# Deploy the Cloud Run service
+resource "google_cloud_run_v2_service" "default" {
+  project  = var.project_id
+  name     = "my-cloud-run-service"
+  location = "us-central1"
+
+  template {
+    containers {
+      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/my-app:latest"
+    }
+  }
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  depends_on = [
+    google_cloudbuild_trigger.build-trigger
+  ]
 }
 
 resource "google_secret_manager_secret" "postgres_credentials" {
@@ -206,11 +263,6 @@ resource "google_bigquery_dataset" "social_pulse_dataset" {
 output "project_id" {
   description = "The ID of the GCP project."
   value       = var.project_id
-}
-
-output "cloud_function_url" {
-  description = "The HTTP trigger URL for the Cloud Function."
-  value       = google_cloudfunctions_function.run_sentiment_function.https_trigger_url
 }
 
 output "social_pulse_analysis_postgres_db_connection_name" {
