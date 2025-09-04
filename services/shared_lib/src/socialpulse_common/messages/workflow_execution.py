@@ -69,3 +69,6 @@ class WorkflowExecutionParams:
 
   # ID of a parent workflow exec this one depends on.
   parent_execution_id: typing.Optional[str] = None
+
+  # Shared ID to group multiple workflow executions under a single report.
+  report_id: typing.Optional[str] = None

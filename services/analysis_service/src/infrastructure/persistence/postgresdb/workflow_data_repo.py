@@ -34,6 +34,7 @@ ENDDATE_COL_INDEX = 6
 STATUS_COL_INDEX = 7
 LASTCOMPLETEDTASK_COL_INDEX = 8
 PARENT_EXECUTION_ID_COL_INDEX = 9
+REPORT_ID_COL_INDEX = 10
 
 
 class PostgresDbWorkflowExecutionPersistenceService(
@@ -64,7 +65,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  dateRangeEnd, "
         "  status, "
         "  lastCompletedTask, "
-        "  parentExecutionId "
+        "  parentExecutionId, "
+        "  reportId"
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
         (execution_id,),
@@ -103,7 +105,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
           topic,
           dateRangeStart,
           dateRangeEnd,
-          parentExecutionId
+          parentExecutionId,
+          reportId
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
@@ -111,11 +114,13 @@ class PostgresDbWorkflowExecutionPersistenceService(
     data_outputs_as_names = [
         output.name for output in execution_params.data_output
     ]
-    parent_exeuction_id = (
+    parent_execution_id = (
         execution_params.parent_execution_id
         if execution_params.parent_execution_id
         else None
     )
+
+    report_id = execution_params.report_id or None
 
     params = (
         execution_params.source.name,
@@ -124,7 +129,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         execution_params.topic,
         execution_params.start_time,
         execution_params.end_time,
-        parent_exeuction_id,
+        parent_execution_id,
+        report_id,
     )
 
     new_id = self._postgres_client.insert_row(query, params)
@@ -218,4 +224,5 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params.status = wfe.Status[row[STATUS_COL_INDEX]]
     wfe_params.last_completed_task_id = row[LASTCOMPLETEDTASK_COL_INDEX] or ""
     wfe_params.parent_execution_id = row[PARENT_EXECUTION_ID_COL_INDEX] or ""
+    wfe_params.report_id = row[REPORT_ID_COL_INDEX] or ""
     return wfe_params
