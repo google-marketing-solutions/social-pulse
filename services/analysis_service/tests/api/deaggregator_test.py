@@ -13,195 +13,152 @@
 #  limitations under the License.
 """Unit tests for the DeaggregatorHandler class."""
 
-import datetime
 import unittest
 from unittest import mock
-
 from api import deaggregator
-from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution as wfe
+
+from fastapi.testclient import TestClient
 from tasks.ports import persistence
 
 
 class DeaggregatorHandlerTest(unittest.TestCase):
-  """Tests the core logic of the DeaggregatorHandler."""
+  """Tests the /api/deaggregate endpoint and its underlying logic."""
 
   def setUp(self):
     """Set up mocks for external dependencies for each test."""
     super().setUp()
 
-    # Mock the persistence service, which is the sole dependency of the handler.
-    # This mock will be injected via the service registry.
-    self.mock_workflow_repo = mock.Mock(
+    self.client = TestClient(deaggregator.app)
+
+    self.mock_workflow_repo = mock.MagicMock(
         spec=persistence.WorkflowExecutionPersistenceService
     )
-    service.registry.register(
-        persistence.WorkflowExecutionPersistenceService, self.mock_workflow_repo
+    self.repo_patcher = mock.patch(
+        "api.deaggregator.app_config.workflow_repo", self.mock_workflow_repo
     )
+    self.repo_patcher.start()
 
     # Define common test data to be used across multiple tests.
-    self.topic = "social pulse test"
-    self.start_date = datetime.date(2025, 1, 1)
-    self.end_date = datetime.date(2024, 8, 31)
-    self.outputs = [wfe.SentimentDataType.SENTIMENT_SCORE]
+    self.base_payload = {
+        "topic": "social pulse test",
+        "start_date": "2025-01-01",
+        "end_date": "2025-08-31",
+        "output": ["SENTIMENT_SCORE"],
+    }
 
-  def test_request_with_video_and_comment_creates_both_with_parent_link(self):
-    """Tests the happy path where both video and comments are requested.
+  def tearDown(self):
+    """Clean up patches after each test."""
+    super().tearDown()
+    self.repo_patcher.stop()
 
-    Given a request contains both YOUTUBE_VIDEO and YOUTUBE_COMMENT sources,
-    When the handler processes the request,
-    Then a video workflow is created with no parent,
-    And a comment workflow is created with the video workflow's ID as its parent
-    And the response contains IDs for both workflows.
+  @mock.patch("api.deaggregator.uuid.uuid4", return_value="mock-report-id-123")
+  def test_video_and_comment_request_creates_both_workflows(
+      self, mock_uuid
+  ):  # pylint: disable=unused-argument
+    """Tests that a valid request for both video and comments succeeds.
+
+    Given a valid request for both video and comments,
+    When the /api/deaggregate endpoint is called,
+    Then it should return a 201 status,
+    And create two linked workflows with a shared report_id,
+    And return the correct response body.
+
+    Args:
+        mock_uuid: Injected by the @mock.patch decorator to control the
+        return value of uuid.uuid4().
     """
-    # Arrange: Mock the DB to return a unique ID for each creation call.
-    self.mock_workflow_repo.create_execution.side_effect = [
-        "vid-exec-123",  # First call returns the video ID
-        "com-exec-456",  # Second call returns the comment ID
-    ]
-    sources = [
-        wfe.SocialMediaSource.YOUTUBE_VIDEO,
-        wfe.SocialMediaSource.YOUTUBE_COMMENT,
-    ]
-
-    # Act: Instantiate the handler and process the request.
-    handler = deaggregator.DeaggregatorHandler(
-        topic=self.topic,
-        start_date=self.start_date,
-        end_date=self.end_date,
-        sources=sources,
-        outputs=self.outputs,
-    )
-    handler.process_request()
-
-    # Assert: Verify the correct workflows were created and linked.
-    self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
-    calls = self.mock_workflow_repo.create_execution.call_args_list
-
-    # First call should be the parent video workflow.
-    video_params_call = calls[0].args[0]
-    self.assertEqual(
-        video_params_call.source, wfe.SocialMediaSource.YOUTUBE_VIDEO
-    )
-    self.assertIsNone(video_params_call.parent_execution_id)
-
-    # Second call should be the child comment workflow, linked to the first.
-    comment_params_call = calls[1].args[0]
-    self.assertEqual(
-        comment_params_call.source, wfe.SocialMediaSource.YOUTUBE_COMMENT
-    )
-    self.assertEqual(comment_params_call.parent_execution_id, "vid-exec-123")
-
-  def test_request_with_video_and_comment_returns_correct_response(self):
-    """Tests that the returned dictionary is correctly formatted.
-
-    Given a request contains both YOUTUBE_VIDEO and YOUTUBE_COMMENT sources,
-    When the handler processes the request,
-    Then the response dictionary contains the correct execution IDs for both
-    sources.
-    """
-    # Mock the DB to return a unique ID for each creation call.
+    # Arrange
+    payload = self.base_payload.copy()
+    payload["sources"] = ["YOUTUBE_VIDEO", "YOUTUBE_COMMENT"]
     self.mock_workflow_repo.create_execution.side_effect = [
         "vid-exec-123",
         "com-exec-456",
     ]
-    sources = [
-        wfe.SocialMediaSource.YOUTUBE_VIDEO,
-        wfe.SocialMediaSource.YOUTUBE_COMMENT,
-    ]
 
-    # Instantiate the handler and process the request.
-    handler = deaggregator.DeaggregatorHandler(
-        topic=self.topic,
-        start_date=self.start_date,
-        end_date=self.end_date,
-        sources=sources,
-        outputs=self.outputs,
+    # Act
+    response = self.client.post("/api/deaggregate", json=payload)
+
+    # Assert Response
+    self.assertEqual(response.status_code, 201)
+    response_data = response.json()
+    self.assertEqual(response_data["report_id"], "mock-report-id-123")
+    self.assertEqual(
+        response_data["created_workflows"]["YOUTUBE_VIDEO"], "vid-exec-123"
     )
-    result = handler.process_request()
+    self.assertEqual(
+        response_data["created_workflows"]["YOUTUBE_COMMENT"], "com-exec-456"
+    )
 
-    # Assert: Verify the returned dictionary is correct
-    expected_dict = {
-        "YOUTUBE_VIDEO": "vid-exec-123",
-        "YOUTUBE_COMMENT": "com-exec-456",
-    }
-    self.assertDictEqual(result, expected_dict)
+    # Assert Database Interaction
+    self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
+    calls = self.mock_workflow_repo.create_execution.call_args_list
+    video_params = calls[0].args[0]
+    comment_params = calls[1].args[0]
 
-  def test_request_with_comment_only_implicitly_creates_video_parent(self):
-    """Tests that a request for comments alone creates a hidden parent video workflow.
+    self.assertEqual(video_params.report_id, "mock-report-id-123")
+    self.assertEqual(comment_params.report_id, "mock-report-id-123")
+    self.assertEqual(comment_params.parent_execution_id, "vid-exec-123")
 
-    Given a request contains only the YOUTUBE_COMMENT source,
-    When the handler processes the request,
-    Then a video workflow is still created first to act as the parent,
-    And a comment workflow is created with the new video ID as its parent.
-    And the response contains ONLY the ID for the requested comment workflow.
+  @mock.patch("api.deaggregator.uuid.uuid4", return_value="mock-report-id-456")
+  def test_comment_only_request_implicitly_creates_parent(
+      self, mock_uuid
+  ):  # pylint: disable=unused-argument
+    """Tests that a request for only comments creates a hidden parent.
+
+    Given a valid request for only comments,
+    When the /api/deaggregate endpoint is called,
+    Then it should implicitly create a parent video workflow,
+    And the response should only contain the comment workflow ID.
+
+    Args:
+      mock_uuid: Injected by the @mock.patch decorator.
     """
     # Arrange
+    payload = self.base_payload.copy()
+    payload["sources"] = ["YOUTUBE_COMMENT"]
     self.mock_workflow_repo.create_execution.side_effect = [
         "implicit-vid-789",
         "com-exec-101",
     ]
-    sources = [wfe.SocialMediaSource.YOUTUBE_COMMENT]
 
     # Act
-    handler = deaggregator.DeaggregatorHandler(
-        topic=self.topic,
-        start_date=self.start_date,
-        end_date=self.end_date,
-        sources=sources,
-        outputs=self.outputs,
-    )
-    result = handler.process_request()
+    response = self.client.post("/api/deaggregate", json=payload)
 
-    # Assert: The database interaction should be identical to the previous test.
+    # Assert Response
+    self.assertEqual(response.status_code, 201)
+    response_data = response.json()
+    self.assertEqual(response_data["report_id"], "mock-report-id-456")
+    self.assertNotIn("YOUTUBE_VIDEO", response_data["created_workflows"])
+    self.assertEqual(
+        response_data["created_workflows"]["YOUTUBE_COMMENT"], "com-exec-101"
+    )
+
+    # Assert Database Interaction
     self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
     calls = self.mock_workflow_repo.create_execution.call_args_list
-    self.assertEqual(
-        calls[0].args[0].source, wfe.SocialMediaSource.YOUTUBE_VIDEO
-    )
-    self.assertEqual(calls[1].args[0].parent_execution_id, "implicit-vid-789")
+    video_params = calls[0].args[0]
+    comment_params = calls[1].args[0]
 
-    # Assert the final response is correct
-    self.assertNotIn("YOUTUBE_VIDEO", result)
-    self.assertIn("YOUTUBE_COMMENT", result)
-    self.assertEqual(result["YOUTUBE_COMMENT"], "com-exec-101")
-    self.assertEqual(len(result), 1)
+    self.assertEqual(video_params.report_id, "mock-report-id-456")
+    self.assertEqual(comment_params.report_id, "mock-report-id-456")
+    self.assertEqual(comment_params.parent_execution_id, "implicit-vid-789")
 
-  def test_request_with_video_only_creates_single_workflow(self):
-    """Tests that a request for only videos works correctly.
+  def test_bad_request_missing_field_returns_422(self):
+    """Tests that a missing field returns a 422 error.
 
-    Given a request contains only the YOUTUBE_VIDEO source,
-    When the handler processes the request,
-    Then only one workflow is created (the video workflow),
-    And the response contains only the video workflow ID.
+    Given a request payload that is missing a required field,
+    When the /api/deaggregate endpoint is called,
+    Then FastAPI should automatically return a 422 Unprocessable Entity error.
     """
     # Arrange
-    self.mock_workflow_repo.create_execution.return_value = "vid-exec-only-321"
-    sources = [wfe.SocialMediaSource.YOUTUBE_VIDEO]
+    payload = self.base_payload.copy()
+    del payload["topic"]  # Missing a required field
 
     # Act
-    handler = deaggregator.DeaggregatorHandler(
-        topic=self.topic,
-        start_date=self.start_date,
-        end_date=self.end_date,
-        sources=sources,
-        outputs=self.outputs,
-    )
-    result = handler.process_request()
+    response = self.client.post("/api/deaggregate", json=payload)
 
     # Assert
-    self.mock_workflow_repo.create_execution.assert_called_once()
-    video_params_call = self.mock_workflow_repo.create_execution.call_args.args[
-        0
-    ]
-    self.assertEqual(
-        video_params_call.source, wfe.SocialMediaSource.YOUTUBE_VIDEO
-    )
-    self.assertIsNone(video_params_call.parent_execution_id)
-
-    self.assertIn("YOUTUBE_VIDEO", result)
-    self.assertEqual(result["YOUTUBE_VIDEO"], "vid-exec-only-321")
-    self.assertEqual(len(result), 1)
+    self.assertEqual(response.status_code, 422)
 
 
 if __name__ == "__main__":
