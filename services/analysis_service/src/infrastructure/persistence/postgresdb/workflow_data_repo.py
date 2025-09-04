@@ -200,6 +200,35 @@ class PostgresDbWorkflowExecutionPersistenceService(
     rows = self._postgres_client.retrieve_rows(query)
     return [self._map_row_to_wfe_params(row) for row in rows]
 
+  def find_in_progress_reports(self) -> dict[str, list[wfe.Status]]:
+    """Finds all active reports and aggregates the status of their workflows.
+
+    An "active" report is defined as any report_id that is associated with
+    at least one workflow that is not in a terminal state (COMPLETED or FAILED).
+    The query then fetches all workflow statuses for those active reports.
+
+    Returns:
+        A dictionary mapping a report_id to a list of its workflow statuses.
+    """
+    query = """
+        SELECT
+            report_id,
+            ARRAY_AGG(status::text) as statuses
+        FROM
+            WorkflowExecutionParams
+        WHERE
+            report_id IS NOT NULL AND report_id IN (
+                SELECT DISTINCT report_id
+                FROM WorkflowExecutionParams
+                WHERE status NOT IN ('COMPLETED', 'FAILED', 'UNKNOWN')
+            )
+        GROUP BY
+            report_id;
+    """
+    rows = self._postgres_client.retrieve_rows(query)
+
+    return {row[0]: [wfe.Status[s] for s in row[1]] for row in rows}
+
   def _map_row_to_wfe_params(
       self, row: tuple[Any, ...]
   ) -> wfe.WorkflowExecutionParams:
