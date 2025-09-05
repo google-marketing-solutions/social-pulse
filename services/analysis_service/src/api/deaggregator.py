@@ -31,8 +31,8 @@ import fastapi
 
 from infrastructure.persistence.postgresdb import client
 from infrastructure.persistence.postgresdb import workflow_data_repo
-import pydantic
 from socialpulse_common import config
+from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.messages import workflow_execution as wfe
 from tasks.ports import persistence
 import uvicorn
@@ -45,24 +45,6 @@ logging.basicConfig(level=log_level, format=log_format)
 logger = logging.getLogger(__name__)
 
 settings = config.Settings()
-
-
-class DeaggregatorRequest(pydantic.BaseModel):
-  """Defines the expected JSON body for a deaggregation request."""
-
-  topic: str
-  start_date: datetime.date
-  end_date: datetime.date
-  sources: list[str]
-  output: list[str]
-
-
-class DeaggregatorResponse(pydantic.BaseModel):
-  """Defines the JSON response for a successful deaggregation."""
-
-  message: str
-  created_workflows: dict[str, str]
-  report_id: str
 
 
 class AppConfig:
@@ -95,53 +77,50 @@ class Deaggregator:
 
   def create_workflows(
       self,
-      topic: str,
-      start_date: datetime.date,
-      end_date: datetime.date,
-      sources: list[wfe.SocialMediaSource],
-      outputs: list[wfe.SentimentDataType],
-      report_id: str,
+      report: report_msg.SentimentReport,
   ) -> dict[str, str]:
     """Creates and persists workflow records, ensuring dependencies are met."""
     created_workflows = {}
     video_execution_id = None
 
     needs_video_workflow = (
-        wfe.SocialMediaSource.YOUTUBE_VIDEO in sources
-        or wfe.SocialMediaSource.YOUTUBE_COMMENT in sources
+        wfe.SocialMediaSource.YOUTUBE_VIDEO in report.sources
+        or wfe.SocialMediaSource.YOUTUBE_COMMENT in report.sources
     )
 
     if needs_video_workflow:
       video_params = wfe.WorkflowExecutionParams(
           source=wfe.SocialMediaSource.YOUTUBE_VIDEO,
-          data_output=outputs,
+          data_output=[report.data_output],
           topic_type=wfe.TopicType.BRAND_OR_PRODUCT,
-          topic=topic,
-          start_time=start_date,
-          end_time=end_date,
+          topic=report.topic,
+          start_time=report.start_time,
+          end_time=report.end_time,
           status=wfe.Status.NEW,
           parent_execution_id=None,
-          report_id=report_id,
+          report_id=report.report_id,
+          include_justifications=report.include_justifications,
       )
       video_execution_id = self._workflow_repo.create_execution(video_params)
-      if wfe.SocialMediaSource.YOUTUBE_VIDEO in sources:
+      if wfe.SocialMediaSource.YOUTUBE_VIDEO in report.sources:
         created_workflows[wfe.SocialMediaSource.YOUTUBE_VIDEO.name] = (
             video_execution_id
         )
 
-    if wfe.SocialMediaSource.YOUTUBE_COMMENT in sources:
+    if wfe.SocialMediaSource.YOUTUBE_COMMENT in report.sources:
       if not video_execution_id:
         raise RuntimeError("Cannot create comment workflow without a parent.")
       comment_params = wfe.WorkflowExecutionParams(
           source=wfe.SocialMediaSource.YOUTUBE_COMMENT,
-          data_output=outputs,
+          data_output=[report.data_output],
           topic_type=wfe.TopicType.BRAND_OR_PRODUCT,
-          topic=topic,
-          start_time=start_date,
-          end_time=end_date,
+          topic=report.topic,
+          start_time=report.start_time,
+          end_time=report.end_time,
           status=wfe.Status.NEW,
           parent_execution_id=video_execution_id,
-          report_id=report_id,
+          report_id=report.report_id,
+          include_justifications=report.include_justifications,
       )
       comment_execution_id = self._workflow_repo.create_execution(
           comment_params
@@ -159,36 +138,39 @@ app_config = AppConfig()
 
 
 @app.post(
-    "/api/deaggregate", response_model=DeaggregatorResponse, status_code=201
+    "/api/deaggregate",
+    response_model=report_msg.SentimentReport,
+    status_code=201,
 )
-def deaggregate_report(request: DeaggregatorRequest) -> DeaggregatorResponse:
-  """Creates new workflow execution records based on a high-level request."""
+def deaggregate_report(
+    report: report_msg.SentimentReport,
+) -> report_msg.SentimentReport:
+  """Creates new workflow execution records from a SentimentReport message."""
   try:
     deaggregator_logic = Deaggregator(app_config.workflow_repo)
 
     # Generate a single, unique report_id for this entire request.
-    report_id = str(uuid.uuid4())
+    report.report_id = str(uuid.uuid4())
     logger.info(
-        "Generated new report_id '%s' for topic '%s'", report_id, request.topic
+        "Generated new report_id '%s' for topic '%s'",
+        report.report_id,
+        report.topic,
     )
 
-    sources = [wfe.SocialMediaSource[s.upper()] for s in request.sources]
-    outputs = [wfe.SentimentDataType[o.upper()] for o in request.output]
+    created_workflows = deaggregator_logic.create_workflows(report=report)
 
-    created_workflows = deaggregator_logic.create_workflows(
-        topic=request.topic,
-        start_date=request.start_date,
-        end_date=request.end_date,
-        sources=sources,
-        outputs=outputs,
-        report_id=report_id,
+    report.status = report_msg.Status.NEW
+    report.created_on = datetime.datetime.now(datetime.timezone.utc)
+    report.last_updated_on = report.created_on
+
+    logger.info(
+        "Created workflows for report_id %s: %s",
+        report.report_id,
+        created_workflows,
     )
 
-    return DeaggregatorResponse(
-        message="Workflows successfully created.",
-        created_workflows=created_workflows,
-        report_id=report_id,
-    )
+    return report
+
   except (KeyError, ValueError) as e:
     raise fastapi.HTTPException(status_code=400, detail=f"Bad request: {e}")
   except Exception as e:

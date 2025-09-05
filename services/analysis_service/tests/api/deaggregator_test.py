@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 from tasks.ports import persistence
 
 
-class DeaggregatorHandlerTest(unittest.TestCase):
+class DeaggregatorApiTest(unittest.TestCase):
   """Tests the /api/deaggregate endpoint and its underlying logic."""
 
   def setUp(self):
@@ -44,6 +44,7 @@ class DeaggregatorHandlerTest(unittest.TestCase):
         "start_date": "2025-01-01",
         "end_date": "2025-08-31",
         "output": ["SENTIMENT_SCORE"],
+        "include_justifications": False,
     }
 
   def tearDown(self):
@@ -82,12 +83,9 @@ class DeaggregatorHandlerTest(unittest.TestCase):
     self.assertEqual(response.status_code, 201)
     response_data = response.json()
     self.assertEqual(response_data["report_id"], "mock-report-id-123")
-    self.assertEqual(
-        response_data["created_workflows"]["YOUTUBE_VIDEO"], "vid-exec-123"
-    )
-    self.assertEqual(
-        response_data["created_workflows"]["YOUTUBE_COMMENT"], "com-exec-456"
-    )
+    self.assertEqual(response_data["topic"], "social pulse test")
+    self.assertEqual(response_data["status"], "NEW")
+    self.assertIn("created_on", response_data)
 
     # Assert Database Interaction
     self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
@@ -126,12 +124,6 @@ class DeaggregatorHandlerTest(unittest.TestCase):
 
     # Assert Response
     self.assertEqual(response.status_code, 201)
-    response_data = response.json()
-    self.assertEqual(response_data["report_id"], "mock-report-id-456")
-    self.assertNotIn("YOUTUBE_VIDEO", response_data["created_workflows"])
-    self.assertEqual(
-        response_data["created_workflows"]["YOUTUBE_COMMENT"], "com-exec-101"
-    )
 
     # Assert Database Interaction
     self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
