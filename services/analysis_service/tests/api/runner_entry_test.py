@@ -11,39 +11,39 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Unit tests for the DeaggregatorHandler class."""
+"""Unit tests for the Runner FastAPI service."""
 
 import unittest
 from unittest import mock
-from api import deaggregator
+from api import runner_entry
 
 from fastapi.testclient import TestClient
 from tasks.ports import persistence
 
 
-class DeaggregatorApiTest(unittest.TestCase):
-  """Tests the /api/deaggregate endpoint and its underlying logic."""
+class RunnerEntryApiTest(unittest.TestCase):
+  """Tests the /api/run_report endpoint and its underlying logic."""
 
   def setUp(self):
     """Set up mocks for external dependencies for each test."""
     super().setUp()
 
-    self.client = TestClient(deaggregator.app)
+    self.client = TestClient(runner_entry.app)
 
     self.mock_workflow_repo = mock.MagicMock(
         spec=persistence.WorkflowExecutionPersistenceService
     )
     self.repo_patcher = mock.patch(
-        "api.deaggregator.app_config.workflow_repo", self.mock_workflow_repo
+        "api.runner_entry.app_config.workflow_repo", self.mock_workflow_repo
     )
     self.repo_patcher.start()
 
     # Define common test data to be used across multiple tests.
     self.base_payload = {
         "topic": "social pulse test",
-        "start_date": "2025-01-01",
-        "end_date": "2025-08-31",
-        "output": ["SENTIMENT_SCORE"],
+        "start_time": "2025-01-01T00:00:00Z",
+        "end_time": "2025-08-31T23:59:59Z",
+        "data_output": "SENTIMENT_SCORE",
         "include_justifications": False,
     }
 
@@ -52,14 +52,14 @@ class DeaggregatorApiTest(unittest.TestCase):
     super().tearDown()
     self.repo_patcher.stop()
 
-  @mock.patch("api.deaggregator.uuid.uuid4", return_value="mock-report-id-123")
+  @mock.patch("api.runner_entry.uuid.uuid4", return_value="mock-report-id-123")
   def test_video_and_comment_request_creates_both_workflows(
       self, mock_uuid
   ):  # pylint: disable=unused-argument
     """Tests that a valid request for both video and comments succeeds.
 
     Given a valid request for both video and comments,
-    When the /api/deaggregate endpoint is called,
+    When the /api/run_report endpoint is called,
     Then it should return a 201 status,
     And create two linked workflows with a shared report_id,
     And return the correct response body.
@@ -77,7 +77,7 @@ class DeaggregatorApiTest(unittest.TestCase):
     ]
 
     # Act
-    response = self.client.post("/api/deaggregate", json=payload)
+    response = self.client.post("/api/run_report", json=payload)
 
     # Assert Response
     self.assertEqual(response.status_code, 201)
@@ -97,14 +97,14 @@ class DeaggregatorApiTest(unittest.TestCase):
     self.assertEqual(comment_params.report_id, "mock-report-id-123")
     self.assertEqual(comment_params.parent_execution_id, "vid-exec-123")
 
-  @mock.patch("api.deaggregator.uuid.uuid4", return_value="mock-report-id-456")
+  @mock.patch("api.run_report.uuid.uuid4", return_value="mock-report-id-456")
   def test_comment_only_request_implicitly_creates_parent(
       self, mock_uuid
   ):  # pylint: disable=unused-argument
     """Tests that a request for only comments creates a hidden parent.
 
     Given a valid request for only comments,
-    When the /api/deaggregate endpoint is called,
+    When the /api/run_report endpoint is called,
     Then it should implicitly create a parent video workflow,
     And the response should only contain the comment workflow ID.
 
@@ -120,10 +120,14 @@ class DeaggregatorApiTest(unittest.TestCase):
     ]
 
     # Act
-    response = self.client.post("/api/deaggregate", json=payload)
+    response = self.client.post("/api/run_report", json=payload)
 
     # Assert Response
     self.assertEqual(response.status_code, 201)
+    response_data = response.json()
+    self.assertEqual(response_data["report_id"], "mock-report-id-456")
+    self.assertEqual(response_data["status"], "NEW")
+    self.assertEqual(response_data["sources"], ["YOUTUBE_COMMENT"])
 
     # Assert Database Interaction
     self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
@@ -139,7 +143,7 @@ class DeaggregatorApiTest(unittest.TestCase):
     """Tests that a missing field returns a 422 error.
 
     Given a request payload that is missing a required field,
-    When the /api/deaggregate endpoint is called,
+    When the /api/run_report endpoint is called,
     Then FastAPI should automatically return a 422 Unprocessable Entity error.
     """
     # Arrange
@@ -147,7 +151,7 @@ class DeaggregatorApiTest(unittest.TestCase):
     del payload["topic"]  # Missing a required field
 
     # Act
-    response = self.client.post("/api/deaggregate", json=payload)
+    response = self.client.post("/api/run_report", json=payload)
 
     # Assert
     self.assertEqual(response.status_code, 422)
