@@ -32,6 +32,11 @@ resource "google_project_service" "apis" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "cloud_build_api" {
+  service            = "cloudbuild.googleapis.com"
+  disable_on_destroy = false
+}
+
 # Create a new service account
 resource "google_service_account" "social-pulse-sa" {
   account_id   = "social-pulse-sa"
@@ -67,71 +72,6 @@ resource "google_storage_bucket_object" "source_zip_object" {
   bucket       = google_storage_bucket.functions_bucket.name
   source       = data.archive_file.source_zip.output_path
   content_type = "application/zip"
-}
-
-# Cloud Build Trigger to build the container image
-resource "google_cloudbuild_trigger" "build-trigger" {
-  project = var.project_id
-  name    = "cloud-run-build-trigger"
-  substitutions = {
-    _SOURCE_BUCKET_NAME = google_storage_bucket.functions_bucket.name
-  }
-
-  trigger_template {
-    branch_name = "main"
-    repo_name   = "my-repo"
-  }
-
-  build {
-    step {
-      name = "gcr.io/cloud-builders/gsutil"
-      args = ["cp", "gs://${google_storage_bucket.functions_bucket.name}/${google_storage_bucket_object.source_zip_object.name}", "."]
-    }
-    step {
-      name = "gcr.io/cloud-builders/unzip"
-      args = ["source.zip"]
-    }
-    step {
-      name = "gcr.io/cloud-builders/docker"
-      args = ["build", "-t", "us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest", "."]
-    }
-    step {
-      name = "gcr.io/cloud-builders/docker"
-      args = ["push", "us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest"]
-    }
-    images = ["us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest"]
-    timeout = "600s"
-  }
-}
-
-# Create an Artifact Registry repository for the container image
-resource "google_artifact_registry_repository" "my_repo" {
-  project      = var.project_id
-  location     = "us-central1"
-  repository_id = "cloud-run-repo"
-  format       = "DOCKER"
-}
-
-# Deploy the Cloud Run service
-resource "google_cloud_run_v2_service" "default" {
-  project  = var.project_id
-  name     = "my-cloud-run-service"
-  location = "us-central1"
-
-  template {
-    containers {
-      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/my-app:latest"
-    }
-  }
-
-  traffic {
-    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
-    percent = 100
-  }
-
-  depends_on = [
-    google_cloudbuild_trigger.build-trigger
-  ]
 }
 
 resource "google_secret_manager_secret" "postgres_credentials" {
@@ -257,6 +197,65 @@ resource "google_bigquery_dataset" "social_pulse_dataset" {
     user_by_email = "social-pulse-sa@${var.project_id}.iam.gserviceaccount.com"
   }
   depends_on = [google_project_service.apis]
+}
+
+# Create an Artifact Registry repository for the container image
+resource "google_artifact_registry_repository" "my_repo" {
+  project      = var.project_id
+  location     = "us-central1"
+  repository_id = "cloud-run-repo"
+  format       = "DOCKER"
+}
+
+locals {
+  artifact_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/my-app:latest"
+}
+
+resource "null_resource" "auth_docker" {
+  provisioner "local-exec" {
+    command = "gcloud auth configure-docker ${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev"
+  }
+}
+
+resource "null_resource" "build_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command     = "docker build -f ./Dockerfile --build-arg YOYO_DB_ACCESS_URL=${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address} -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest ."
+    working_dir = path.module
+  }
+  depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
+
+}
+
+resource "null_resource" "push_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "docker push ${local.artifact_image_name}"
+  }
+  depends_on = [null_resource.build_image]
+}
+
+# Deploy the Cloud Run service
+resource "google_cloud_run_v2_service" "default" {
+  project  = var.project_id
+  name     = "my-cloud-run-service"
+  location = "us-central1"
+
+  template {
+    containers {
+      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/my-app:latest"
+    }
+  }
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
 }
 
 # Output relevant information
