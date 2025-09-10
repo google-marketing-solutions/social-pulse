@@ -74,49 +74,6 @@ resource "google_storage_bucket_object" "source_zip_object" {
   content_type = "application/zip"
 }
 
-resource "google_secret_manager_secret" "postgres_credentials" {
-  project = var.project_id
-  secret_id = "postgres-db-credentials"
-
-  # Define replication policy (e.g., automatic replication)
-  replication {
-    auto {}
-  }
-  depends_on = [google_project_service.apis]
-}
-
-output "secret_id" {
-  value = google_secret_manager_secret.youtube_api_key_secret.id
-}
-
-resource "google_secret_manager_secret_version" "postgres_credentials_version" {
-  secret      = google_secret_manager_secret.postgres_credentials.id
-  secret_data = jsonencode({
-    username = var.db_username
-    password = var.db_password
-  })
-
-  depends_on = [google_secret_manager_secret.postgres_credentials]
-}
-
-resource "google_secret_manager_secret" "youtube_api_key_secret" {
-  secret_id = "youtube-api-key"
-
-  # Define replication policy (e.g., automatic replication)
-  replication {
-    auto {}
-  }
-
-  depends_on = [google_project_service.apis]
-}
-
-resource "google_secret_manager_secret_version" "youtube_api_key_version" {
-  secret      = google_secret_manager_secret.youtube_api_key_secret.id
-  secret_data = var.yt_api_key
-
-  depends_on = [google_secret_manager_secret.youtube_api_key_secret]
-}
-
 # 3. PostgreSQL Databases for analysis and reporting metadata (Cloud SQL Instances)
 
 # Analysis PostgreSQL instance
@@ -258,6 +215,81 @@ resource "google_cloud_run_v2_service" "default" {
 
 }
 
+resource "google_secret_manager_secret" "postgres_credentials" {
+  project = var.project_id
+  secret_id = "postgres-db-credentials"
+
+  # Define replication policy (e.g., automatic replication)
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "postgres_credentials_version" {
+  secret      = google_secret_manager_secret.postgres_credentials.id
+  secret_data = jsonencode({
+    username = var.db_username
+    password = var.db_password
+  })
+
+  depends_on = [google_secret_manager_secret.postgres_credentials]
+}
+
+resource "google_secret_manager_secret" "youtube_api_key_secret" {
+  secret_id = "youtube-api-key"
+
+  # Define replication policy (e.g., automatic replication)
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "youtube_api_key_version" {
+  secret      = google_secret_manager_secret.youtube_api_key_secret.id
+  secret_data = var.yt_api_key
+
+  depends_on = [google_secret_manager_secret.youtube_api_key_secret]
+}
+
+resource "google_secret_manager_secret" "analysis_db_host_secret" {
+  secret_id = "analysis_db_host"
+
+  # Define replication policy (e.g., automatic replication)
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "analysis_db_host_version" {
+  secret      = google_secret_manager_secret.analysis_db_host_secret.id
+  secret_data = google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address
+
+  depends_on = [google_secret_manager_secret.analysis_db_host_secret]
+}
+
+resource "google_secret_manager_secret" "reporting_db_host_secret" {
+  secret_id = "reporting_db_host"
+
+  # Define replication policy (e.g., automatic replication)
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "reporting_db_host_version" {
+  secret      = google_secret_manager_secret.reporting_db_host_secret.id
+  secret_data = google_sql_database_instance.social_pulse_reporting_postgres_db.public_ip_address
+
+  depends_on = [google_secret_manager_secret.reporting_db_host_secret]
+}
+
 # Output relevant information
 output "project_id" {
   description = "The ID of the GCP project."
@@ -269,9 +301,19 @@ output "social_pulse_analysis_postgres_db_connection_name" {
   value       = google_sql_database_instance.social_pulse_analysis_postgres_db.connection_name
 }
 
+output "social_pulse_analysis_postgres_db_host" {
+  description = "The host ip for the analysis PostgreSQL instance."
+  value       = google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address
+}
+
 output "social_pulse_reporting_postgres_db_connection_name" {
   description = "The connection name for the reporting PostgreSQL instance."
   value       = google_sql_database_instance.social_pulse_reporting_postgres_db.connection_name
+}
+
+output "social_pulse_reporting_postgres_db_host" {
+  description = "The host ip for the reporting PostgreSQL instance."
+  value       = google_sql_database_instance.social_pulse_reporting_postgres_db.public_ip_address
 }
 
 output "bigquery_dataset_id" {
