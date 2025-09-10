@@ -3,3 +3,5 @@ psycopg2-binary
 pydantic-settings
 pytest
 python-dotenv
+pip-tools
+build

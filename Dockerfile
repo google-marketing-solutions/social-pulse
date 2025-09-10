@@ -24,7 +24,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY ../. .
+COPY . .
 
 ARG YOYO_DB_ACCESS_URL
 

@@ -63,7 +63,7 @@ resource "google_storage_bucket" "functions_bucket" {
 data "archive_file" "source_zip" {
   type        = "zip"
   output_path = "social_pulse.zip"
-  source_dir  = "../../social_pulse"
+  source_dir  = "."
 }
 
 # Upload the zip archive to the GCS bucket
