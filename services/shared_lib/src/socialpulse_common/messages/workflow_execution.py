@@ -17,6 +17,7 @@ import dataclasses
 import datetime
 import enum
 import typing
+import pydantic
 
 from socialpulse_common.messages import  common as msg_common
 
@@ -72,3 +73,18 @@ class WorkflowExecutionParams:
 
   # Shared ID to group multiple workflow executions under a single report.
   report_id: typing.Optional[str] = None
+
+
+class WorkflowExecutionRequest(pydantic.BaseModel):
+  """Defines the Pydantic model for an incoming workflow execution request."""
+  model_config = pydantic.ConfigDict(use_enum_names=True)
+
+  execution_id: str
+
+
+class WorkflowExecutionResponse(pydantic.BaseModel):
+  """Defines the Pydantic model for the response from a successful execution."""
+  model_config = pydantic.ConfigDict(use_enum_names=True)
+
+  status: str
+  summary: typing.Optional[str] = None

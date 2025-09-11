@@ -11,16 +11,11 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Module for the deaggregator service HTTP endpoint using FastAPI.
+"""Module for the Runner service HTTP endpoint using FastAPI.
 
-Its primary responsibilities are:
-1.  Parse and validate the incoming high-level analysis request.
-2.  For each source specified, create a corresponding WorkflowExecutionParams
-    record in the PostgreSQL database with a NEW status.
-3.  Establish the dependency chain between workflows by setting the
-    'parent_execution_id' for dependent workflows (e.g. a comment analysis
-    is dependent on its parent video analysis).
-
+This service acts as the primary API endpoint for the Analytic Service. Its main
+responsibility is to de-aggregate high-level report requests into specific,
+persisted workflow execution jobs.
 """
 
 import datetime
@@ -138,7 +133,7 @@ app_config = AppConfig()
 
 
 @app.post(
-    "/api/deaggregate",
+    "/api/run_report",
     response_model=report_msg.SentimentReport,
     status_code=201,
 )
@@ -182,7 +177,7 @@ def deaggregate_report(
 
 if __name__ == "__main__":
   uvicorn.run(
-      "deaggregator:app",
+      "runner_entry:app",
       host="0.0.0.0",
       port=8080,
       reload=True,
