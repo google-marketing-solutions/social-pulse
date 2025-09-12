@@ -22,20 +22,20 @@
 
 FROM python:3.12-slim
 
-WORKDIR /app
+WORKDIR /sp-analysis-run
 
 COPY . .
 
 ARG YOYO_DB_ACCESS_URL
 
-WORKDIR /app/services/shared_lib
+WORKDIR /sp-analysis-run/services/shared_lib
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m build
 
-WORKDIR /app/services/analysis_service
+WORKDIR /sp-analysis-run/services/analysis_service
 RUN pip install --no-cache-dir -r requirements.txt
 
 RUN yoyo apply --batch  --no-cache --database=${YOYO_DB_ACCESS_URL}
 
-# EXPOSE 8000
-# CMD ["uvicorn", "src.runner_entry:app"]
+EXPOSE 8000
+CMD ["uvicorn", "src.runner_entry:sp-analysis-run"]
