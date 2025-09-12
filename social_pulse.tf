@@ -26,6 +26,7 @@ resource "google_project_service" "apis" {
     "artifactregistry.googleapis.com", # Required for Cloud Functions (Gen2)
     "storage.googleapis.com", # For Cloud Functions source code bucket
     "iam.googleapis.com", # For managing service accounts
+    "servicenetworking.googleapis.com",
   ])
   project = var.project_id
   service = each.key
@@ -75,6 +76,33 @@ resource "google_storage_bucket_object" "source_zip_object" {
 }
 
 # 3. PostgreSQL Databases for analysis and reporting metadata (Cloud SQL Instances)
+
+# Use the default network. If it doesn't exist, this will find it.
+#resource "google_compute_network" "default" {
+#  name                    = "default"
+#  auto_create_subnetworks = true
+#}
+
+data "google_compute_network" "default" {
+  name = "default"
+}
+
+# Reserve a private IP range for the Cloud SQL instance
+resource "google_compute_global_address" "private_ip_range" {
+  name          = "google-managed-services-private-range"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = data.google_compute_network.default.id
+}
+
+# Create a VPC Network Peering connection
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = data.google_compute_network.default.name
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
+  depends_on              = [google_project_service.apis]
+}
 
 # Analysis PostgreSQL instance
 resource "google_sql_database_instance" "social_pulse_analysis_postgres_db" {
@@ -165,7 +193,8 @@ resource "google_artifact_registry_repository" "my_repo" {
 }
 
 locals {
-  artifact_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/my-app:latest"
+  run_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+  wfe_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-wfe:latest"
 }
 
 resource "null_resource" "auth_docker" {
@@ -174,37 +203,59 @@ resource "null_resource" "auth_docker" {
   }
 }
 
-resource "null_resource" "build_image" {
+resource "null_resource" "build_run_image" {
   triggers = {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command     = "docker build -f ./Dockerfile --build-arg YOYO_DB_ACCESS_URL=${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address} -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/my-app:latest ."
+    command     = "docker build -f ./Dockerfile.analysis.run --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address} -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-run:latest ."
     working_dir = path.module
   }
   depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
 
 }
 
-resource "null_resource" "push_image" {
+resource "null_resource" "build_wfe_image" {
   triggers = {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command = "docker push ${local.artifact_image_name}"
+    command     = "docker build -f ./Dockerfile.analysis.wfe --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address} -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-wfe:latest ."
+    working_dir = path.module
   }
-  depends_on = [null_resource.build_image]
+  depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
+
 }
 
-# Deploy the Cloud Run service
-resource "google_cloud_run_v2_service" "default" {
+resource "null_resource" "push_run_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "docker push ${local.run_image_name}"
+  }
+  depends_on = [null_resource.build_run_image]
+}
+
+resource "null_resource" "push_wfe_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "docker push ${local.wfe_image_name}"
+  }
+  depends_on = [null_resource.build_wfe_image]
+}
+
+# Deploy the analysis Cloud Run service
+resource "google_cloud_run_v2_service" "sp-analysis-run" {
   project  = var.project_id
-  name     = "my-cloud-run-service"
+  name     = "sp-analysis-run"
   location = "us-central1"
 
   template {
     containers {
-      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/my-app:latest"
+      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
     }
   }
 
@@ -212,7 +263,24 @@ resource "google_cloud_run_v2_service" "default" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
+}
 
+# Deploy the wfe Cloud Run service
+resource "google_cloud_run_v2_service" "sp-analysis-wfe" {
+  project  = var.project_id
+  name     = "sp-analysis-wfe"
+  location = "us-central1"
+
+  template {
+    containers {
+      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+    }
+  }
+
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
 }
 
 resource "google_secret_manager_secret" "postgres_credentials" {
