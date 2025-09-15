@@ -75,35 +75,35 @@ resource "google_storage_bucket_object" "source_zip_object" {
   content_type = "application/zip"
 }
 
-# 3. PostgreSQL Databases for analysis and reporting metadata (Cloud SQL Instances)
-
-# Use the default network. If it doesn't exist, this will find it.
-#resource "google_compute_network" "default" {
-#  name                    = "default"
-#  auto_create_subnetworks = true
-#}
-
-data "google_compute_network" "default" {
-  name = "default"
+# Set up VPC network
+resource "google_compute_network" "vpc_network" {
+  name                    = "sp-vpc-network"
+  auto_create_subnetworks = false
 }
 
-# Reserve a private IP range for the Cloud SQL instance
-resource "google_compute_global_address" "private_ip_range" {
-  name          = "google-managed-services-private-range"
+resource "google_compute_subnetwork" "vpc_subnet" {
+  name          = "sp-vpc-subnet"
+  ip_cidr_range = "10.0.0.0/24"
+  region        = "us-central1"
+  network       = google_compute_network.vpc_network.self_link
+}
+
+resource "google_compute_global_address" "private_ip_alloc" {
+  name          = "sp-cloudsql-private-ip-alloc"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
-  prefix_length = 16
-  network       = data.google_compute_network.default.id
+  prefix_length = 20
+  network       = google_compute_network.vpc_network.self_link
 }
 
-# Create a VPC Network Peering connection
 resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = data.google_compute_network.default.name
+  network                 = google_compute_network.vpc_network.self_link
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
-  depends_on              = [google_project_service.apis]
+  reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
+  depends_on              = [google_compute_global_address.private_ip_alloc]
 }
 
+# 3. PostgreSQL Databases for analysis and reporting metadata (Cloud SQL Instances)
 # Analysis PostgreSQL instance
 resource "google_sql_database_instance" "social_pulse_analysis_postgres_db" {
   name             = "analysis-postgres-db-instance"
@@ -114,6 +114,7 @@ resource "google_sql_database_instance" "social_pulse_analysis_postgres_db" {
     tier = "db-f1-micro" # Smallest instance type for testing
     ip_configuration {
       ipv4_enabled = true
+      private_network = google_compute_network.vpc_network.self_link
     }
     backup_configuration {
       enabled            = true
@@ -122,7 +123,7 @@ resource "google_sql_database_instance" "social_pulse_analysis_postgres_db" {
     }
     availability_type = "REGIONAL" # Or "ZONAL"
   }
-  depends_on = [google_project_service.apis]
+  depends_on = [google_project_service.apis, google_service_networking_connection.private_vpc_connection]
 }
 
 resource "google_sql_user" "postgres_db_user" {
@@ -150,6 +151,7 @@ resource "google_sql_database_instance" "social_pulse_reporting_postgres_db" {
     tier = "db-f1-micro"
     ip_configuration {
       ipv4_enabled = true
+      private_network = google_compute_network.vpc_network.self_link
     }
     backup_configuration {
       enabled    = true
@@ -157,7 +159,7 @@ resource "google_sql_database_instance" "social_pulse_reporting_postgres_db" {
     }
     availability_type = "REGIONAL"
   }
-  depends_on = [google_project_service.apis]
+  depends_on = [google_project_service.apis, google_service_networking_connection.private_vpc_connection]
 }
 
 # Database inside the reporting instance
@@ -208,7 +210,7 @@ resource "null_resource" "build_run_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command     = "docker build -f ./Dockerfile.analysis.run --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address} -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-run:latest ."
+    command     = "docker build -f ./Dockerfile.analysis.run --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address}/analysis-database -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-run:latest ."
     working_dir = path.module
   }
   depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
@@ -220,7 +222,7 @@ resource "null_resource" "build_wfe_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command     = "docker build -f ./Dockerfile.analysis.wfe --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address} -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-wfe:latest ."
+    command     = "docker build -f ./Dockerfile.analysis.wfe --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address}/reporting-database -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-wfe:latest ."
     working_dir = path.module
   }
   depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
@@ -247,15 +249,20 @@ resource "null_resource" "push_wfe_image" {
   depends_on = [null_resource.build_wfe_image]
 }
 
-# Deploy the analysis Cloud Run service
+# Deploy the analysis run Cloud Run service
 resource "google_cloud_run_v2_service" "sp-analysis-run" {
   project  = var.project_id
   name     = "sp-analysis-run"
   location = "us-central1"
+  deletion_protection = false
 
   template {
     containers {
       image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+    }
+    vpc_access {
+      connector = google_vpc_access_connector.connector.id
+      egress    = "ALL_TRAFFIC"
     }
   }
 
@@ -265,15 +272,20 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
   }
 }
 
-# Deploy the wfe Cloud Run service
+# Deploy the analysis wfe Cloud Run service
 resource "google_cloud_run_v2_service" "sp-analysis-wfe" {
   project  = var.project_id
   name     = "sp-analysis-wfe"
   location = "us-central1"
+  deletion_protection = false
 
   template {
     containers {
       image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+    }
+    vpc_access {
+      connector = google_vpc_access_connector.connector.id
+      egress    = "ALL_TRAFFIC"
     }
   }
 
@@ -283,9 +295,21 @@ resource "google_cloud_run_v2_service" "sp-analysis-wfe" {
   }
 }
 
-resource "google_secret_manager_secret" "postgres_credentials" {
+resource "google_vpc_access_connector" "connector" {
+  name          = "sp-vpc-connector"
+  region        = "us-central1"
+  ip_cidr_range = "10.8.0.0/28" # A non-overlapping range within your VPC
+  network       = google_compute_network.vpc_network.self_link
+  min_instances = 2
+  max_instances = 10
+  #subnet {
+  #  name = google_compute_subnetwork.vpc_subnet.self_link
+  #}
+}
+
+resource "google_secret_manager_secret" "postgres_username" {
   project = var.project_id
-  secret_id = "postgres-db-credentials"
+  secret_id = "DB_USER"
 
   # Define replication policy (e.g., automatic replication)
   replication {
@@ -294,18 +318,33 @@ resource "google_secret_manager_secret" "postgres_credentials" {
   depends_on = [google_project_service.apis]
 }
 
-resource "google_secret_manager_secret_version" "postgres_credentials_version" {
-  secret      = google_secret_manager_secret.postgres_credentials.id
-  secret_data = jsonencode({
-    username = var.db_username
-    password = var.db_password
-  })
+resource "google_secret_manager_secret" "postgres_password" {
+  project = var.project_id
+  secret_id = "DB_PASSWORD"
 
-  depends_on = [google_secret_manager_secret.postgres_credentials]
+  # Define replication policy (e.g., automatic replication)
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "postgres_username_version" {
+  secret      = google_secret_manager_secret.postgres_username.id
+  secret_data = var.db_username
+
+  depends_on = [google_secret_manager_secret.postgres_username]
+}
+
+resource "google_secret_manager_secret_version" "postgres_password_version" {
+  secret      = google_secret_manager_secret.postgres_password.id
+  secret_data = var.db_password
+
+  depends_on = [google_secret_manager_secret.postgres_password]
 }
 
 resource "google_secret_manager_secret" "youtube_api_key_secret" {
-  secret_id = "youtube-api-key"
+  secret_id = "YT_API_KEY"
 
   # Define replication policy (e.g., automatic replication)
   replication {
@@ -323,7 +362,7 @@ resource "google_secret_manager_secret_version" "youtube_api_key_version" {
 }
 
 resource "google_secret_manager_secret" "analysis_db_host_secret" {
-  secret_id = "analysis_db_host"
+  secret_id = "ANALYSIS_DB_HOST"
 
   # Define replication policy (e.g., automatic replication)
   replication {
@@ -341,7 +380,7 @@ resource "google_secret_manager_secret_version" "analysis_db_host_version" {
 }
 
 resource "google_secret_manager_secret" "reporting_db_host_secret" {
-  secret_id = "reporting_db_host"
+  secret_id = "REPORTING_DB_HOST"
 
   # Define replication policy (e.g., automatic replication)
   replication {
