@@ -15,6 +15,7 @@
 import logging
 from typing import Any
 
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import workflow_execution as wfe
 from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
@@ -66,7 +67,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  status, "
         "  lastCompletedTask, "
         "  parentExecutionId, "
-        "  reportId"
+        "  reportId "
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
         (execution_id,),
@@ -79,10 +80,10 @@ class PostgresDbWorkflowExecutionPersistenceService(
 
   def _parse_data_outputs(
       self, from_db: list[str]
-  ) -> list[wfe.SentimentDataType]:
+  ) -> list[common_msg.SentimentDataType]:
     data_outputs = []
     for data_output in from_db:
-      data_outputs.append(wfe.SentimentDataType[data_output])
+      data_outputs.append(common_msg.SentimentDataType[data_output])
     return data_outputs
 
   def create_execution(
@@ -108,7 +109,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
           parentExecutionId,
           reportId
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
     """
     data_outputs_as_names = [
@@ -133,6 +134,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         report_id,
     )
 
+    logger.info("Creating workflow execution with params: %s", params)
     new_id = self._postgres_client.insert_row(query, params)
     return new_id
 
@@ -187,7 +189,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         SELECT
             wep.executionId, wep.source, wep.dataOutputs, wep.topicType,
             wep.topic, wep.dateRangeStart, wep.dateRangeEnd, wep.status,
-            wep.lastCompletedTask, wep.parentExecutionId
+            wep.lastCompletedTask, wep.parentExecutionId, wep.reportId
         FROM
             WorkflowExecutionParams wep
         LEFT JOIN
@@ -242,11 +244,11 @@ class PostgresDbWorkflowExecutionPersistenceService(
     """
     wfe_params = wfe.WorkflowExecutionParams()
     wfe_params.execution_id = row[EXECUTION_ID_COL_INDEX]
-    wfe_params.source = wfe.SocialMediaSource[row[SOURCE_COL_INDEX]]
+    wfe_params.source = common_msg.SocialMediaSource[row[SOURCE_COL_INDEX]]
     wfe_params.data_output = self._parse_data_outputs(
         row[DATAOUTPUTS_COL_INDEX]
     )
-    wfe_params.topic_type = wfe.TopicType[row[TOPICTYPE_COL_INDEX]]
+    wfe_params.topic_type = common_msg.TopicType[row[TOPICTYPE_COL_INDEX]]
     wfe_params.topic = row[TOPIC_COL_INDEX]
     wfe_params.start_time = row[STARTDATE_COL_INDEX]
     wfe_params.end_time = row[ENDDATE_COL_INDEX]

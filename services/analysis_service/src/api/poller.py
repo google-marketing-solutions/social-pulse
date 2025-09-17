@@ -27,12 +27,12 @@ import os
 
 import functions_framework
 
-from infrastructure.persistence.postgresdb import client
 from infrastructure.persistence.postgresdb import workflow_data_repo
 from infrastructure.triggers import wfe_cloud_function
 from socialpulse_common import config
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution as wfe
+from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 from tasks.ports import trigger
 
@@ -87,7 +87,7 @@ def _bootstrap_services():
 
   # Register Workflow Trigger Service
   trigger_adapter = wfe_cloud_function.HttpWorkflowExecutionTrigger(
-      trigger_url=settings.cloud.wfe_trigger_url
+      trigger_url=f"{settings.cloud.workflow_executor_api_url}/execute"
   )
   service_registry.register(trigger.WorkflowExecutionTrigger, trigger_adapter)
 

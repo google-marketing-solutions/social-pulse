@@ -4,6 +4,7 @@ db-dtypes
 flask
 functions-framework
 google_api_python_client
+google-cloud-secret-manager
 luigi
 pandas
 parameterized

@@ -72,6 +72,7 @@ google-api-core[grpc]==2.24.2
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
 google-api-python-client==2.166.0
     # via -r requirements.in
@@ -85,6 +86,7 @@ google-auth==2.38.0
     #   google-cloud-bigquery
     #   google-cloud-core
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
 google-auth-httplib2==0.2.0
     # via google-api-python-client
@@ -98,6 +100,8 @@ google-cloud-core==2.4.3
     #   google-cloud-storage
 google-cloud-resource-manager==1.14.2
     # via google-cloud-aiplatform
+google-cloud-secret-manager==2.24.0
+    # via -r requirements.in
 google-cloud-storage==2.19.0
     # via google-cloud-aiplatform
 google-crc32c==1.7.1
@@ -114,7 +118,9 @@ googleapis-common-protos[grpc]==1.69.2
     #   grpc-google-iam-v1
     #   grpcio-status
 grpc-google-iam-v1==0.14.2
-    # via google-cloud-resource-manager
+    # via
+    #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 grpcio==1.71.0
     # via
     #   google-api-core
@@ -191,12 +197,14 @@ proto-plus==1.26.1
     #   google-api-core
     #   google-cloud-aiplatform
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 protobuf==5.29.4
     # via
     #   -r requirements.in
     #   google-api-core
     #   google-cloud-aiplatform
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status

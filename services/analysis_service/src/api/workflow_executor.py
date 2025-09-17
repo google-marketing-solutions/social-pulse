@@ -25,22 +25,21 @@ to be called directly by end-users.
 
 import logging
 import os
-import fastapi
+import sys
 
 
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
 from infrastructure.persistence.bigquery import sentiment_data_repo
-from infrastructure.persistence.postgresdb import client
 from infrastructure.persistence.postgresdb import workflow_data_repo
 import luigi
 from socialpulse_common import config
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution as wfe
+from socialpulse_common.persistence import postgresdb_client as client
 from tasks import execution
 from tasks.ports import apis
 from tasks.ports import persistence
-import uvicorn
 
 
 log_format = (
@@ -93,12 +92,6 @@ class PipelineRunner:
 
   def _register_services_for_pipeline(self):
     """Registers all necessary services into the global service registry."""
-    if service.registry.is_registered(
-        persistence.WorkflowExecutionPersistenceService
-    ):
-      logger.info("Pipeline services already registered for this worker.")
-      return
-
     logger.info("Registering services for Luigi pipeline...")
     service.registry.register(
         persistence.WorkflowExecutionPersistenceService,
@@ -112,14 +105,16 @@ class PipelineRunner:
         apis.LlmBatchJobApiClient, self._config.vertex_api
     )
 
-  def run(self, execution_id: str) -> luigi.LuigiRunResult:
+  def run(self, execution_id: str) -> luigi.execution_summary.LuigiRunResult:
     """Configures the environment and executes the Luigi pipeline."""
     self._register_services_for_pipeline()
     logger.info("Invoking luigi.build for execution_id: %s", execution_id)
     run_result = luigi.build(
         [execution.WorkflowExecution(execution_id=execution_id)],
         detailed_summary=True,
-        local_scheduler=True,
+        local_scheduler=False,
+        scheduler_host=settings.cloud.task_scheduler_host,
+        scheduler_port=settings.cloud.task_scheduler_port,
     )
     return run_result
 
@@ -135,22 +130,16 @@ class PipelineRunner:
       )
 
 
-app = fastapi.FastAPI()
 app_config = AppConfig()
 
 
-@app.post("/execute", response_model=wfe.WorkflowExecutionResponse)
-def execute_workflow(
-    request: wfe.WorkflowExecutionRequest,
-) -> wfe.WorkflowExecutionResponse:
+def main():
   """Executes the Luigi pipeline for the given execution_id."""
-  execution_id = request.execution_id
-  if not execution_id:
+  if len(sys.argv) < 2:
     logger.error("An execution ID was not provided")
-    raise fastapi.HTTPException(
-        status_code=500, detail="execution_id is a required field."
-    )
+    sys.exit(1)
 
+  execution_id = sys.argv[1]
   try:
     runner = PipelineRunner(app_config)
     run_result = runner.run(execution_id)
@@ -159,19 +148,17 @@ def execute_workflow(
         luigi.LuigiStatusCode.SUCCESS,
         luigi.LuigiStatusCode.SUCCESS_WITH_RETRY,
     ):
-      logger.error("Luigi pipeline FAILED for execution_id: %s.", execution_id)
-      runner.mark_as_failed(execution_id)
-      raise fastapi.HTTPException(
-          status_code=500,
-          detail=f"Pipeline failed: {run_result.summary_text}",
+      logger.error(
+          "Luigi pipeline FAILED for execution_id: %s.\n%s",
+          execution_id,
+          run_result.summary_text
       )
+      runner.mark_as_failed(execution_id)
+      sys.exit(1)
 
     logger.info("Luigi pipeline succeeded for execution_id: %s.", execution_id)
-    return wfe.WorkflowExecutionResponse(
-        status="SUCCESS", summary=run_result.summary_text
-    )
 
-  except Exception as e:
+  except Exception:  # pylint: disable=broad-exception-caught
     logger.exception(
         "Critical error occurred in the workflow executor for execution_id: %s",
         execution_id,
@@ -179,15 +166,8 @@ def execute_workflow(
     # For any other unexpected crash
     if runner:
       runner.mark_as_failed(execution_id)
-    raise fastapi.HTTPException(
-        status_code=500, detail="Internal Server Error"
-    ) from e
+    sys.exit(1)
 
 
 if __name__ == "__main__":
-  uvicorn.run(
-      "workflow_executor:app",
-      host="0.0.0.0",
-      port=8082,
-      reload=True,
-  )
+  main()

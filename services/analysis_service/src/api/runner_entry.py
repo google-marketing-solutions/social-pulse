@@ -24,11 +24,12 @@ import os
 import uuid
 import fastapi
 
-from infrastructure.persistence.postgresdb import client
 from infrastructure.persistence.postgresdb import workflow_data_repo
 from socialpulse_common import config
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.messages import workflow_execution as wfe
+from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 import uvicorn
 
@@ -79,15 +80,15 @@ class Deaggregator:
     video_execution_id = None
 
     needs_video_workflow = (
-        wfe.SocialMediaSource.YOUTUBE_VIDEO in report.sources
-        or wfe.SocialMediaSource.YOUTUBE_COMMENT in report.sources
+        common_msg.SocialMediaSource.YOUTUBE_VIDEO in report.sources
+        or common_msg.SocialMediaSource.YOUTUBE_COMMENT in report.sources
     )
 
     if needs_video_workflow:
       video_params = wfe.WorkflowExecutionParams(
-          source=wfe.SocialMediaSource.YOUTUBE_VIDEO,
+          source=common_msg.SocialMediaSource.YOUTUBE_VIDEO,
           data_output=[report.data_output],
-          topic_type=wfe.TopicType.BRAND_OR_PRODUCT,
+          topic_type=common_msg.TopicType.BRAND_OR_PRODUCT,
           topic=report.topic,
           start_time=report.start_time,
           end_time=report.end_time,
@@ -97,18 +98,18 @@ class Deaggregator:
           include_justifications=report.include_justifications,
       )
       video_execution_id = self._workflow_repo.create_execution(video_params)
-      if wfe.SocialMediaSource.YOUTUBE_VIDEO in report.sources:
-        created_workflows[wfe.SocialMediaSource.YOUTUBE_VIDEO.name] = (
+      if common_msg.SocialMediaSource.YOUTUBE_VIDEO in report.sources:
+        created_workflows[common_msg.SocialMediaSource.YOUTUBE_VIDEO.name] = (
             video_execution_id
         )
 
-    if wfe.SocialMediaSource.YOUTUBE_COMMENT in report.sources:
+    if common_msg.SocialMediaSource.YOUTUBE_COMMENT in report.sources:
       if not video_execution_id:
         raise RuntimeError("Cannot create comment workflow without a parent.")
       comment_params = wfe.WorkflowExecutionParams(
-          source=wfe.SocialMediaSource.YOUTUBE_COMMENT,
+          source=common_msg.SocialMediaSource.YOUTUBE_COMMENT,
           data_output=[report.data_output],
-          topic_type=wfe.TopicType.BRAND_OR_PRODUCT,
+          topic_type=common_msg.TopicType.BRAND_OR_PRODUCT,
           topic=report.topic,
           start_time=report.start_time,
           end_time=report.end_time,
@@ -120,7 +121,7 @@ class Deaggregator:
       comment_execution_id = self._workflow_repo.create_execution(
           comment_params
       )
-      created_workflows[wfe.SocialMediaSource.YOUTUBE_COMMENT.name] = (
+      created_workflows[common_msg.SocialMediaSource.YOUTUBE_COMMENT.name] = (
           comment_execution_id
       )
 
