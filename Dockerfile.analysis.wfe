@@ -35,7 +35,7 @@ RUN python -m build
 WORKDIR /sp-analysis-wfe/services/analysis_service
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN yoyo apply --batch  --no-cache --database=${YOYO_DB_ACCESS_URL}
+RUN yoyo apply --batch --no-cache --database=postgresql://1:1@${YOYO_DB_ACCESS_URL}
 
 EXPOSE 8000
 CMD ["uvicorn", "src.runner_entry:sp-analysis-wfe"]

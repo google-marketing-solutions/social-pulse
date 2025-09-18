@@ -4,7 +4,7 @@ provider "google" {
   region  = var.region
 }
 
-# 1. GCP Project
+# GCP Project
 # This resource creates a new GCP project. If you already have a project,
 # you can comment this out and just use the existing project ID in var.project_id.
 #resource "google_project" "new_project" {
@@ -15,27 +15,10 @@ provider "google" {
 #  billing_account = var.billing_account_id # Replace with your billing account ID
 #}
 
-# Enable necessary APIs
-resource "google_project_service" "apis" {
-  for_each = toset([
-    "sqladmin.googleapis.com",
-    "secretmanager.googleapis.com",
-    "bigquery.googleapis.com",
-    "youtube.googleapis.com",
-    "cloudbuild.googleapis.com", # Required for Cloud Functions deployment
-    "artifactregistry.googleapis.com", # Required for Cloud Functions (Gen2)
-    "storage.googleapis.com", # For Cloud Functions source code bucket
-    "iam.googleapis.com", # For managing service accounts
-    "servicenetworking.googleapis.com",
-  ])
-  project = var.project_id
-  service = each.key
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "cloud_build_api" {
-  service            = "cloudbuild.googleapis.com"
-  disable_on_destroy = false
+locals {
+  timespec = formatdate("MMDDYYYYhhmmss", timestamp())
+  run_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+  wfe_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-wfe:latest"
 }
 
 # Create a new service account
@@ -51,13 +34,12 @@ resource "google_project_iam_member" "service_account_editor" {
   member  = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 }
 
-# Storage bucket for Cloud Functions source code
-resource "google_storage_bucket" "functions_bucket" {
-  name          = "social-pulse-cloud-functions-source"
+# Storage bucket for source code
+resource "google_storage_bucket" "source_code_bucket" {
+  name          = "social-pulse-source-code-${formatdate(local.timespec, timestamp())}"
   location      = var.region
   project       = var.project_id
   uniform_bucket_level_access = true
-  depends_on = [google_project_service.apis]
 }
 
 # Create a zip archive of the source code folder
@@ -70,7 +52,7 @@ data "archive_file" "source_zip" {
 # Upload the zip archive to the GCS bucket
 resource "google_storage_bucket_object" "source_zip_object" {
   name         = "social_pulse.zip"
-  bucket       = google_storage_bucket.functions_bucket.name
+  bucket       = google_storage_bucket.source_code_bucket.name
   source       = data.archive_file.source_zip.output_path
   content_type = "application/zip"
 }
@@ -103,7 +85,7 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   depends_on              = [google_compute_global_address.private_ip_alloc]
 }
 
-# 3. PostgreSQL Databases for analysis and reporting metadata (Cloud SQL Instances)
+# PostgreSQL Databases for analysis and reporting metadata (Cloud SQL Instances)
 # Analysis PostgreSQL instance
 resource "google_sql_database_instance" "social_pulse_analysis_postgres_db" {
   name             = "analysis-postgres-db-instance"
@@ -123,7 +105,7 @@ resource "google_sql_database_instance" "social_pulse_analysis_postgres_db" {
     }
     availability_type = "REGIONAL" # Or "ZONAL"
   }
-  depends_on = [google_project_service.apis, google_service_networking_connection.private_vpc_connection]
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
 resource "google_sql_user" "postgres_db_user" {
@@ -159,7 +141,7 @@ resource "google_sql_database_instance" "social_pulse_reporting_postgres_db" {
     }
     availability_type = "REGIONAL"
   }
-  depends_on = [google_project_service.apis, google_service_networking_connection.private_vpc_connection]
+  depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
 # Database inside the reporting instance
@@ -171,7 +153,7 @@ resource "google_sql_database" "reporting_db" {
   project  = var.project_id
 }
 
-# 4. BigQuery Dataset
+# BigQuery Dataset
 resource "google_bigquery_dataset" "social_pulse_dataset" {
   dataset_id                  = "social_pulse_dataset"
   friendly_name               = "Social Pulse Sentiment Data"
@@ -183,7 +165,6 @@ resource "google_bigquery_dataset" "social_pulse_dataset" {
     role          = "OWNER"
     user_by_email = "social-pulse-sa@${var.project_id}.iam.gserviceaccount.com"
   }
-  depends_on = [google_project_service.apis]
 }
 
 # Create an Artifact Registry repository for the container image
@@ -192,11 +173,6 @@ resource "google_artifact_registry_repository" "my_repo" {
   location     = "us-central1"
   repository_id = "cloud-run-repo"
   format       = "DOCKER"
-}
-
-locals {
-  run_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
-  wfe_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-wfe:latest"
 }
 
 resource "null_resource" "auth_docker" {
@@ -210,7 +186,7 @@ resource "null_resource" "build_run_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command     = "docker build -f ./Dockerfile.analysis.run --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address}/analysis-database -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-run:latest ."
+    command     = "docker build -f ./Dockerfile.analysis.run --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address}/analysis-database -t ${local.run_image_name} ."
     working_dir = path.module
   }
   depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
@@ -222,7 +198,7 @@ resource "null_resource" "build_wfe_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command     = "docker build -f ./Dockerfile.analysis.wfe --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address}/reporting-database -t us-central1-docker.pkg.dev/${var.project_id}/cloud-run-repo/sp-analysis-wfe:latest ."
+    command     = "docker build -f ./Dockerfile.analysis.wfe --build-arg YOYO_DB_ACCESS_URL=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_analysis_postgres_db.public_ip_address}/reporting-database -t ${local.wfe_image_name} ."
     working_dir = path.module
   }
   depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
@@ -258,7 +234,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
 
   template {
     containers {
-      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+      image = "${local.run_image_name}"
     }
     vpc_access {
       connector = google_vpc_access_connector.connector.id
@@ -281,7 +257,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-wfe" {
 
   template {
     containers {
-      image = "${google_artifact_registry_repository.my_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-run:latest"
+      image = "${local.run_image_name}"
     }
     vpc_access {
       connector = google_vpc_access_connector.connector.id
@@ -302,9 +278,6 @@ resource "google_vpc_access_connector" "connector" {
   network       = google_compute_network.vpc_network.self_link
   min_instances = 2
   max_instances = 10
-  #subnet {
-  #  name = google_compute_subnetwork.vpc_subnet.self_link
-  #}
 }
 
 resource "google_secret_manager_secret" "postgres_username" {
@@ -315,7 +288,6 @@ resource "google_secret_manager_secret" "postgres_username" {
   replication {
     auto {}
   }
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret" "postgres_password" {
@@ -326,7 +298,6 @@ resource "google_secret_manager_secret" "postgres_password" {
   replication {
     auto {}
   }
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret_version" "postgres_username_version" {
@@ -350,8 +321,6 @@ resource "google_secret_manager_secret" "youtube_api_key_secret" {
   replication {
     auto {}
   }
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret_version" "youtube_api_key_version" {
@@ -368,8 +337,6 @@ resource "google_secret_manager_secret" "analysis_db_host_secret" {
   replication {
     auto {}
   }
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret_version" "analysis_db_host_version" {
@@ -386,8 +353,6 @@ resource "google_secret_manager_secret" "reporting_db_host_secret" {
   replication {
     auto {}
   }
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_secret_manager_secret_version" "reporting_db_host_version" {
