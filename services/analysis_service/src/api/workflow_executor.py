@@ -112,9 +112,7 @@ class PipelineRunner:
     run_result = luigi.build(
         [execution.WorkflowExecution(execution_id=execution_id)],
         detailed_summary=True,
-        local_scheduler=False,
-        scheduler_host=settings.cloud.task_scheduler_host,
-        scheduler_port=settings.cloud.task_scheduler_port,
+        local_scheduler=True
     )
     return run_result
 

@@ -1,9 +1,10 @@
 cloud-sql-python-connector[psycopg2]
 coverage
 db-dtypes
-flask
+fastapi
 functions-framework
 google_api_python_client
+google-cloud-pubsub
 google-cloud-secret-manager
 luigi
 pandas
@@ -17,4 +18,4 @@ vertexai
 yoyo-migrations
 
 # Shared social pulse library
--e file:../shared_lib
+socialpulse-common==0.1.0

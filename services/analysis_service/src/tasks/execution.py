@@ -83,6 +83,14 @@ class ExecutionStartTask(luigi.Task):
 
   def run(self):
     logging.info("Starting workflow execution '%s'", self.execution_id)
+    workflow_persistence_srv = service.registry.get(
+        persistence.WorkflowExecutionPersistenceService
+    )
+
+    workflow_persistence_srv.update_status(
+        self.execution_id,
+        wfe.Status.IN_PROGRESS
+    )
     self._has_completed = True
 
   def complete(self):

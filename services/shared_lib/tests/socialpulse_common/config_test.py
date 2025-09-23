@@ -30,11 +30,11 @@ class ConfigTest(unittest.TestCase):
     config.Settings._initialized = False
 
     self.mock_os_envs = {
-        "CLOUD.PROJECT_ID": "123456789",
-        "API.YOUTUBE.KEY": "dummy_key",
-        "DB.PASSWORD": "dummy_db_password",
-        "CLOUD.REGION": "us-central1",
-        "CLOUD.DATASET_NAME": "social_pulse_sentiment_data",
+        "CLOUD__PROJECT_ID": "123456789",
+        "API__YOUTUBE__KEY": "dummy_key",
+        "DB__PASSWORD": "dummy_db_password",
+        "CLOUD__REGION": "us-central1",
+        "CLOUD__DATASET_NAME": "social_pulse_sentiment_data",
         "APP_ENV": "development"
     }
     self.setup_os_environment()
@@ -60,7 +60,7 @@ class ConfigTest(unittest.TestCase):
   ):
     """Verifies the dynamic API URL is built correctly from other settings.
 
-    Given the CLOUD.PROJECT_ID environment variable is set
+    Given the CLOUD__PROJECT_ID environment variable is set
     When the Settings object is initialized
     Then the workflow_runner_api_url is generated with the correct format
 
@@ -86,7 +86,7 @@ class ConfigTest(unittest.TestCase):
   ):
     """Ensures an explicit environment variable overrides the dynamic API URL.
 
-    Given an explicit CLOUD.WORKFLOW_RUNNER_API_URL is set
+    Given an explicit CLOUD__WORKFLOW_RUNNER_API_URL is set
     When the Settings object is initialized
     Then the dynamic URL is not used and the explicit one is kept
 
@@ -97,7 +97,7 @@ class ConfigTest(unittest.TestCase):
     del mocked_find_dotenv
     del mocked_secrets_loader
 
-    self.mock_os_envs["CLOUD.WORKFLOW_RUNNER_API_URL"] = (
+    self.mock_os_envs["CLOUD__WORKFLOW_RUNNER_API_URL"] = (
         "http://my-override-url.com"
     )
     self.setup_os_environment()
@@ -120,7 +120,8 @@ class ConfigTest(unittest.TestCase):
   ):
     """Tests that secrets from GCP are loaded and used by the settings model.
 
-    Given the Secret Manager client is mocked to return a secret
+    Given the Secret Manager has a value for the database password
+    And the secret ID is store under the DB-PASSWORD ID
     When the Settings object is initialized
     Then the value of the mocked secret is correctly populated in the settings
 
@@ -134,7 +135,7 @@ class ConfigTest(unittest.TestCase):
     mock_sm_client.return_value = mock_client_instance
 
     mock_secret = mock.Mock()
-    mock_secret.name = "projects/gcp-project/secrets/DB.PASSWORD"
+    mock_secret.name = "projects/gcp-project/secrets/DB-PASSWORD"
     mock_client_instance.list_secrets.return_value = [mock_secret]
 
     mock_version_response = mock.Mock()
@@ -143,7 +144,7 @@ class ConfigTest(unittest.TestCase):
         mock_version_response
     )
 
-    with mock.patch.dict(os.environ, {"API.YOUTUBE.KEY": "dummy"}):
+    with mock.patch.dict(os.environ, {"API__YOUTUBE.KEY": "dummy"}):
       settings = config.Settings()
 
       self.assertEqual(settings.db.password, "password-from-secret")
@@ -174,21 +175,12 @@ class ConfigTest(unittest.TestCase):
     del mocked_load_dotenv
     del mocked_secrets_loader
 
-    self.mock_os_envs.pop("CLOUD.PROJECT_ID")
+    self.mock_os_envs.pop("CLOUD__PROJECT_ID")
     self.setup_os_environment()
 
     with self.assertRaises(pydantic.ValidationError):
       settings = config.Settings()  # pylint: disable=unused-variable
 
-  @mock.patch.dict(
-      os.environ, {
-          "CLOUD.PROJECT_ID": "foo-project",
-          "API.YOUTUBE.KEY": "bar-key",
-          "DB.PASSWORD": "fizz-password",
-          "DB.NAME": "test-db",
-      },
-      clear=True
-  )
   @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")
   @mock.patch("dotenv.load_dotenv")
@@ -217,15 +209,6 @@ class ConfigTest(unittest.TestCase):
       settings = config.Settings()
       self.assertTrue(settings.is_development)
 
-  @mock.patch.dict(
-      os.environ, {
-          "CLOUD.PROJECT_ID": "foo-project",
-          "API.YOUTUBE.KEY": "bar-key",
-          "DB.PASSWORD": "fizz-password",
-          "DB.NAME": "test-db",
-      },
-      clear=True
-  )
   @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")
   @mock.patch("dotenv.load_dotenv")
@@ -250,7 +233,7 @@ class ConfigTest(unittest.TestCase):
     del mocked_load_dotenv
     del mocked_secrets_loader
 
-    with mock.patch.dict(os.environ, {"DB.USERNAME": "fizz"}):
+    with mock.patch.dict(os.environ, {"DB__USERNAME": "fizz"}):
       settings = config.Settings()
       self.assertEqual(settings.db.username, "fizz")
 

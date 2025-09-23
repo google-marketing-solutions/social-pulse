@@ -25,13 +25,11 @@ Its primary responsibilities are:
 import logging
 import os
 
-import functions_framework
-
+import fastapi
 from infrastructure.persistence.postgresdb import workflow_data_repo
-from infrastructure.triggers import wfe_cloud_function
+from infrastructure.triggers import wfe_cloud_run_job
 from socialpulse_common import config
 from socialpulse_common import service
-from socialpulse_common.messages import workflow_execution as wfe
 from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 from tasks.ports import trigger
@@ -54,6 +52,9 @@ except Exception as e:  # pylint: disable=broad-exception-caught
   )
   settings = None
   _is_initialized = False
+
+
+app = fastapi.FastAPI()
 
 
 def _bootstrap_services():
@@ -86,8 +87,9 @@ def _bootstrap_services():
   )
 
   # Register Workflow Trigger Service
-  trigger_adapter = wfe_cloud_function.HttpWorkflowExecutionTrigger(
-      trigger_url=f"{settings.cloud.workflow_executor_api_url}/execute"
+  trigger_adapter = wfe_cloud_run_job.CloudJobWorkflowExecutionTrigger(
+      project_id=settings.cloud.project_id,
+      region=settings.cloud.region
   )
   service_registry.register(trigger.WorkflowExecutionTrigger, trigger_adapter)
 
@@ -127,30 +129,45 @@ class PollerHandler:
         logger.info(
             "Updating status to IN_PROGRESS for execution_id: %s", exec_id
         )
-        self._repo.update_status(exec_id, wfe.Status.IN_PROGRESS)
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to process execution_id: %s.", exec_id)
 
 
-@functions_framework.cloud_event
-def poller(cloud_event):  # pylint: disable=unused-argument
-  """Scheduler-triggered Cloud Function that acts as the main entry point.
+@app.post("/poller")
+def poller(request: fastapi.Request):  # pylint: disable=unused-argument
+  """Cloud Scheduler HTTP endpoint to initiate the poller cycle.
+
+  This endpoint is triggered by an authenticated HTTP POST request
+  from the Cloud Scheduler service.
 
   Args:
-      cloud_event: The CloudEvent object representing the trigger. This is
-      required by the functions-framework for Pub/Sub triggers, but its
-      contents are not used in this function.
+    request: The incoming FastAPI request object.
+
+  Returns:
+    A dictionary with a status and message indicating the outcome of the
+    polling cycle.
   """
   try:
     _bootstrap_services()
-  except Exception:  # pylint: disable=broad-exception-caught
+  except Exception as e:
     logger.exception(
         "Critical error during service bootstrapping. Aborting run."
     )
-    return
+    raise fastapi.HTTPException(
+        status_code=500,
+        detail=f"Service initialization failed: {e}"
+    ) from e
 
   try:
     handler = PollerHandler()
     handler.poll_and_trigger()
-  except Exception:  # pylint: disable=broad-exception-caught
+
+    return {"status": "success", "message": "Polling cycle completed."}
+
+  except Exception as e:
     logger.exception("An unexpected error occurred during the polling cycle.")
+    # CRITICAL FIX: Raise 500 to signal the job failed and trigger retries
+    raise fastapi.HTTPException(
+        status_code=500,
+        detail=f"Polling and triggering failed: {e}"
+    ) from e

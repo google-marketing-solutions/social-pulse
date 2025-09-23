@@ -22,11 +22,12 @@
 
 FROM python:3.12-slim
 
+# Inbound Arg:  Product ID of the GCP project this image is deployed to
+ARG PROJECT_ID
+
 WORKDIR /sp-analysis-run
 
 COPY . .
-
-ARG YOYO_DB_ACCESS_URL
 
 WORKDIR /sp-analysis-run/services/shared_lib
 RUN pip install --no-cache-dir -r requirements.txt
@@ -35,7 +36,10 @@ RUN python -m build
 WORKDIR /sp-analysis-run/services/analysis_service
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN yoyo apply --batch --no-cache --database=${YOYO_DB_ACCESS_URL}
+WORKDIR /sp-analysis-run/services/analysis_service/src
+EXPOSE 8080
 
-EXPOSE 8000
-CMD ["uvicorn", "src.runner_entry:sp-analysis-run"]
+ENV DB__NAME="analysis-database"
+ENV CLOUD__PROJECT_ID=${PROJECT_ID}
+ENV LOG_LEVEL=DEBUG
+CMD ["uvicorn", "api.runner_entry:app", "--host", "0.0.0.0", "--port", "8080"]

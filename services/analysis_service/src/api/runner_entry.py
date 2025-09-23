@@ -33,6 +33,7 @@ from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 import uvicorn
 
+
 log_format = (
     "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
 )
@@ -128,8 +129,7 @@ class Deaggregator:
     return created_workflows
 
 
-FastAPI = fastapi.FastAPI
-app = FastAPI()
+app = fastapi.FastAPI()
 app_config = AppConfig()
 
 

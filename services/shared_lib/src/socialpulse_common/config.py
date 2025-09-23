@@ -27,6 +27,8 @@ import pydantic_settings
 ENV_DEVELOPMENT = "development"
 ENV_PRODUCTION = "production"
 
+NESTED_CONFIG_SETTING_DELIMITER = "__"
+
 WORKFLOW_RUNNER_DEPLOY_NAME = "sp-analysis-runner"
 WORKFLOW_EXECUTOR_DEPLOY_NAME = "sp-analysis-executor"
 REPORT_BACKEND_DEPLOY_NAME = "sp-report"
@@ -61,7 +63,13 @@ def _load_all_gcp_secrets_to_env(project_id: str):
   loaded_count = 0
   for secret in secrets_list:
     secret_id = secret.name.split("/")[-1]
-    env_var_name = re.sub(r"[^A-Z0-9_\.]", "_", secret_id.upper())
+
+    # Unfortunately, GCP Secrets Manager doesn't allow dot notation ('.') in
+    # seret ID names.  Hence, in GCP we'll use a dash ('-') to separate
+    # property levels, but convert them to dots when adding to memory
+    env_var_name = re.sub(
+        r"-", NESTED_CONFIG_SETTING_DELIMITER, secret_id.upper()
+    )
 
     try:
       version_name = f"{secret.name}/versions/latest"
@@ -158,7 +166,7 @@ class _AppSettings(pydantic_settings.BaseSettings):
   cloud: _CloudSettings
 
   model_config = pydantic_settings.SettingsConfigDict(
-      env_nested_delimiter=".",
+      env_nested_delimiter=NESTED_CONFIG_SETTING_DELIMITER,
       extra="ignore"
   )
 
@@ -200,7 +208,9 @@ class Settings:
     except IOError:
       logging.info("No .env file found, proceeding with environment variables.")
 
-    gcp_project_id = os.getenv("CLOUD.PROJECT_ID")
+    gcp_project_id = os.getenv(
+        f"CLOUD{NESTED_CONFIG_SETTING_DELIMITER}PROJECT_ID"
+    )
     _load_all_gcp_secrets_to_env(gcp_project_id)
 
     self._internal_settings = _AppSettings()
