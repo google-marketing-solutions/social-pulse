@@ -17,6 +17,7 @@ import logging
 
 import luigi
 from socialpulse_common import service
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import workflow_execution as wfe
 from tasks import cleanup
 from tasks import core as task_core
@@ -33,9 +34,9 @@ logger = logging.getLogger(__name__)
 
 
 SOURCE_TO_TASK_MAPPING = {
-    wfe.SocialMediaSource.YOUTUBE_VIDEO:
+    common_msg.SocialMediaSource.YOUTUBE_VIDEO:
         youtube_data.FindYoutubeVideos,
-    wfe.SocialMediaSource.YOUTUBE_COMMENT:
+    common_msg.SocialMediaSource.YOUTUBE_COMMENT:
         youtube_comments.FindYoutubeComments
 }
 
@@ -82,6 +83,14 @@ class ExecutionStartTask(luigi.Task):
 
   def run(self):
     logging.info("Starting workflow execution '%s'", self.execution_id)
+    workflow_persistence_srv = service.registry.get(
+        persistence.WorkflowExecutionPersistenceService
+    )
+
+    workflow_persistence_srv.update_status(
+        self.execution_id,
+        wfe.Status.IN_PROGRESS
+    )
     self._has_completed = True
 
   def complete(self):
@@ -217,18 +226,18 @@ class WorkflowExecution(
     source = self.workflow_exec.source
     logger.debug("Looking for content retrieve tasks for source: %s", source)
 
-    if source == wfe.SocialMediaSource.YOUTUBE_VIDEO:
+    if source == common_msg.SocialMediaSource.YOUTUBE_VIDEO:
       video_gather_task_cls = SOURCE_TO_TASK_MAPPING[
-          wfe.SocialMediaSource.YOUTUBE_VIDEO
+          common_msg.SocialMediaSource.YOUTUBE_VIDEO
       ]
       video_gather_task = video_gather_task_cls(
           execution_id=self.execution_id,
           my_required_task=last_task_in_chain
       )
       task_chain.append(video_gather_task)
-    elif source == wfe.SocialMediaSource.YOUTUBE_COMMENT:
+    elif source == common_msg.SocialMediaSource.YOUTUBE_COMMENT:
       comment_gather_task_cls = SOURCE_TO_TASK_MAPPING[
-          wfe.SocialMediaSource.YOUTUBE_COMMENT
+          common_msg.SocialMediaSource.YOUTUBE_COMMENT
       ]
       comment_gather_task = comment_gather_task_cls(
           execution_id=self.execution_id,

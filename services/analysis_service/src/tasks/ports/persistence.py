@@ -92,6 +92,21 @@ class WorkflowExecutionPersistenceService(service.RegisterableService):
     """
     raise NotImplementedError
 
+  @abc.abstractmethod
+  def find_in_progress_reports(self) -> dict[str, list[wfe.Status]]:
+    """Finds all distinct report_ids that have at least one WFE running.
+
+    This method is used for monitoring. It should find all reports that are
+    currently considered "active" (i.e., have at least one workflow that is
+    not yet complete) and return all the statuses for each of those reports.
+
+    Returns:
+        A dictionary where keys are 'report_id's and values are a list of
+        all WFE statuses associated with that report.
+        Example: {"report-123": [COMPLETED, IN_PROGRESS]}
+    """
+    raise NotImplementedError
+
 
 class SentimentDataRepo(service.RegisterableService, abc.ABC):
   """Service for reading/writing data to the sentiment data set repo.

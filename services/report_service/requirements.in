@@ -2,20 +2,14 @@ cloud-sql-python-connector[psycopg2]
 coverage
 db-dtypes
 fastapi
-functions-framework
-google_api_python_client
-google-cloud-pubsub
-google-cloud-secret-manager
-luigi
-pandas
 parameterized
 protobuf
 psycopg2-binary
 pyarrow
 pytest
 pytest-cov
-vertexai
+uvicorn
 yoyo-migrations
 
 # Shared social pulse library
-socialpulse-common==0.1.0
+-e file:../shared_lib

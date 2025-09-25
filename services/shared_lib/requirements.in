@@ -1,4 +1,8 @@
 protobuf
+psycopg2-binary
 pydantic-settings
 pytest
 python-dotenv
+pip-tools
+build
+google-cloud-secret-manager

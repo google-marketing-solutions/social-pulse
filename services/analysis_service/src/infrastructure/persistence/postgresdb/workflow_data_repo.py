@@ -15,10 +15,10 @@
 import logging
 from typing import Any
 
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import workflow_execution as wfe
+from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
-
-from . import client
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,7 @@ ENDDATE_COL_INDEX = 6
 STATUS_COL_INDEX = 7
 LASTCOMPLETEDTASK_COL_INDEX = 8
 PARENT_EXECUTION_ID_COL_INDEX = 9
+REPORT_ID_COL_INDEX = 10
 
 
 class PostgresDbWorkflowExecutionPersistenceService(
@@ -65,7 +66,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  dateRangeEnd, "
         "  status, "
         "  lastCompletedTask, "
-        "  parentExecutionId "
+        "  parentExecutionId, "
+        "  reportId "
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
         (execution_id,),
@@ -78,10 +80,10 @@ class PostgresDbWorkflowExecutionPersistenceService(
 
   def _parse_data_outputs(
       self, from_db: list[str]
-  ) -> list[wfe.SentimentDataType]:
+  ) -> list[common_msg.SentimentDataType]:
     data_outputs = []
     for data_output in from_db:
-      data_outputs.append(wfe.SentimentDataType[data_output])
+      data_outputs.append(common_msg.SentimentDataType[data_output])
     return data_outputs
 
   def create_execution(
@@ -104,19 +106,22 @@ class PostgresDbWorkflowExecutionPersistenceService(
           topic,
           dateRangeStart,
           dateRangeEnd,
-          parentExecutionId
+          parentExecutionId,
+          reportId
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
     """
     data_outputs_as_names = [
         output.name for output in execution_params.data_output
     ]
-    parent_exeuction_id = (
+    parent_execution_id = (
         execution_params.parent_execution_id
         if execution_params.parent_execution_id
         else None
     )
+
+    report_id = execution_params.report_id or None
 
     params = (
         execution_params.source.name,
@@ -125,9 +130,11 @@ class PostgresDbWorkflowExecutionPersistenceService(
         execution_params.topic,
         execution_params.start_time,
         execution_params.end_time,
-        parent_exeuction_id,
+        parent_execution_id,
+        report_id,
     )
 
+    logger.info("Creating workflow execution with params: %s", params)
     new_id = self._postgres_client.insert_row(query, params)
     return new_id
 
@@ -182,7 +189,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         SELECT
             wep.executionId, wep.source, wep.dataOutputs, wep.topicType,
             wep.topic, wep.dateRangeStart, wep.dateRangeEnd, wep.status,
-            wep.lastCompletedTask, wep.parentExecutionId
+            wep.lastCompletedTask, wep.parentExecutionId, wep.reportId
         FROM
             WorkflowExecutionParams wep
         LEFT JOIN
@@ -194,6 +201,35 @@ class PostgresDbWorkflowExecutionPersistenceService(
     """
     rows = self._postgres_client.retrieve_rows(query)
     return [self._map_row_to_wfe_params(row) for row in rows]
+
+  def find_in_progress_reports(self) -> dict[str, list[wfe.Status]]:
+    """Finds all active reports and aggregates the status of their workflows.
+
+    An "active" report is defined as any report_id that is associated with
+    at least one workflow that is not in a terminal state (COMPLETED or FAILED).
+    The query then fetches all workflow statuses for those active reports.
+
+    Returns:
+        A dictionary mapping a report_id to a list of its workflow statuses.
+    """
+    query = """
+        SELECT
+            report_id,
+            ARRAY_AGG(status::text) as statuses
+        FROM
+            WorkflowExecutionParams
+        WHERE
+            report_id IS NOT NULL AND report_id IN (
+                SELECT DISTINCT report_id
+                FROM WorkflowExecutionParams
+                WHERE status NOT IN ('COMPLETED', 'FAILED', 'UNKNOWN')
+            )
+        GROUP BY
+            report_id;
+    """
+    rows = self._postgres_client.retrieve_rows(query)
+
+    return {row[0]: [wfe.Status[s] for s in row[1]] for row in rows}
 
   def _map_row_to_wfe_params(
       self, row: tuple[Any, ...]
@@ -208,15 +244,16 @@ class PostgresDbWorkflowExecutionPersistenceService(
     """
     wfe_params = wfe.WorkflowExecutionParams()
     wfe_params.execution_id = row[EXECUTION_ID_COL_INDEX]
-    wfe_params.source = wfe.SocialMediaSource[row[SOURCE_COL_INDEX]]
+    wfe_params.source = common_msg.SocialMediaSource[row[SOURCE_COL_INDEX]]
     wfe_params.data_output = self._parse_data_outputs(
         row[DATAOUTPUTS_COL_INDEX]
     )
-    wfe_params.topic_type = wfe.TopicType[row[TOPICTYPE_COL_INDEX]]
+    wfe_params.topic_type = common_msg.TopicType[row[TOPICTYPE_COL_INDEX]]
     wfe_params.topic = row[TOPIC_COL_INDEX]
     wfe_params.start_time = row[STARTDATE_COL_INDEX]
     wfe_params.end_time = row[ENDDATE_COL_INDEX]
     wfe_params.status = wfe.Status[row[STATUS_COL_INDEX]]
     wfe_params.last_completed_task_id = row[LASTCOMPLETEDTASK_COL_INDEX] or ""
     wfe_params.parent_execution_id = row[PARENT_EXECUTION_ID_COL_INDEX] or ""
+    wfe_params.report_id = row[REPORT_ID_COL_INDEX] or ""
     return wfe_params

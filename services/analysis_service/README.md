@@ -18,14 +18,14 @@
    the following into the file.  Then provide your values as instructed below.
    ```
    # Cloud Settings
-   CLOUD.PROJECT_ID=[Your GCP project ID]]
+   CLOUD__PROJECT_ID=[Your GCP project ID]]
 
    # API Settings
-   API.YOUTUBE.KEY=[Your API key, from your GCP project]
+   API__YOUTUBE__KEY=[Your API key, from your GCP project]
 
    # Database Settings
-   DB.PASSWORD=[Your DB password]
-   DB.NAME=social_pulse_db
+   DB__PASSWORD=[Your DB password]
+   DB__NAME=social_pulse_db
    ```
 
 
