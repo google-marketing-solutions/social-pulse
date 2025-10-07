@@ -6,13 +6,13 @@ authors = [
     {name = "", email = "jmistral@google.com"},
 ]
 dependencies = [
-    "build==1.2.2.post1",
-    "packaging==24.2",
-    "pyproject-hooks==1.2.0",
+    "google_api_python_client",
+    "google-cloud-secret-manager",
     "protobuf",
-    "python-dotenv",
+    "psycopg2-binary",
     "pydantic-settings",
     "pytest",
+    "python-dotenv",
 ]
 requires-python = ">=3.12"
 readme = "README.md"

@@ -12,4 +12,4 @@ uvicorn
 yoyo-migrations
 
 # Shared social pulse library
--e file:../shared_lib
+socialpulse-common==0.1.0

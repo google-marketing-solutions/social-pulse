@@ -41,7 +41,10 @@
 
 2. Install the required packages.
    ```
-   pip install -r requirements.txt
+   pip install \
+      -r requirements.txt \
+      -r requirements-dev.txt \
+      --find-links=../shared_lib/dist
    ```
 
 3. Create a .env file in the microservice root directory, and copy and paste
@@ -117,3 +120,21 @@ pytest /tests
 
 ```
 
+### Creating a Create New Report Request
+
+```
+curl -X POST http://localhost:8080/api/report \
+  -v \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sources": [
+      "YOUTUBE_VIDEO",
+      "YOUTUBE_COMMENT"
+    ],
+    "data_output": "SENTIMENT_SCORE",
+    "start_time": "2025-10-01T00:00:00Z",
+    "end_time": "2025-10-06T12:00:00Z",
+    "include_justifications": true,
+    "topic": "Acme widgets"
+  }'
+```

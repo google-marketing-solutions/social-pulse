@@ -14,7 +14,7 @@
    pip install \
       -r requirements.txt \
       -r requirements-dev.txt \
-      -find-links=../shared_lib/dist
+      --find-links=../shared_lib/dist
    ```
 
 4. Copy the ".env.template" file to a .env file and provide the values as

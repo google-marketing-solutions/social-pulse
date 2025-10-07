@@ -44,8 +44,7 @@ class SentimentReportEntity(domain.Entity):
       data_output: common_msg.SentimentDataType,
       start_time: datetime.datetime,
       include_justifications: bool = False,
-      end_time: datetime.datetime | None = None
-  ) -> "SentimentReportEntity":
+      end_time: datetime.datetime | None = None) -> "SentimentReportEntity":
     """Factory for creating a SentimentReportEntity.
 
     Args:
@@ -80,7 +79,7 @@ class SentimentReportEntity(domain.Entity):
       created: datetime.datetime | None = None,
       last_updated: datetime.datetime | None = None,
       topic: str | None = None,
-      status: report_msg.Status| None = None,
+      status: report_msg.Status | None = None,
       sources: list[common_msg.SocialMediaSource] | None = None,
       data_outputs: list[common_msg.SentimentDataType] | None = None,
       include_justifications: bool | None = None,
@@ -176,15 +175,22 @@ class SentimentReportEntity(domain.Entity):
     """A list of sentiment datasets associated with the report."""
     return self._datasets
 
+  def mark_as_failed(self, reason: str):
+    """Marks the report as failed.
+
+    Args:
+      reason: The reason for the failure.
+    """
+    self._status = report_msg.Status.FAILED
+    self._last_updated = datetime.datetime.now()
+
   def mark_as_collecting_data(self):
     """Marks the report as collecting data."""
-    self.status = report_msg.Status.COLLECTING_DATA
-    self.last_updated = datetime.datetime.now()
+    self._status = report_msg.Status.COLLECTING_DATA
+    self._last_updated = datetime.datetime.now()
 
-  def mark_as_completed(
-      self,
-      datasets: list[report_msg.SentimentReportDataset]
-  ):
+  def mark_as_completed(self,
+                        datasets: list[report_msg.SentimentReportDataset]):
     """Marks the report as completed.
 
     Args:
@@ -196,10 +202,8 @@ class SentimentReportEntity(domain.Entity):
     self._last_updated = datetime.datetime.now()
     self._datasets = datasets
 
-  def _validate_datasets(
-      self,
-      datasets: list[report_msg.SentimentReportDataset]
-  ):
+  def _validate_datasets(self,
+                         datasets: list[report_msg.SentimentReportDataset]):
     """Validates the datasets for the report.
 
     Args:
@@ -217,13 +221,11 @@ class SentimentReportEntity(domain.Entity):
         raise ValueError("Data output cannot be empty.")
 
     dataset_sources = [dataset.source for dataset in datasets]
-    all_sources_have_datasets = all(
-        source in dataset_sources for source in self.sources
-    )
+    all_sources_have_datasets = all(source in dataset_sources
+                                    for source in self.sources)
     if not all_sources_have_datasets:
       missing_sources = [
           source for source in self.sources if source not in dataset_sources
       ]
       raise ValueError(
-          f"Missing datasets for the following sources: {missing_sources}"
-      )
+          f"Missing datasets for the following sources: {missing_sources}")

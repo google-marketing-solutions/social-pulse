@@ -46,7 +46,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
 
   def _update_report(self, report: sentiment_report.SentimentReportEntity):
     query: str = """
-        UPDATE SentimentReportDatasets
+        UPDATE SentimentReportS
         SET
             sources = %s,
             dataOutputs = %s,
@@ -61,27 +61,15 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
     """
 
     sources_as_names = [source.name for source in report.sources]
-    data_outputs_as_names = [
-        output.name for output in report.data_outputs
-    ]
+    data_outputs_as_names = [output.name for output in report.data_outputs]
 
-    update_params = (
-        sources_as_names,
-        data_outputs_as_names,
-        report.topic,
-        report.start_time,
-        report.end_time,
-        report.status,
-        report.created,
-        report.last_updated,
-        report.entity_id
-    )
+    update_params = (sources_as_names, data_outputs_as_names, report.topic,
+                     report.start_time, report.end_time, report.status,
+                     report.created, report.last_updated, report.entity_id)
     self._postgres_client.update_row(query, update_params)
 
     if report.datasets:
-      self._update_sentiment_datasets(report.datasets, report.entity_id)
-    else:
-      self._insert_sentiment_datasets(report.datasets, report.entity_id)
+      self._persist_datasets(report.datasets, report.entity_id)
 
   def _insert_report(self, report: sentiment_report.SentimentReportEntity):
     """"""
@@ -96,9 +84,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         RETURNING reportId;
     """
     sources_as_names = [source.name for source in report.sources]
-    data_outputs_as_names = [
-        output.name for output in report.data_outputs
-    ]
+    data_outputs_as_names = [output.name for output in report.data_outputs]
 
     params = (
         sources_as_names,
@@ -112,13 +98,27 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
     report.entity_id = new_id
 
     if report.datasets:
-      self._insert_sentiment_datasets(report.datasets, new_id)
+      self._persist_datasets(report.datasets, new_id)
 
-  def _insert_sentiment_datasets(
-      self, datasets: list[report_msg.SentimentReportDataset],
-      report_id: str
-  ):
-    query: str = """
+  def _persist_datasets(self,
+                        datasets: list[report_msg.SentimentReportDataset],
+                        report_id: str):
+    """Persists the datasets associated with a sentiment report.
+
+    Args:
+      datasets: The list of datasets to persist.
+      report_id: The ID of the report these datasets belong to.
+    """
+    # First, delete existing datasets for this report
+    delete_query = """
+        DELETE FROM SentimentReportDatasets
+        WHERE reportId = %s;
+    """
+    params = (report_id,)
+    self._postgres_client.delete_row(delete_query, params)
+
+    # Then, insert the new/updated datasets
+    insert_query = """
         INSERT INTO SentimentReportDatasets (
             reportId,
             source,
@@ -126,7 +126,6 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             dataOutput
         ) VALUES (%s, %s, %s, %s);
     """
-
     for dataset in datasets:
       params = (
           report_id,
@@ -134,27 +133,4 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
           dataset.dataset_uri,
           dataset.data_output.name,
       )
-      self._postgres_client.insert_row(query, params)
-
-  def _update_sentiment_datasets(
-      self, datasets: list[report_msg.SentimentReportDataset],
-      report_id: str
-  ):
-    query: str = """
-        UPDATE SentimentReportDatasets
-        SET
-            source = %s,
-            datasetUri = %s,
-            dataOutput = %s
-        WHERE
-            reportDatasetId = %s
-    """
-
-    for dataset in datasets:
-      params = (
-          dataset.source,
-          dataset.dataset_uri,
-          dataset.data_output,
-          dataset.report_id
-      )
-      self._postgres_client.update_row(query, params)
+      self._postgres_client.insert_row(insert_query, params)

@@ -25,14 +25,12 @@ steps = [
         CREATE TYPE public.sentiment_report_status_enum AS ENUM (
             'NEW',
             'IN_PROGRESS',
-            'COMPLETED'
+            'COMPLETED',
             'FAILED'
         );
-        """,
-        """
+        """, """
         DROP TYPE public.sentiment_report_status_enum
-        """
-    ),
+        """),
     step(
         """
         CREATE TABLE SentimentReports (
@@ -46,9 +44,7 @@ steps = [
             createdOn TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             lastUpdatedOn TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-        """,
-        "DROP TABLE SentimentReports"
-    ),
+        """, "DROP TABLE SentimentReports"),
     step(
         """
         CREATE TABLE SentimentReportDatasets (
@@ -62,7 +58,5 @@ steps = [
                 FOREIGN KEY (reportId)
                 REFERENCES SentimentReports (reportId)
         )
-        """,
-        "DROP TABLE SentimentReportOutputs"
-    )
+        """, "DROP TABLE SentimentReportDatasets")
 ]
