@@ -4,11 +4,13 @@ db-dtypes
 fastapi
 functions-framework
 google_api_python_client
+google-cloud-logging
 google-cloud-pubsub
 google-cloud-secret-manager
 luigi
 pandas
 parameterized
+pip-tools
 protobuf
 psycopg2-binary
 pyarrow

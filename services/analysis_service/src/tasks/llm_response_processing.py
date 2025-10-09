@@ -108,7 +108,7 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
           SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
       })
     except decoder.JSONDecodeError as jde:
-      logger.exception(
+      logger.warning(
           "[%s] Error navigating LLM prediction JSON structure: %s. "
           "Snippet: %s",
           self.task_family,

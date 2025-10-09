@@ -28,6 +28,7 @@ import os
 import sys
 
 
+import google.cloud.logging
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
 from infrastructure.persistence.bigquery import sentiment_data_repo
@@ -42,11 +43,11 @@ from tasks.ports import apis
 from tasks.ports import persistence
 
 
-log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
-)
+logging_client = google.cloud.logging.Client()
+logging_client.setup_logging()
+
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=log_level, format=log_format)
+logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
 settings = config.Settings()

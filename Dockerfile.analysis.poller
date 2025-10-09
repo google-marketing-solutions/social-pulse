@@ -39,7 +39,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 WORKDIR /sp-analysis-poller/services/analysis_service/src
 EXPOSE 8080
 
-ENV DB__NAME="analysis-database"
 ENV CLOUD__PROJECT_ID=${PROJECT_ID}
 ENV LOG_LEVEL=DEBUG
 CMD ["uvicorn", "api.poller:app", "--host", "0.0.0.0", "--port", "8080"]

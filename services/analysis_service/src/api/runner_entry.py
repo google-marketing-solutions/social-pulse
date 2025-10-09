@@ -21,9 +21,9 @@ persisted workflow execution jobs.
 import datetime
 import logging
 import os
-import uuid
 import fastapi
 
+import google.cloud.logging
 from infrastructure.persistence.postgresdb import workflow_data_repo
 from socialpulse_common import config
 from socialpulse_common.messages import common as common_msg
@@ -32,10 +32,12 @@ from socialpulse_common.messages import workflow_execution as wfe
 from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 
-log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s")
+
+logging_client = google.cloud.logging.Client()
+logging_client.setup_logging()
+
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=log_level, format=log_format)
+logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
 settings = config.Settings()
@@ -55,15 +57,18 @@ class AppConfig:
     )
     self.workflow_repo: persistence.WorkflowExecutionPersistenceService = (
         workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
-            postgres_client))
+            postgres_client
+        )
+    )
     logger.info("AppConfig initialized successfully.")
 
 
 class Deaggregator:
   """Handles the logic of processing a single de-aggregation request."""
 
-  def __init__(self,
-               workflow_repo: persistence.WorkflowExecutionPersistenceService):
+  def __init__(
+      self, workflow_repo: persistence.WorkflowExecutionPersistenceService
+  ):
     self._workflow_repo = workflow_repo
 
   def create_workflows(
@@ -76,7 +81,8 @@ class Deaggregator:
 
     needs_video_workflow = (
         common_msg.SocialMediaSource.YOUTUBE_VIDEO in report.sources
-        or common_msg.SocialMediaSource.YOUTUBE_COMMENT in report.sources)
+        or common_msg.SocialMediaSource.YOUTUBE_COMMENT in report.sources
+    )
 
     if needs_video_workflow:
       video_params = wfe.WorkflowExecutionParams(
@@ -94,7 +100,8 @@ class Deaggregator:
       video_execution_id = self._workflow_repo.create_execution(video_params)
       if common_msg.SocialMediaSource.YOUTUBE_VIDEO in report.sources:
         created_workflows[common_msg.SocialMediaSource.YOUTUBE_VIDEO.name] = (
-            video_execution_id)
+            video_execution_id
+        )
 
     if common_msg.SocialMediaSource.YOUTUBE_COMMENT in report.sources:
       if not video_execution_id:
@@ -112,9 +119,11 @@ class Deaggregator:
           include_justifications=report.include_justifications,
       )
       comment_execution_id = self._workflow_repo.create_execution(
-          comment_params)
+          comment_params
+      )
       created_workflows[common_msg.SocialMediaSource.YOUTUBE_COMMENT.name] = (
-          comment_execution_id)
+          comment_execution_id
+      )
 
     return created_workflows
 
@@ -129,13 +138,11 @@ app_config = AppConfig()
     status_code=201,
 )
 def deaggregate_report(
-    report: report_msg.SentimentReport) -> report_msg.SentimentReport:
+    report: report_msg.SentimentReport,
+) -> report_msg.SentimentReport:
   """Creates new workflow execution records from a SentimentReport message."""
   try:
     deaggregator_logic = Deaggregator(app_config.workflow_repo)
-
-    # Generate a single, unique report_id for this entire request.
-    report.report_id = str(uuid.uuid4())
     logger.info(
         "Generated new report_id '%s' for topic '%s'",
         report.report_id,
@@ -160,5 +167,6 @@ def deaggregate_report(
     raise fastapi.HTTPException(status_code=400, detail=f"Bad request: {e}")
   except Exception as e:
     logger.exception("An unexpected error occurred during de-aggregation.")
-    raise fastapi.HTTPException(status_code=500,
-                                detail="Internal Server Error") from e
+    raise fastapi.HTTPException(
+        status_code=500, detail="Internal Server Error"
+    ) from e

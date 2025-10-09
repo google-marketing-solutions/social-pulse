@@ -13,7 +13,7 @@
 #  limitations under the License.
 """Scheduler-triggered Cloud Function to poll for and trigger new workflows.
 
-This function is triggered on a schedule by Cloud Scheduler via Pub/Sub.
+This function is triggered on a schedule by Cloud Scheduler via HTTP calls.
 
 Its primary responsibilities are:
 1.  Query the database to find workflow executions that are ready to start.
@@ -26,6 +26,7 @@ import logging
 import os
 
 import fastapi
+import google.cloud.logging
 from infrastructure.persistence.postgresdb import workflow_data_repo
 from infrastructure.triggers import wfe_cloud_run_job
 from socialpulse_common import config
@@ -34,12 +35,11 @@ from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 from tasks.ports import trigger
 
+logging_client = google.cloud.logging.Client()
+logging_client.setup_logging()
 
-log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
-)
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=log_level, format=log_format)
+logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
 try:
@@ -166,7 +166,7 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
 
   except Exception as e:
     logger.exception("An unexpected error occurred during the polling cycle.")
-    # CRITICAL FIX: Raise 500 to signal the job failed and trigger retries
+
     raise fastapi.HTTPException(
         status_code=500,
         detail=f"Polling and triggering failed: {e}"

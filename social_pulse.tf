@@ -10,6 +10,9 @@ locals {
   wfe_image_name        = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-wfe:latest"
   poller_image_name     = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-poller:latest"
   dbmigraion_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-analysis-dbmigration:latest"
+
+  report_api_image_name         = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-report-api:latest"
+  report_dbmigration_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-report-dbmigration:latest"
 }
 
 # Create a new service account
@@ -43,9 +46,9 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
 
 # Storage bucket for source code
 resource "google_storage_bucket" "source_code_bucket" {
-  name          = "social-pulse-source-code-${formatdate(local.timespec, timestamp())}"
-  location      = var.region
-  project       = var.project_id
+  name                        = "social-pulse-source-code-${formatdate(local.timespec, timestamp())}"
+  location                    = var.region
+  project                     = var.project_id
   uniform_bucket_level_access = true
 }
 
@@ -116,7 +119,7 @@ resource "google_sql_database_instance" "social_pulse_postgres_db_server" {
   settings {
     tier = "db-f1-micro" # Smallest instance type for testing
     ip_configuration {
-      ipv4_enabled = true
+      ipv4_enabled    = true
       private_network = google_compute_network.vpc_network.self_link
     }
     backup_configuration {
@@ -138,30 +141,30 @@ resource "google_sql_user" "postgres_db_user" {
 
 # -- Create the DB for the Analysis services
 resource "google_sql_database" "analysis_db" {
-  name     = "analysis-database"
-  instance = google_sql_database_instance.social_pulse_postgres_db_server.name
-  charset  = "UTF8"
+  name      = "analysis-database"
+  instance  = google_sql_database_instance.social_pulse_postgres_db_server.name
+  charset   = "UTF8"
   collation = "en_US.UTF8"
-  project  = var.project_id
+  project   = var.project_id
 }
 
 # -- Create the DB for the Reporting services
 resource "google_sql_database" "reporting_db" {
-  name     = "reporting-database"
-  instance = google_sql_database_instance.social_pulse_postgres_db_server.name
-  charset  = "UTF8"
+  name      = "reporting-database"
+  instance  = google_sql_database_instance.social_pulse_postgres_db_server.name
+  charset   = "UTF8"
   collation = "en_US.UTF8"
-  project  = var.project_id
+  project   = var.project_id
 }
 
 # BigQuery Dataset
 resource "google_bigquery_dataset" "social_pulse_sentiment_dataset" {
-  dataset_id                  = "social_pulse_sentiment_data"
-  friendly_name               = "Social Pulse Sentiment Data"
-  description                 = "Dataset for social pulse sentiment analysis data"
-  location                    = var.region
-  project                     = var.project_id
-  default_table_expiration_ms = 3600000 # 1 hour
+  dataset_id    = "social_pulse_sentiment_data"
+  friendly_name = "Social Pulse Sentiment Data"
+  description   = "Dataset for social pulse sentiment analysis data"
+  location      = var.region
+  project       = var.project_id
+
   access {
     role          = "OWNER"
     user_by_email = "social-pulse-sa@${var.project_id}.iam.gserviceaccount.com"
@@ -174,11 +177,13 @@ resource "google_bigquery_dataset" "social_pulse_sentiment_dataset" {
 
 # Create an Artifact Registry repository for the container image
 resource "google_artifact_registry_repository" "my_repo" {
-  project      = var.project_id
-  location     = "us-central1"
+  project       = var.project_id
+  location      = "us-central1"
   repository_id = "cloud-run-repo"
-  format       = "DOCKER"
+  format        = "DOCKER"
 }
+
+
 
 # Setup Docker build and deployments
 # -- Authorize Docker
@@ -194,11 +199,27 @@ resource "null_resource" "build_run_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command = <<EOT
+    command     = <<EOT
       docker build \
         -f ./Dockerfile.analysis.run \
-        --build-arg PROJECT_ID=${var.project_id} \
         -t ${local.run_image_name} \
+        .
+    EOT
+    working_dir = path.module
+  }
+  depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
+}
+
+# -- Build Docker image for the Reporting API backend
+resource "null_resource" "build_reporting_api_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command     = <<EOT
+      docker build \
+        -f ./Dockerfile.report.api \
+        -t ${local.report_api_image_name} \
         .
     EOT
     working_dir = path.module
@@ -212,7 +233,7 @@ resource "null_resource" "build_wfe_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command = <<EOT
+    command     = <<EOT
       docker build \
         -f ./Dockerfile.analysis.wfe \
         --build-arg PROJECT_ID=${var.project_id} \
@@ -230,7 +251,7 @@ resource "null_resource" "build_poller_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command = <<EOT
+    command     = <<EOT
       docker build \
         -f ./Dockerfile.analysis.poller \
         --build-arg PROJECT_ID=${var.project_id} \
@@ -248,11 +269,29 @@ resource "null_resource" "build_db_migration_image" {
     always_run = timestamp()
   }
   provisioner "local-exec" {
-    command = <<EOT
+    command     = <<EOT
       docker build \
         -f ./Dockerfile.analysis.dbmigrations \
         --build-arg PROJECT_ID=${var.project_id} \
         -t ${local.dbmigraion_image_name} \
+        .
+    EOT
+    working_dir = path.module
+  }
+  depends_on = [null_resource.auth_docker, google_artifact_registry_repository.my_repo]
+}
+
+# -- Build Docker image for the Reprt DB migraions
+resource "null_resource" "build_report_db_migration_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command     = <<EOT
+      docker build \
+        -f ./Dockerfile.report.dbmigrations \
+        --build-arg PROJECT_ID=${var.project_id} \
+        -t ${local.report_dbmigration_image_name} \
         .
     EOT
     working_dir = path.module
@@ -271,6 +310,18 @@ resource "null_resource" "push_run_image" {
   depends_on = [null_resource.build_run_image]
 }
 
+# -- Push Docker image for the Reporting API
+resource "null_resource" "push_reporting_api_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "docker push ${local.report_api_image_name}"
+  }
+  depends_on = [null_resource.build_run_image]
+}
+
+# -- Push Docker image for the poller
 resource "null_resource" "push_poller_image" {
   triggers = {
     always_run = timestamp()
@@ -303,19 +354,77 @@ resource "null_resource" "push_db_migration_image" {
   depends_on = [null_resource.build_db_migration_image]
 }
 
-### Setup Runner, WFE Executior, Poller and DB Migration jobs/services
+# -- Push Docker image for the Report DB Migration
+resource "null_resource" "push_report_db_migration_image" {
+  triggers = {
+    always_run = timestamp()
+  }
+  provisioner "local-exec" {
+    command = "docker push ${local.report_dbmigration_image_name}"
+  }
+  depends_on = [null_resource.build_db_migration_image]
+}
+
+
+### Setup Runner, Reporting API, WFE Executior, Poller and DB Migration
+### jobs/services
 
 # -- Deploy the analysis runner service (Cloud Run Service)
 resource "google_cloud_run_v2_service" "sp-analysis-run" {
-  project  = var.project_id
-  name     = "sp-analysis-run"
-  location = "us-central1"
+  project             = var.project_id
+  name                = "sp-analysis-run"
+  location            = "us-central1"
   deletion_protection = false
 
   template {
     service_account = google_service_account.social-pulse-sa.email
+
+    labels = {
+      "source-code-hash" = data.archive_file.source_zip.output_md5
+    }
+
     containers {
-      image = "${local.run_image_name}"
+      image = local.run_image_name
+
+      env {
+        name = "DB-USER"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_username.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DB-PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_password.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DB-HOST"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_host.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "APP_ENV"
+        value = "prod"
+      }
+      env {
+        name  = "DB__NAME"
+        value = "analysis-database"
+      }
+      env {
+        name  = "CLOUD__PROJECT_ID"
+        value = var.project_id
+      }
     }
 
     vpc_access {
@@ -331,18 +440,133 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
   ]
 }
 
-# -- Deploy the poller service (Cloud Run Service)
-resource "google_cloud_run_v2_service" "sp-analysis-poller" {
-  project     = var.project_id
-  location    = var.region
-  name        = "sp-analysis-poller"
-  description = "Scheduled poller, triggered every 10 mins."
+# -- Deploy the reporting API service (Cloud Run Service)
+resource "google_cloud_run_v2_service" "sp-reporting-api" {
+  project             = var.project_id
+  name                = "sp-reporting-api"
+  location            = "us-central1"
   deletion_protection = false
 
   template {
     service_account = google_service_account.social-pulse-sa.email
+
+    labels = {
+      "source-code-hash" = data.archive_file.source_zip.output_md5
+    }
+
     containers {
-      image = "${local.poller_image_name}"
+      image = local.report_api_image_name
+
+      env {
+        name = "DB-USER"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_username.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DB-PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_password.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DB-HOST"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_host.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "APP_ENV"
+        value = "prod"
+      }
+      env {
+        name  = "DB__NAME"
+        value = "reporting-database"
+      }
+      env {
+        name  = "CLOUD__PROJECT_ID"
+        value = var.project_id
+      }
+    }
+    vpc_access {
+      connector = google_vpc_access_connector.connector.id
+      egress    = "ALL_TRAFFIC"
+    }
+  }
+
+  depends_on = [
+    null_resource.push_reporting_api_image,
+    google_service_networking_connection.private_vpc_connection,
+    google_vpc_access_connector.connector
+  ]
+}
+
+# -- Deploy the poller service (Cloud Run Service)
+resource "google_cloud_run_v2_service" "sp-analysis-poller" {
+  project             = var.project_id
+  location            = var.region
+  name                = "sp-analysis-poller"
+  description         = "Scheduled poller, triggered every 10 mins."
+  deletion_protection = false
+
+  template {
+    service_account = google_service_account.social-pulse-sa.email
+
+    labels = {
+      "source-code-hash" = data.archive_file.source_zip.output_md5
+    }
+
+    containers {
+      image = local.poller_image_name
+
+      env {
+        name = "DB-USER"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_username.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DB-PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_password.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "DB-HOST"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.postgres_host.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name  = "APP_ENV"
+        value = "prod"
+      }
+      env {
+        name  = "DB__NAME"
+        value = "analysis-database"
+      }
+      env {
+        name  = "CLOUD__PROJECT_ID"
+        value = var.project_id
+      }
     }
 
     vpc_access {
@@ -360,12 +584,12 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
 
 # -- Setup the scheduler to call the Poller service
 resource "google_cloud_scheduler_job" "poller_scheduler" {
-  project   = var.project_id
-  region    = var.region
-  name      = "poller-scheduler-cron"
+  project = var.project_id
+  region  = var.region
+  name    = "poller-scheduler-cron"
 
-  # Run every 1 minutes
-  schedule  = "*/1 * * * *"
+  # Run every 5 minutes
+  schedule  = "*/5 * * * *"
   time_zone = "UTC"
 
   http_target {
@@ -374,8 +598,8 @@ resource "google_cloud_scheduler_job" "poller_scheduler" {
     http_method = "POST"
 
     # Send a simple body to satisfy POST requirements, though it's optional
-    body        = base64encode("{}")
-    headers     = {
+    body = base64encode("{}")
+    headers = {
       "Content-Type" = "application/json"
     }
 
@@ -392,12 +616,16 @@ resource "google_cloud_scheduler_job" "poller_scheduler" {
 
 # -- Deploy the analysis WFE Executor job (Cloud Run Job)
 resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
-  name     = "sp-analysis-wfe"
-  project  = var.project_id
-  location = var.region
+  name                = "sp-analysis-wfe"
+  project             = var.project_id
+  location            = var.region
   deletion_protection = false
 
   template {
+    labels = {
+      "source-code-hash" = data.archive_file.source_zip.output_md5
+    }
+
     # Job template block
     template {
       service_account = google_service_account.social-pulse-sa.email
@@ -405,12 +633,69 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
       timeout         = "3600s"
 
       containers {
-        image = local.wfe_image_name
+        image   = local.wfe_image_name
         command = ["python", "api/workflow_executor.py"]
         args    = ["$(EXECUTION_ID)"]
+
+        resources {
+          limits = {
+            "memory" = "4Gi"
+          }
+        }
+
         env {
           name  = "EXECUTION_ID"
           value = ""
+        }
+
+        env {
+          name = "DB-USER"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.postgres_username.secret_id
+              version = "latest"
+            }
+          }
+        }
+        env {
+          name = "DB-PASSWORD"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.postgres_password.secret_id
+              version = "latest"
+            }
+          }
+        }
+        env {
+          name = "DB-HOST"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.postgres_host.secret_id
+              version = "latest"
+            }
+          }
+        }
+        env {
+          name = "API-YOUTUBE-KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.youtube_api_key.secret_id
+              version = "latest"
+            }
+          }
+        }
+
+        env {
+          name  = "APP_ENV"
+          value = "prod"
+        }
+        env {
+          name  = "DB__NAME"
+          value = "analysis-database"
+        }
+        env {
+          name  = "CLOUD__PROJECT_ID"
+          value = var.project_id
         }
       }
 
@@ -430,12 +715,16 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
 
 # -- Deply DB Migration job (Cloud Run Job)
 resource "google_cloud_run_v2_job" "analysis_migration_job" {
-  project  = var.project_id
-  name     = "sp-analysis-migration-job"
-  location = var.region
+  project             = var.project_id
+  name                = "sp-analysis-migration-job"
+  location            = var.region
   deletion_protection = false
 
   template {
+    labels = {
+      "source-code-hash" = data.archive_file.source_zip.output_md5
+    }
+
     # Job template block
     template {
       service_account = google_service_account.social-pulse-sa.email
@@ -443,7 +732,7 @@ resource "google_cloud_run_v2_job" "analysis_migration_job" {
         image = local.dbmigraion_image_name
 
         command = ["yoyo"]
-        args    = [
+        args = [
           "apply",
           "-vv",
           "--batch",
@@ -468,6 +757,50 @@ resource "google_cloud_run_v2_job" "analysis_migration_job" {
   ]
 }
 
+# -- Deply Report DB Migration job (Cloud Run Job)
+resource "google_cloud_run_v2_job" "report_migration_job" {
+  project             = var.project_id
+  name                = "sp-report-migration-job"
+  location            = var.region
+  deletion_protection = false
+
+  template {
+    labels = {
+      "source-code-hash" = data.archive_file.source_zip.output_md5
+    }
+
+    # Job template block
+    template {
+      service_account = google_service_account.social-pulse-sa.email
+      containers {
+        image = local.dbmigraion_image_name
+
+        command = ["yoyo"]
+        args = [
+          "apply",
+          "-vv",
+          "--batch",
+          "--no-cache",
+          "--database=postgresql://${var.db_username}:${var.db_password}@${google_sql_database_instance.social_pulse_postgres_db_server.private_ip_address}/${google_sql_database.reporting_db.name}",
+          "./db-migrations",
+        ]
+      }
+
+      vpc_access {
+        connector = google_vpc_access_connector.connector.id
+        egress    = "ALL_TRAFFIC"
+      }
+    }
+  }
+
+  depends_on = [
+    google_sql_database.analysis_db,
+    null_resource.push_report_db_migration_image,
+    google_service_networking_connection.private_vpc_connection,
+    google_vpc_access_connector.connector
+  ]
+}
+
 resource "google_vpc_access_connector" "connector" {
   name          = "sp-vpc-connector"
   region        = "us-central1"
@@ -482,7 +815,7 @@ resource "google_vpc_access_connector" "connector" {
 # ---  2) Populate with values from the deployment
 # ---  3) Give the service account access to them
 resource "google_secret_manager_secret" "postgres_username" {
-  project = var.project_id
+  project   = var.project_id
   secret_id = "DB-USERNAME"
 
   replication {
@@ -491,7 +824,7 @@ resource "google_secret_manager_secret" "postgres_username" {
 }
 
 resource "google_secret_manager_secret" "postgres_password" {
-  project = var.project_id
+  project   = var.project_id
   secret_id = "DB-PASSWORD"
 
   replication {
@@ -544,24 +877,28 @@ resource "google_secret_manager_secret_version" "youtube_api_key_version" {
 }
 
 resource "google_secret_manager_secret_iam_member" "postgres_username_accessor" {
+  project   = var.project_id
   secret_id = google_secret_manager_secret.postgres_username.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "postgres_password_accessor" {
+  project   = var.project_id
   secret_id = google_secret_manager_secret.postgres_password.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "postgres_host_accessor" {
+  project   = var.project_id
   secret_id = google_secret_manager_secret.postgres_host.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "youtube_api_key_accessor" {
+  project   = var.project_id
   secret_id = google_secret_manager_secret.youtube_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
