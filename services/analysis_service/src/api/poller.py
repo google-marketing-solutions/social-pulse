@@ -126,9 +126,6 @@ class PollerHandler:
         logger.info("Triggering workflow for execution_id: %s", exec_id)
         self._trigger.trigger_workflow(exec_id)
 
-        logger.info(
-            "Updating status to IN_PROGRESS for execution_id: %s", exec_id
-        )
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to process execution_id: %s.", exec_id)
 

@@ -124,7 +124,7 @@ class GenerateLlmPromptForContentTask(tasks_core.SentimentTask):
             self._prompt_config.get_response_schema()
         )
         .with_temperature(
-            0.5
+            0.1
         )
         .with_response_mime_type(
             "application/json"

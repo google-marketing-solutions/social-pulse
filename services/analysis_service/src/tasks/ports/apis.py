@@ -88,16 +88,16 @@ class YoutubeApiClient(service.RegisterableService, abc.ABC):
   @abc.abstractmethod
   def get_video_details(
       self, video_ids: list[str]
-  ) -> list[dict[str, Any]]:
+  ) -> dict[str, dict[str, Any]]:
     """Retrieves detailed information for video IDs.
 
     Args:
       video_ids: A list of YouTube video IDs.
 
     Returns:
-      A list of raw video item dictionaries containing details.
-      Returns an empty list if no details are found or IDs are invalid.
-      Implementations should handle batching requests based on API limits.
+       dict of video stats keyed to their video ID.  The key is a string with
+       video ID, and the value is another dict of stat keyed to their values.
+       Implementations should handle batching requests based on API limits.
     """
     raise NotImplementedError
 

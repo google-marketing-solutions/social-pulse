@@ -15,8 +15,8 @@
 import json
 from json import decoder
 import logging
-import pandas as pd
 
+import pandas as pd
 from tasks import core as tasks_core
 
 
@@ -32,15 +32,21 @@ SUMMARY_COL_NAME = "summary"
 SENTIMENTS_COL_NAME = "sentiments"
 RELEVANCE_SCORE_COL_NAME = "relevanceScore"
 SENTIMENT_SCORE_COL_NAME = "sentimentScore"
+PRODUCT_OR_BRAND_COL_NAME = "productOrBrand"
+
+# When processing, how many bad responses should there be before we
+# stop processing and mark the execution as failed.
+ERROR_THRESHOLD_PERCENT = 0.1
 
 
 # An empty sentiment analysis response, in case the LLM failed to provide one
 EMPTY_SENTIMENT_RESPONSE = {
     SUMMARY_COL_NAME: "",
+    RELEVANCE_SCORE_COL_NAME: 0,
     SENTIMENTS_COL_NAME: [
         {
-            RELEVANCE_SCORE_COL_NAME: 0.0,
-            SENTIMENT_SCORE_COL_NAME: 0.0,
+            PRODUCT_OR_BRAND_COL_NAME: "",
+            SENTIMENT_SCORE_COL_NAME: "",
         }
     ],
 }
@@ -103,19 +109,26 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
       text = parts[0]["text"]
       analysis = json.loads(text)
 
-      return pd.Series({
-          SUMMARY_COL_NAME: analysis.get(SUMMARY_COL_NAME, ""),
-          SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
-      })
+      return pd.Series(
+          {
+              SUMMARY_COL_NAME: analysis.get(SUMMARY_COL_NAME, ""),
+              RELEVANCE_SCORE_COL_NAME: analysis.get(
+                  RELEVANCE_SCORE_COL_NAME, 0
+              ),
+              SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
+          }
+      )
     except decoder.JSONDecodeError as jde:
       logger.warning(
           "[%s] Error navigating LLM prediction JSON structure: %s. "
-          "Snippet: %s",
+          "Snippet (len = %s): %s",
           self.task_family,
           jde,
-          prediction_json_str[:250] if prediction_json_str else ""
+          len(text),
+          text[:250] if text else "",
       )
-      return pd.Series(EMPTY_SENTIMENT_RESPONSE)
+      # return pd.Series(EMPTY_SENTIMENT_RESPONSE)
+      raise
 
   def run(self) -> None:
     """Loads LLM results, parses JSON, flattens, and saves."""
@@ -129,13 +142,82 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
     logger.debug(
         "[%s] Reading LLM results from sentiment data set: %s",
         self.task_family,
-        self.input().table_name
+        self.input().table_name,
     )
-
     self._validate_input_dataset(llm_results)
-    llm_results[["summary", "sentiments"]] = (
-        llm_results.apply(self.extract_response_columns, axis=1)
-    )
-    llm_results = llm_results.drop(columns=[RESPONSE_COLUMN_NAME])
 
+    results_list = []
+    error_count = 0
+    total_rows = len(llm_results)
+
+    logger.info(
+        "[%s] Starting row-by-row processing of %d rows.",
+        self.task_family,
+        total_rows,
+    )
+
+    for index, row in llm_results.iterrows():
+      try:
+        extracted_data_series = self.extract_response_columns(row)
+        results_list.append(extracted_data_series)
+
+      except decoder.JSONDecodeError:
+        error_count += 1
+        self._raise_error_if_threshold_exceeded(error_count, total_rows, index)
+        results_list.append(pd.Series(EMPTY_SENTIMENT_RESPONSE))
+
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning(
+            "[%s] An unexpected error occurred on row %s: %s",
+            self.task_family,
+            index,
+            e,
+        )
+        error_count += 1
+        self._raise_error_if_threshold_exceeded(error_count, total_rows, index)
+        results_list.append(pd.Series(EMPTY_SENTIMENT_RESPONSE))
+
+    logger.info(
+        "[%s] Processing complete. %d rows succeeded, %d rows failed.",
+        self.task_family,
+        total_rows - error_count,
+        error_count,
+    )
+
+    extracted_df = pd.DataFrame(results_list, index=llm_results.index)
+    llm_results[
+        [SUMMARY_COL_NAME, RELEVANCE_SCORE_COL_NAME, SENTIMENTS_COL_NAME]
+    ] = extracted_df
+
+    llm_results = llm_results.drop(columns=[RESPONSE_COLUMN_NAME])
     self.output().write_sentiment_data(llm_results)
+
+  def _raise_error_if_threshold_exceeded(
+      self, error_count: int, total_rows: int, index: int
+  ):
+    """Raises an error if the error count exceeds the threshold.
+
+    Args:
+      error_count: The current number of errors encountered.
+      total_rows: The total number of rows to process.
+      index: The current row index being processed (used for logging context).
+    Raises:
+      ValueError: If `error_count` exceeds `max_allowed_errors`.
+    """
+    max_allowed_errors = int(total_rows * ERROR_THRESHOLD_PERCENT)
+
+    if error_count > max_allowed_errors:
+      logger.error(
+          "[%s] FAILURE THRESHOLD EXCEEDED. "
+          "Failed %d out of %d processed rows (max allowed: %d). "
+          "Stopping task.",
+          self.task_family,
+          error_count,
+          total_rows,
+          max_allowed_errors,
+      )
+      error_threshold_perc = ERROR_THRESHOLD_PERCENT * 100
+      raise ValueError(
+          f"Failure threshold exceeded: {error_count} errors "
+          f"in {total_rows} rows (Threshold: {error_threshold_perc}%)"
+      )

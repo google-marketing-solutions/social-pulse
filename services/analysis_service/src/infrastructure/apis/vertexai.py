@@ -23,8 +23,7 @@ from vertexai import batch_prediction
 
 logger = logging.getLogger(__name__)
 
-
-GEMINI_PRO_MODEL_ID = "gemini-2.0-flash-001"
+GEMINI_PRO_MODEL_ID = "gemini-2.5-pro"
 
 
 class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
@@ -43,7 +42,8 @@ class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
     vertexai.init(project=self._project_id, location=self._region)
     logger.info(
         "VertexAI API client built successfully (project=%s, location=%s).",
-        self._project_id, self._region
+        self._project_id,
+        self._region,
     )
 
   def submit_batch_job(
@@ -117,10 +117,10 @@ class VertexAiLlmBatchJobApiClient(apis.LlmBatchJobApiClient):
     logger.debug(
         "Submitting batch job.  INPUT=%s, OUTPUT=%s",
         input_table_uri,
-        output_table_uri
+        output_table_uri,
     )
     return batch_prediction.BatchPredictionJob.submit(
         source_model=GEMINI_PRO_MODEL_ID,
         input_dataset=input_table_uri,
-        output_uri_prefix=output_table_uri
+        output_uri_prefix=output_table_uri,
     )

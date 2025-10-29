@@ -49,6 +49,7 @@ class SentimentResponseSchemaBuilder:
       "type": "object",
       "properties": {
           "summary": {"type": "string"},
+          "relevanceScore": {"type": "number"},
           "sentiments": {
               "type": "array",
               "items": {
@@ -65,14 +66,12 @@ class SentimentResponseSchemaBuilder:
     Sets up the default properties for each sentiment item:
     - 'productOrBrand': type 'string'
     - 'sentimentScore': type 'number'
-    - 'relevanceScore': type 'number'
 
     These can be extended using the `add_property` method.
     """
     self._properties = {
         "productOrBrand": {"type": "string"},
-        "sentimentScore": {"type": "number"},
-        "relevanceScore": {"type": "number"}
+        "sentimentScore": {"type": "string"},
     }
 
   def add_property(

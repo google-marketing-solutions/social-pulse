@@ -51,7 +51,7 @@
    exit
    psql -U social_pulse_user -d social_pulse_db -h localhost -W
 
-   SELECT has_database_privilege('social_pulse_user', 'social_pulse_reporting', 'CONNECT');
+   SELECT has_database_privilege('social_pulse_user', 'social_pulse_db', 'CONNECT');
    SELECT has_schema_privilege('social_pulse_user', 'public', 'CREATE');
    ```
 
