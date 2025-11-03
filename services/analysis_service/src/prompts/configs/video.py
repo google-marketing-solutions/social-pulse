@@ -33,12 +33,6 @@ VIDEO_EXTRACTION_SYSTEM_INSTRUCTION = """
   """
 
 
-PROVIDE_JUSTIFICATION_STANZA = """  In addition, extract up to 3 quotes from the
-  video that justify the sentiment score you provided.  Make sure the quotes
-  are actually said in the video.
-  """
-
-
 VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE = """
   **Product, Brand, or Feature to Analyze (Target Entity):** ${brand_or_product}
   **Video to analyze:  ${video_url}**
@@ -102,6 +96,22 @@ VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE = """
                 * Partially Negative  ("PARTIAL_NEGATIVE")
                 * Negative  ("NEGATIVE")
                 * Extremely Negative  ("EXTREME_NEGATIVE")
+  """
+
+
+PROVIDE_JUSTIFICATION_STANZA = """
+              * **`justifications` (array of objects):** This field provides
+                the evidence for the `sentimentScore`.
+                  1.  Find 1 to 3 **verbatim quotes** from the video that
+                      are the primary evidence for the assigned `sentimentScore`.
+                  2.  For each quote, identify its start time in the video.
+                  3.  Create a JSON object for each quote with two keys:
+                      * **`quote` (string):** The exact, verbatim quote.
+                        Do not paraphrase.
+                      * **`timestamp` (string):** The timestamp where the
+                        quote begins, in "MM:SS" or "HH:MM:SS" format
+                        (e.g., "00:38" or "01:05:22").
+                  4.  Add these objects to the `justifications` array.
   """
 
 
@@ -187,29 +197,6 @@ VIDEO_SHARE_OF_VOICE_SCORE_PROMPT_TEMPLATE = """
               brand is relevant, its weight is 100).
   """
 
-EXTRACT_VIDEO_SUMMARY_PROMPT_TEMPLATE = """
-  **Video to analyze:  ${video_url}**
-  ---
-
-  ### **CRITICAL OUTPUT REQUIREMENT**
-
-  Your entire response **MUST** be a single, raw JSON object
-  that validates against the `responseSchema`. Do not include
-  any text, backticks, or explanations before or after the JSON.
-  Your entire response must start with `{` and end with `}`.
-
-  ---
-
-  ### **Step 1: Generate `summary` (string)**
-
-  1.  Watch and analyze the provided video in its entirety, including what is
-      said, any text that is displayed, and any additional visuals.
-  2.  Generate a neutral, factual summary of the video's content.  If any brands
-      or products are mentioned, please include them in your summary.
-  3.  Limit the summary to 4 to 5 sentences, making sure to **prioritize
-      being succinct** over being complete.
-  """
-
 
 class BasicSentimentScoreFromVideoPromptConfig(core.PromptConfig):
   """Configuration for generating video sentiment analysis prompts."""
@@ -229,16 +216,25 @@ class BasicSentimentScoreFromVideoPromptConfig(core.PromptConfig):
     return VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
 
   def generate_llm_prompt(self, row: pd.Series) -> str:
-    scoring_prompt = string.Template(VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE)
+    template_string = VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE
+    if self._workflow_exec.include_justifications:
+      template_string += PROVIDE_JUSTIFICATION_STANZA
+
     brand_or_product = self._workflow_exec.topic
     video_url = row["videoUrl"]
 
+    scoring_prompt = string.Template(template_string)
     return scoring_prompt.substitute(
         brand_or_product=brand_or_product, video_url=video_url
     )
 
   def get_response_schema(self) -> str:
-    return core.SentimentResponseSchemaBuilder().build()
+    schema_builder = core.SentimentResponseSchemaBuilder()
+
+    if (self._workflow_exec.include_justifications):
+      schema_builder.add_property(core.JUSTIFICATION_RESPONSE_SCHEMA_MIXIN)
+
+    return schema_builder.build()
 
   def get_file_data(self, row: pd.Series) -> list[tuple[str, str]] | None:
     return [("video/*", row["videoUrl"])]
@@ -274,36 +270,6 @@ class ShareOfVoiceSentimentScoresFromVideoPromptConfig(core.PromptConfig):
         .add_property(core.SHARE_OF_VOICE_WEIGHT_RESPONSE_SCHEMA_MIXIN)
         .build()
     )
-
-  def get_file_data(self, row):
-    return [("video/*", row["videoUrl"])]
-
-
-class ExtractVideoSummaryFromVideoPromptConfig(core.PromptConfig):
-  """Configuration for generating extract video summary prompts."""
-
-  def get_input_columns(self) -> list[str]:
-    return [
-        "videoId",
-        "videoTitle",
-        "videoDescription",
-        "videoUrl",
-        "channelId",
-        "channelTitle",
-        "publishedAt",
-    ]
-
-  def get_system_instruction(self) -> str:
-    return VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
-
-  def generate_llm_prompt(self, row: pd.Series) -> str:
-    scoring_prompt = string.Template(EXTRACT_VIDEO_SUMMARY_PROMPT_TEMPLATE)
-    video_url = row["videoUrl"]
-
-    return scoring_prompt.substitute(video_url=video_url)
-
-  def get_response_schema(self) -> str:
-    return ()
 
   def get_file_data(self, row):
     return [("video/*", row["videoUrl"])]

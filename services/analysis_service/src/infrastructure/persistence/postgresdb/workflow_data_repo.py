@@ -36,6 +36,7 @@ STATUS_COL_INDEX = 7
 LASTCOMPLETEDTASK_COL_INDEX = 8
 PARENT_EXECUTION_ID_COL_INDEX = 9
 REPORT_ID_COL_INDEX = 10
+INCLUDE_JUSTIFICATIONS = 11
 
 
 class PostgresDbWorkflowExecutionPersistenceService(
@@ -67,7 +68,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  status, "
         "  lastCompletedTask, "
         "  parentExecutionId, "
-        "  reportId "
+        "  reportId, "
+        "  includeJustifications "
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
         (execution_id,),
@@ -107,9 +109,10 @@ class PostgresDbWorkflowExecutionPersistenceService(
           dateRangeStart,
           dateRangeEnd,
           parentExecutionId,
-          reportId
+          reportId,
+          includeJustifications
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
     """
     data_outputs_as_names = [
@@ -132,6 +135,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         execution_params.end_time,
         parent_execution_id,
         report_id,
+        execution_params.include_justifications,
     )
 
     logger.info("Creating workflow execution with params: %s", params)
@@ -189,7 +193,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         SELECT
             wep.executionId, wep.source, wep.dataOutputs, wep.topicType,
             wep.topic, wep.dateRangeStart, wep.dateRangeEnd, wep.status,
-            wep.lastCompletedTask, wep.parentExecutionId, wep.reportId
+            wep.lastCompletedTask, wep.parentExecutionId, wep.reportId,
+            wep.includeJustifications
         FROM
             WorkflowExecutionParams wep
         LEFT JOIN
@@ -256,4 +261,6 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params.last_completed_task_id = row[LASTCOMPLETEDTASK_COL_INDEX] or ""
     wfe_params.parent_execution_id = row[PARENT_EXECUTION_ID_COL_INDEX] or ""
     wfe_params.report_id = row[REPORT_ID_COL_INDEX] or ""
+    wfe_params.include_justifications = row[INCLUDE_JUSTIFICATIONS] or True
+
     return wfe_params

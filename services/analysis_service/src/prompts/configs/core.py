@@ -31,7 +31,11 @@ JUSTIFICATION_RESPONSE_SCHEMA_MIXIN: dict[str, str] = {
     "justifications": {
         "type": "array",
         "items": {
-            "type": "string",
+            "type": "object",
+            "properties": {
+                "quote": {"type": "string"},
+                "timestamp": {"type": "string"},
+            },
         },
     }
 }
