@@ -28,9 +28,12 @@ import os
 import fastapi
 import google.cloud.logging
 from infrastructure.persistence.postgresdb import workflow_data_repo
+from infrastructure.triggers import wfe_cloud_function
 from infrastructure.triggers import wfe_cloud_run_job
 from socialpulse_common import config
 from socialpulse_common import service
+from socialpulse_common.messages import sentiment_report as report_msg
+from socialpulse_common.messages import workflow_execution as wfe
 from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 from tasks.ports import trigger
@@ -86,10 +89,15 @@ def _bootstrap_services():
       persistence.WorkflowExecutionPersistenceService, workflow_repo_adapter
   )
 
-  # Register Workflow Trigger Service
+  report_completion_service = (
+      wfe_cloud_function.HttpReportCompletionService()
+  )
+  service_registry.register(
+      trigger.ReportCompletionService, report_completion_service
+  )
+
   trigger_adapter = wfe_cloud_run_job.CloudJobWorkflowExecutionTrigger(
-      project_id=settings.cloud.project_id,
-      region=settings.cloud.region
+      project_id=settings.cloud.project_id, region=settings.cloud.region
   )
   service_registry.register(trigger.WorkflowExecutionTrigger, trigger_adapter)
 
@@ -108,8 +116,11 @@ class PollerHandler:
     self._trigger: trigger.WorkflowExecutionTrigger = service.registry.get(
         trigger.WorkflowExecutionTrigger
     )
+    self._mark_completed_trigger: trigger.ReportCompletionService = (
+        service.registry.get(trigger.ReportCompletionService)
+    )
 
-  def poll_and_trigger(self):
+  def trigger_ready_workflow_execs(self):
     """Finds ready workflows, triggers them, and updates their status."""
     logger.info("Polling for ready workflow executions.")
     ready_executions = self._repo.find_ready_executions()
@@ -128,6 +139,70 @@ class PollerHandler:
 
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to process execution_id: %s.", exec_id)
+
+  def mark_completed_reports(self):
+    """Finds completed reports and marks them as completed."""
+    logger.info("Marking completed reports.")
+    completed_report_data = self._repo.find_completed_reports()
+
+    if not completed_report_data:
+      logger.info("No completed reports found.")
+      return
+
+    logger.info(
+        "Found %d completed reports to mark as completed.",
+        len(completed_report_data),
+    )
+    for report_wfes_data in completed_report_data.items():
+      report_id = report_wfes_data[0]
+      completed_wfes: list[wfe.WorkflowExecutionParams] = report_wfes_data[1]
+
+      try:
+        self._mark_report_as_completed(report_id, completed_wfes)
+        self._repo.update_status(report_id, wfe.Status.EXPORTED)
+      except Exception:  # pylint: disable=broad-exception-caught
+        logger.exception("Failed to process report_id: %s.", report_id)
+
+  def _mark_report_as_completed(
+      self, report_id: str, wfes: list[wfe.WorkflowExecutionParams]
+  ):
+    """Marks a report as completed.
+
+    Args:
+      report_id: The unique ID of the report to mark as completed.
+      wfes: A list of WorkflowExecutionParams associated with the completed
+        report.
+    """
+
+    def _generate_dataset_uri(execution_id: str):
+      """Generates the BigQuery URI for a given execution ID."""
+      bq_uri_prefix = (
+          f"bq://{settings.cloud.project_id}/{settings.cloud.dataset_name}"
+      )
+      return f"{bq_uri_prefix}/SentimentDataset_{execution_id}"
+
+    report_datasets: list[report_msg.SentimentReportDataset] = [
+        report_msg.SentimentReportDataset(
+            report_id=report_id,
+            source=wfe_data.source,
+            data_output=wfe_data.data_output[0],
+            dataset_uri=_generate_dataset_uri(wfe_data.execution_id),
+        )
+        for wfe_data in wfes
+        if wfe_data.data_output
+    ]
+
+    logger.info("Marking report %s as completed.", report_id)
+    self._mark_completed_trigger.mark_report_completed(
+        report_id=report_id, datasets=report_datasets
+    )
+
+  def _mark_wofklow_execution_as_completed(
+      self, wfes: list[wfe.WorkflowExecutionParams]
+  ):
+    """Marks a workflow execution as exported."""
+    for wfe_data in wfes:
+      self._repo.update_status(wfe_data.execution_id, wfe.Status.EXPORTED)
 
 
 @app.post("/poller")
@@ -151,13 +226,13 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
         "Critical error during service bootstrapping. Aborting run."
     )
     raise fastapi.HTTPException(
-        status_code=500,
-        detail=f"Service initialization failed: {e}"
+        status_code=500, detail=f"Service initialization failed: {e}"
     ) from e
 
   try:
     handler = PollerHandler()
-    handler.poll_and_trigger()
+    handler.trigger_ready_workflow_execs()
+    handler.mark_completed_reports()
 
     return {"status": "success", "message": "Polling cycle completed."}
 
@@ -165,6 +240,5 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
     logger.exception("An unexpected error occurred during the polling cycle.")
 
     raise fastapi.HTTPException(
-        status_code=500,
-        detail=f"Polling and triggering failed: {e}"
+        status_code=500, detail=f"Polling and triggering failed: {e}"
     ) from e

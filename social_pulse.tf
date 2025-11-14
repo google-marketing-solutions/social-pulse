@@ -57,6 +57,21 @@ data "archive_file" "source_zip" {
   type        = "zip"
   output_path = "social_pulse.zip"
   source_dir  = "."
+
+  excludes = [
+    "**/__pycache__",
+    "**/dist",
+    "*.egg-info",
+    "**/.vscode",
+    "**/.coverage",
+    "**/*_pb2.py",
+    "**/.env",
+    "*.tfstate",
+    "*.tfstate.backup",
+    ".terraform",
+    ".terraform.lock.hcl",
+    "social_pulse.zip"
+  ]
 }
 
 # Upload the zip archive to the GCS bucket
@@ -329,7 +344,7 @@ resource "null_resource" "push_poller_image" {
   provisioner "local-exec" {
     command = "docker push ${local.poller_image_name}"
   }
-  depends_on = [null_resource.build_run_image]
+  depends_on = [null_resource.build_poller_image]
 }
 
 # -- Push Docker image for the WFE Executor
@@ -387,7 +402,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
       image = local.run_image_name
 
       env {
-        name = "DB-USER"
+        name = "DB__USERNAME"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_username.secret_id
@@ -396,7 +411,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
         }
       }
       env {
-        name = "DB-PASSWORD"
+        name = "DB__PASSWORD"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_password.secret_id
@@ -405,10 +420,19 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
         }
       }
       env {
-        name = "DB-HOST"
+        name = "DB__HOST"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_host.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "API__YOUTUBE__KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.youtube_api_key.secret_id
             version = "latest"
           }
         }
@@ -424,6 +448,14 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
       env {
         name  = "CLOUD__PROJECT_ID"
         value = var.project_id
+      }
+      env {
+        name = "CLOUD__PROJECT_NUMBER"
+        value = var.project_number
+      }
+      env {
+        name = "CLOUD__REGION"
+        value = var.region
       }
     }
 
@@ -442,9 +474,9 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
 
 # -- Deploy the reporting API service (Cloud Run Service)
 resource "google_cloud_run_v2_service" "sp-reporting-api" {
-  project             = var.project_id
   name                = "sp-reporting-api"
-  location            = "us-central1"
+  project             = var.project_id
+  location            = var.region
   deletion_protection = false
 
   template {
@@ -458,7 +490,7 @@ resource "google_cloud_run_v2_service" "sp-reporting-api" {
       image = local.report_api_image_name
 
       env {
-        name = "DB-USER"
+        name = "DB__USERNAME"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_username.secret_id
@@ -467,7 +499,7 @@ resource "google_cloud_run_v2_service" "sp-reporting-api" {
         }
       }
       env {
-        name = "DB-PASSWORD"
+        name = "DB__PASSWORD"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_password.secret_id
@@ -476,10 +508,19 @@ resource "google_cloud_run_v2_service" "sp-reporting-api" {
         }
       }
       env {
-        name = "DB-HOST"
+        name = "DB__HOST"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_host.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "API__YOUTUBE__KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.youtube_api_key.secret_id
             version = "latest"
           }
         }
@@ -495,6 +536,14 @@ resource "google_cloud_run_v2_service" "sp-reporting-api" {
       env {
         name  = "CLOUD__PROJECT_ID"
         value = var.project_id
+      }
+      env {
+        name = "CLOUD__PROJECT_NUMBER"
+        value = var.project_number
+      }
+      env {
+        name = "CLOUD__REGION"
+        value = var.region
       }
     }
     vpc_access {
@@ -529,7 +578,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
       image = local.poller_image_name
 
       env {
-        name = "DB-USER"
+        name = "DB__USERNAME"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_username.secret_id
@@ -538,7 +587,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
         }
       }
       env {
-        name = "DB-PASSWORD"
+        name = "DB__PASSWORD"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_password.secret_id
@@ -547,10 +596,19 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
         }
       }
       env {
-        name = "DB-HOST"
+        name = "DB__HOST"
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.postgres_host.secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "API__YOUTUBE__KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.youtube_api_key.secret_id
             version = "latest"
           }
         }
@@ -567,6 +625,14 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
         name  = "CLOUD__PROJECT_ID"
         value = var.project_id
       }
+      env {
+        name = "CLOUD__PROJECT_NUMBER"
+        value = var.project_number
+      }
+      env {
+        name = "CLOUD__REGION"
+        value = var.region
+      }
     }
 
     vpc_access {
@@ -576,7 +642,7 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
   }
 
   depends_on = [
-    null_resource.push_run_image,
+    null_resource.push_poller_image,
     google_service_networking_connection.private_vpc_connection,
     google_vpc_access_connector.connector
   ]
@@ -649,7 +715,7 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
         }
 
         env {
-          name = "DB-USER"
+          name = "DB__USERNAME"
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.postgres_username.secret_id
@@ -658,7 +724,7 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
           }
         }
         env {
-          name = "DB-PASSWORD"
+          name = "DB__PASSWORD"
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.postgres_password.secret_id
@@ -667,7 +733,7 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
           }
         }
         env {
-          name = "DB-HOST"
+          name = "DB__HOST"
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.postgres_host.secret_id
@@ -676,7 +742,7 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
           }
         }
         env {
-          name = "API-YOUTUBE-KEY"
+          name = "API__YOUTUBE__KEY"
           value_source {
             secret_key_ref {
               secret  = google_secret_manager_secret.youtube_api_key.secret_id
@@ -684,7 +750,6 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
             }
           }
         }
-
         env {
           name  = "APP_ENV"
           value = "prod"
@@ -696,6 +761,14 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
         env {
           name  = "CLOUD__PROJECT_ID"
           value = var.project_id
+        }
+        env {
+          name = "CLOUD__PROJECT_NUMBER"
+          value = var.project_number
+        }
+        env {
+          name = "CLOUD__REGION"
+          value = var.region
         }
       }
 
@@ -773,7 +846,7 @@ resource "google_cloud_run_v2_job" "report_migration_job" {
     template {
       service_account = google_service_account.social-pulse-sa.email
       containers {
-        image = local.dbmigraion_image_name
+        image = local.report_dbmigration_image_name
 
         command = ["yoyo"]
         args = [

@@ -66,7 +66,8 @@ content.
 4. Sentiment data is then written to a BigQuery table, where it can be queried
 and analyzed.
 
-## Getting Started
+## Getting Started for Local Development
+
 1. Choose or create a Google Cloud Platform (GCP) project to use to generate
 your sentiment analysis reports.  Make sure it has the following:
   a. It's associated with a billing account

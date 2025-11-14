@@ -17,19 +17,22 @@ import abc
 import enum
 import typing
 
-from socialpulse_common.messages import sentiment_report
+from domain import sentiment_report
+from socialpulse_common.messages import sentiment_report as report_msg
 
 
 class SentimentReportRepo(abc.ABC):
   """Interface for CRUD operations on a sentiment report."""
 
   @abc.abstractmethod
-  def load_report(self, report_id: str):
+  def load_report(
+      self, report_id: str
+  ) -> sentiment_report.SentimentReportEntity:
     """Retrieves a sentiment report by its ID."""
     raise NotImplementedError
 
   @abc.abstractmethod
-  def persist_report(self, report: sentiment_report.SentimentReport):
+  def persist_report(self, report: sentiment_report.SentimentReportEntity):
     """Creates or updates a sentiment report.
 
     Persists a report, by checking if it already has a UUID.  If not, then it
@@ -57,7 +60,7 @@ class SentimentReportSearchCriteria:
     status: The status of the sentiment report to filter by.
     topic: The topic of the sentiment report to filter by.
   """
-  status: sentiment_report.Status
+  status: report_msg.Status
   topic_contains: str
   sort_by: SentimentReportsSortBy
   sort_ascending: bool = True
@@ -70,7 +73,7 @@ class SentimentReportSearchRepo(abc.ABC):
   def get_reports(
       self,
       criteria: SentimentReportSearchCriteria
-  ) -> typing.List[sentiment_report.SentimentReport]:
+  ) -> typing.List[report_msg.SentimentReport]:
     """Retrieves sentiment reports by the provided filters.
 
     Args:

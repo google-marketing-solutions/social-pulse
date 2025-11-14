@@ -29,6 +29,7 @@ class Status(enum.Enum):
   IN_PROGRESS = 2
   COMPLETED = 3
   FAILED = 4
+  EXPORTED = 5
 
 
 @dataclasses.dataclass

@@ -19,14 +19,18 @@ import requests
 from socialpulse_common import config
 from socialpulse_common.messages import sentiment_report
 
-settings = config.Settings()
+
 logger = logging.getLogger(__name__)
+
 
 HTTP_ENDPOINT_SERVER_PATH = "api/run_report"
 
 
 class HttpEndpoingWorkflowExecutionService(api.WorkflowExecutionService):
   """Implementation of the WFE executor using HTTP endpoints."""
+
+  def __init__(self, workflow_runner_api_url: str) -> None:
+    self._workflow_runner_api_url = workflow_runner_api_url
 
   def trigger_run_report(self, report: sentiment_report.SentimentReport):
     """Triggers the workflow for generating a sentiment report.
@@ -35,26 +39,31 @@ class HttpEndpoingWorkflowExecutionService(api.WorkflowExecutionService):
       report: The sentiment report to generate.
     """
     try:
-      headers = self._generate_request_headers()
       complete_url = (
-          f"{settings.cloud.workflow_runner_api_url}/{HTTP_ENDPOINT_SERVER_PATH}"
+          f"{self._workflow_runner_api_url}/{HTTP_ENDPOINT_SERVER_PATH}"
       )
       logger.info("Sending run report request to: %s", complete_url)
 
       response = requests.post(
           complete_url,
-          headers=(headers if not settings.is_development else {}),
-          json=report.model_dump(mode="json"))
+          headers=self._generate_request_headers(),
+          json=report.model_dump(mode="json"),
+      )
 
       response.raise_for_status()
-      logger.info("Successfully started Cloud Run Job Execution: %s",
-                  response.json().get("name", "N/A"))
+      logger.info(
+          "Successfully started Cloud Run Job Execution: %s",
+          response.json().get("name", "N/A"),
+      )
 
     except requests.HTTPError as e:
       error_msg = e.response.text
       status_code = e.response.status_code
-      loggable_error = ("API Call failed (Status: %s). Response: %s",
-                        status_code, error_msg)
+      loggable_error = (
+          "API Call failed (Status: %s). Response: %s",
+          status_code,
+          error_msg,
+      )
       logger.error(loggable_error)
       raise RuntimeError(loggable_error) from e
 
@@ -65,23 +74,36 @@ class HttpEndpoingWorkflowExecutionService(api.WorkflowExecutionService):
 
   def _generate_request_headers(self):
     headers = {"Content-Type": "application/json"}
-    if not settings.is_development:
-      access_token = self._get_access_token()
-      headers.update("Authorization", f"Bearer {access_token}")
+
+    if not config.is_development():
+      id_token = self._get_identity_token(
+          audience=self._workflow_runner_api_url
+      )
+      headers.update({"Authorization": f"Bearer {id_token}"})
 
     return headers
 
-  def _get_access_token(self) -> str:
-    """Fetches the identity token for the Service Account."""
+  def _get_identity_token(self, audience: str) -> str:
+    """Fetches the OIDC Identity token for Cloud Run invocation."""
     try:
-      # Token is provided by the metadata server
-      response = requests.get(
+      metadata_url = (
           "http://metadata.google.internal/computeMetadata/v1/"
-          "instance/service-accounts/default/token",
-          headers={"Metadata-Flavor": "Google"})
+          "instance/service-accounts/default/identity"
+      )
+
+      response = requests.get(
+          metadata_url,
+          params={"audience": audience},
+          headers={"Metadata-Flavor": "Google"},
+      )
       response.raise_for_status()
-      return response.json().get("access_token")
+
+      # Important: The identity endpoint returns the token as raw text,
+      # not inside a JSON object like the access token endpoint.
+      return response.text.strip()
+
     except Exception:
       logger.critical(
-          "FATAL: Failed to retrieve service account access token.")
+          "FATAL: Failed to retrieve service account identity token."
+      )
       raise

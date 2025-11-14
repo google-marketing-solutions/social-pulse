@@ -15,6 +15,7 @@
 
 import abc
 from socialpulse_common import service
+from socialpulse_common.messages import sentiment_report as report_msg
 
 
 class WorkflowExecutionTrigger(service.RegisterableService, abc.ABC):
@@ -26,5 +27,22 @@ class WorkflowExecutionTrigger(service.RegisterableService, abc.ABC):
 
     Args:
         execution_id: The unique ID of the workflow to execute.
+    """
+    raise NotImplementedError
+
+
+class ReportCompletionService(service.RegisterableService, abc.ABC):
+  """Abstract interface for marking reports as completed."""
+
+  @abc.abstractmethod
+  def mark_report_completed(
+      self, report_id: str, datasets: list[report_msg.SentimentReportDataset]
+  ) -> None:
+    """Marks a report as completed.
+
+    Args:
+        report_id: The unique ID of the report to mark as completed.
+        datasets: A list of SentimentReportDataset objects associated with the
+          completed report.
     """
     raise NotImplementedError

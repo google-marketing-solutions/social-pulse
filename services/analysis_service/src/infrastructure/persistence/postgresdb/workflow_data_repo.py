@@ -236,6 +236,74 @@ class PostgresDbWorkflowExecutionPersistenceService(
 
     return {row[0]: [wfe.Status[s] for s in row[1]] for row in rows}
 
+  def find_completed_reports(
+      self,
+  ) -> dict[str, list[wfe.WorkflowExecutionParams]]:
+    """Finds all distinct report_ids where all running WFEs have completed.
+
+    This method is used for monitoring.  It should find all reports that are
+    considered "completed", where all of the WFE's with the same report_id
+    are completed.
+
+    Returns:
+        A dictionary where keys are 'report_id's and values is a list of all
+        WFE's associated with that report.
+    """
+    query = """
+        WITH completed_reports AS (
+          SELECT reportid
+          FROM public.workflowexecutionparams
+          WHERE reportid IS NOT NULL
+          GROUP BY reportid
+          HAVING bool_and(status = 'COMPLETED')
+        ),
+        report_execs_arrays AS (
+          SELECT
+            w.reportid,
+            json_agg(
+              json_build_object(
+                'executionid', w.executionid,
+                'status', w.status,
+                'source', w.source,
+                'dataoutputs', w.dataoutputs,
+                'topictype', w.topictype,
+                'topic', w.topic,
+                'daterangestart', w.daterangestart,
+                'daterangeend', w.daterangeend
+              )
+              ORDER BY w.createdon
+            ) AS workflow_execs_list
+          FROM
+            WorkflowExecutionParams w
+          JOIN
+            completed_reports cr ON w.reportid = cr.reportid
+          GROUP BY
+            w.reportid
+        )
+        SELECT
+          json_object_agg(
+            reportid,
+            workflow_execs_list
+          )
+        FROM
+          report_execs_arrays;
+    """
+    rows = self._postgres_client.retrieve_rows(query)
+    if not rows or not rows[0][0]:
+      return {}
+
+    # The aggregation logic in the query will produce 0 or 1 row, where the
+    # single row contains a JSON dict.  Hence we pull just a single
+    # value from the results and use dict comprehension on the list of items in
+    # the JSON dict.
+    json_data = rows[0][0]
+    return {
+        report_id: [
+            self._map_dict_to_wfe_params(wfe_dict) for wfe_dict in wfe_list
+        ]
+        for report_id, wfe_list in json_data.items()
+    }
+
   def _map_row_to_wfe_params(
       self, row: tuple[Any, ...]
   ) -> wfe.WorkflowExecutionParams:
@@ -262,5 +330,36 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params.parent_execution_id = row[PARENT_EXECUTION_ID_COL_INDEX] or ""
     wfe_params.report_id = row[REPORT_ID_COL_INDEX] or ""
     wfe_params.include_justifications = row[INCLUDE_JUSTIFICATIONS] or True
+
+    return wfe_params
+
+  def _map_dict_to_wfe_params(
+      self, wfe_dict: dict[str, Any]
+  ) -> wfe.WorkflowExecutionParams:
+    """Maps a dictionary (from JSON) to a WorkflowExecutionParams data object.
+
+    Args:
+      wfe_dict: A dictionary representing workflow execution parameters.
+
+    Returns:
+      A populated WorkflowExecutionParams object.
+    """
+    wfe_params = wfe.WorkflowExecutionParams()
+    wfe_params.execution_id = wfe_dict.get("executionid")
+    wfe_params.source = common_msg.SocialMediaSource[wfe_dict.get("source")]
+    wfe_params.data_output = self._parse_data_outputs(
+        wfe_dict.get("dataoutputs", [])
+    )
+    wfe_params.topic_type = common_msg.TopicType[wfe_dict.get("topictype")]
+    wfe_params.topic = wfe_dict.get("topic")
+    wfe_params.start_time = wfe_dict.get("daterangestart")
+    wfe_params.end_time = wfe_dict.get("daterangeend")
+    wfe_params.status = wfe.Status[wfe_dict.get("status")]
+    wfe_params.last_completed_task_id = wfe_dict.get("lastcompletedtask", "")
+    wfe_params.parent_execution_id = wfe_dict.get("parentexecutionid", "")
+    wfe_params.report_id = wfe_dict.get("reportid", "")
+    wfe_params.include_justifications = wfe_dict.get(
+        "includejustifications", True
+    )
 
     return wfe_params

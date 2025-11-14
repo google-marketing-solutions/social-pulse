@@ -36,7 +36,7 @@ from tasks.ports import persistence
 logging_client = google.cloud.logging.Client()
 logging_client.setup_logging()
 
-log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+log_level = os.environ.get("LOG_LEVEL", "DEBUG").upper()
 logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,12 @@ class AppConfig:
   """Handles service bootstrapping and holds dependency instances."""
 
   def __init__(self):
-    logger.info("Initializing AppConfig and bootstrapping services.")
+    logger.info(
+        "Bbootstrapping DB client. Host = %s, User = %s",
+        settings.db.host,
+        settings.db.username
+    )
+
     postgres_client = client.PostgresDbClient(
         host=settings.db.host,
         port=settings.db.port,
