@@ -468,7 +468,15 @@ resource "google_cloud_run_v2_service" "sp-analysis-run" {
   depends_on = [
     null_resource.push_run_image,
     google_service_networking_connection.private_vpc_connection,
-    google_vpc_access_connector.connector
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_host_version,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.youtube_api_key_version,
+    google_secret_manager_secret_iam_member.postgres_host_accessor,
+    google_secret_manager_secret_iam_member.postgres_username_accessor,
+    google_secret_manager_secret_iam_member.postgres_password_accessor,
+    google_secret_manager_secret_iam_member.youtube_api_key_accessor
   ]
 }
 
@@ -644,7 +652,12 @@ resource "google_cloud_run_v2_service" "sp-analysis-poller" {
   depends_on = [
     null_resource.push_poller_image,
     google_service_networking_connection.private_vpc_connection,
-    google_vpc_access_connector.connector
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_host_version,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.youtube_api_key_version,
+    google_secret_manager_secret_iam_member.postgres_host_accessor
   ]
 }
 
@@ -782,7 +795,12 @@ resource "google_cloud_run_v2_job" "sp-analysis-wfe" {
   depends_on = [
     null_resource.push_wfe_image,
     google_service_networking_connection.private_vpc_connection,
-    google_vpc_access_connector.connector
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_host_version,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.youtube_api_key_version,
+    google_secret_manager_secret_iam_member.postgres_host_accessor
   ]
 }
 
