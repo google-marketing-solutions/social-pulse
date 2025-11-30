@@ -15,12 +15,9 @@
 import logging
 from typing import Any
 import pandas as pd
-from socialpulse_common import config
 from socialpulse_common import service
 from tasks import core as tasks_core
 from tasks.ports import apis as ports_apis
-
-settings = config.Settings()
 
 
 class FindYoutubeVideos(tasks_core.SentimentTask):

@@ -21,3 +21,4 @@ yoyo-migrations
 
 # Shared social pulse library
 socialpulse-common==0.1.0
+httpx

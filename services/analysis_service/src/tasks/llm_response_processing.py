@@ -42,7 +42,7 @@ ERROR_THRESHOLD_PERCENT = 0.1
 # An empty sentiment analysis response, in case the LLM failed to provide one
 EMPTY_SENTIMENT_RESPONSE = {
     SUMMARY_COL_NAME: "",
-    RELEVANCE_SCORE_COL_NAME: 0,
+    RELEVANCE_SCORE_COL_NAME: 0.0,
     SENTIMENTS_COL_NAME: [
         {
             PRODUCT_OR_BRAND_COL_NAME: "",
@@ -89,6 +89,7 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
       'sentimentScore' values, or an empty response if values couldn't be
       extracted.
     """
+    text = ""
     try:
       prediction_json_str = row[RESPONSE_COLUMN_NAME]
       llm_response = json.loads(prediction_json_str)
@@ -113,7 +114,7 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
           {
               SUMMARY_COL_NAME: analysis.get(SUMMARY_COL_NAME, ""),
               RELEVANCE_SCORE_COL_NAME: analysis.get(
-                  RELEVANCE_SCORE_COL_NAME, 0
+                  RELEVANCE_SCORE_COL_NAME, 0.0
               ),
               SENTIMENTS_COL_NAME: analysis.get(SENTIMENTS_COL_NAME, []),
           }

@@ -45,33 +45,24 @@ log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
-try:
-  settings = config.Settings()
-  service_registry = service.registry
-  _is_initialized = False
-except Exception as e:  # pylint: disable=broad-exception-caught
-  logger.critical(
-      "FATAL: Could not initialize settings on cold start. Error: %s", e
-  )
-  settings = None
-  _is_initialized = False
-
 
 app = fastapi.FastAPI()
+
+settings = None
+service_registry = None
+is_initialized = False
 
 
 def _bootstrap_services():
   """Initializes and registers all necessary services for the function."""
-  global _is_initialized
-  if _is_initialized:
+  global settings, is_initialized, service_registry
+
+  if is_initialized:
     return
 
-  if not settings:
-    raise RuntimeError(
-        "Cannot bootstrap services because Settings failed to initialize."
-    )
-
   logger.info("Starting service bootstrapping for poller.")
+  settings = config.Settings()
+  service_registry = service.registry
 
   postgres_client = client.PostgresDbClient(
       host=settings.db.host,
@@ -90,7 +81,9 @@ def _bootstrap_services():
   )
 
   report_completion_service = (
-      wfe_cloud_function.HttpReportCompletionService()
+      wfe_cloud_function.HttpReportCompletionService(
+          settings.cloud.report_backend_api_url
+      )
   )
   service_registry.register(
       trigger.ReportCompletionService, report_completion_service
@@ -101,7 +94,7 @@ def _bootstrap_services():
   )
   service_registry.register(trigger.WorkflowExecutionTrigger, trigger_adapter)
 
-  _is_initialized = True
+  is_initialized = True
   logger.info("Service bootstrapping complete.")
 
 
@@ -136,6 +129,7 @@ class PollerHandler:
       try:
         logger.info("Triggering workflow for execution_id: %s", exec_id)
         self._trigger.trigger_workflow(exec_id)
+        self._repo.update_status(exec_id, wfe.Status.IN_PROGRESS)
 
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to process execution_id: %s.", exec_id)
@@ -159,7 +153,8 @@ class PollerHandler:
 
       try:
         self._mark_report_as_completed(report_id, completed_wfes)
-        self._repo.update_status(report_id, wfe.Status.EXPORTED)
+        for workflow in completed_wfes:
+          self._repo.update_status(workflow.execution_id, wfe.Status.EXPORTED)
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to process report_id: %s.", report_id)
 
@@ -196,13 +191,6 @@ class PollerHandler:
     self._mark_completed_trigger.mark_report_completed(
         report_id=report_id, datasets=report_datasets
     )
-
-  def _mark_wofklow_execution_as_completed(
-      self, wfes: list[wfe.WorkflowExecutionParams]
-  ):
-    """Marks a workflow execution as exported."""
-    for wfe_data in wfes:
-      self._repo.update_status(wfe_data.execution_id, wfe.Status.EXPORTED)
 
 
 @app.post("/poller")

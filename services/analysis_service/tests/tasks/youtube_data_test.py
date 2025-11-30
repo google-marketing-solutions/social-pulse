@@ -52,17 +52,8 @@ class YoutubeDataTest(unittest.TestCase):
         persistence.SentimentDataRepo, self.mock_data_repo
     )
 
-    # Mock Config Settings
-    self.settings_patcher = mock.patch("tasks.youtube_data.settings")
-    self.mock_settings = self.settings_patcher.start()
-
     self.execution_id = "exec_id_123"
     self.required_task_mock = None
-
-  def tearDown(self):
-    """Clean up after each test."""
-    super().tearDown()
-    self.settings_patcher.stop()
 
   def _create_mock_workflow_exec(self):
     """Helper to create a standard mock workflow exec."""
@@ -74,14 +65,22 @@ class YoutubeDataTest(unittest.TestCase):
     return mock_exec
 
   def test_output_returns_correct_target(self):
-    """Verifies output() returns SentimentDataRepoTarget with correct name."""
+    """Verifies output() returns SentimentDataRepoTarget with correct name.
+
+    Given a FindYoutubeVideos task initialized with an execution ID and a
+    mocked workflow execution.
+    When the output() method is called.
+    Then a SentimentDataRepoTarget is returned with the expected table name
+    and sentiment data repository.
+    """
 
     mock_exec = self._create_mock_workflow_exec()
     self.mocked_wfe_params_loader_service.load_execution.return_value = (
         mock_exec
     )
     task = youtube_data.FindYoutubeVideos(
-        execution_id=self.execution_id, my_required_task=self.required_task_mock
+        execution_id=self.execution_id,
+        my_required_task=self.required_task_mock
     )
     expected_table_name = f"{task.task_family}_{self.execution_id}"
 
@@ -93,7 +92,14 @@ class YoutubeDataTest(unittest.TestCase):
     self.assertEqual(output_target._sentiment_data_repo, self.mock_data_repo)
 
   def test_run_successful_workflow(self):
-    """Tests the happy path: fetch, normalize, write."""
+    """Tests the happy path: fetch, normalize, write.
+
+    Given a FindYoutubeVideos task with mocked API client returning raw video
+    data and statistics.
+    When the run method is invoked.
+    Then the API client's search and details methods are called, and the
+    normalized, enriched data is written to the sentiment data repository.
+    """
     mock_exec = self._create_mock_workflow_exec()
     self.mocked_wfe_params_loader_service.load_execution.return_value = (
         mock_exec
@@ -124,6 +130,29 @@ class YoutubeDataTest(unittest.TestCase):
     ]
     self.mock_api_client.search_for_videos.return_value = raw_video_data
 
+    # Sample video statistics response
+    video_stats_data = {
+        "vid1": {
+            "id": "vid1",
+            "statistics": {
+                "viewCount": "100",
+                "likeCount": "10",
+                "commentCount": "5",
+                "favoriteCount": "2",
+            },
+        },
+        "vid2": {
+            "id": "vid2",
+            "statistics": {
+                "viewCount": "200",
+                "likeCount": "20",
+                "commentCount": "15",
+                "favoriteCount": "12",
+            },
+        },
+    }
+    self.mock_api_client.get_video_details.return_value = video_stats_data
+
     # Define expected results
     expected_criteria = ports_apis.YoutubeSearchCriteria(
         query="Test Topic",
@@ -145,11 +174,25 @@ class YoutubeDataTest(unittest.TestCase):
             "channelId": ["c1", "c2"],
             "channelTitle": ["Chan 1", "Chan 2"],
             "publishedAt": ["2025-04-01T00:00:00Z", "2025-05-30T00:00:00Z"],
+            "viewCount": ["100", "200"],
+            "likeCount": ["10", "20"],
+            "commentCount": ["5", "15"],
+            "favoriteCount": ["2", "12"],
         }
+    )
+    numeric_cols = [
+        "viewCount",
+        "likeCount",
+        "commentCount",
+        "favoriteCount",
+    ]
+    expected_df[numeric_cols] = expected_df[numeric_cols].apply(
+        pd.to_numeric, errors="coerce"
     )
 
     task = youtube_data.FindYoutubeVideos(
-        execution_id=self.execution_id, my_required_task=self.required_task_mock
+        execution_id=self.execution_id,
+        my_required_task=self.required_task_mock
     )
     expected_table_name = task.output().table_name
 
@@ -168,7 +211,13 @@ class YoutubeDataTest(unittest.TestCase):
     pd.testing.assert_frame_equal(call_args[1], expected_df)
 
   def test_run_raises_error_when_no_videos_found(self):
-    """Tests that run raises ValueError if API returns no videos."""
+    """Tests that run raises ValueError if API returns no videos.
+
+    Given a FindYoutubeVideos task with a mocked API client returning no video
+    data.
+    When the run method is invoked.
+    Then a ValueError is raised indicating no videos were found.
+    """
 
     mock_exec = self._create_mock_workflow_exec()
     self.mocked_wfe_params_loader_service.load_execution.return_value = (
@@ -185,6 +234,48 @@ class YoutubeDataTest(unittest.TestCase):
       task.run()
 
     self.assertIn("No videos found", str(err_context.exception))
+
+  def test_attach_video_stats_no_stats_found(self):
+    """Tests that _attach_video_stats_to_video_data handles no stats found.
+
+    Given a FindYoutubeVideos task with mocked API client returning no video
+    statistics.
+    When _attach_video_stats_to_video_data is invoked.
+    Then the original video DataFrame is returned, and a warning is logged.
+    """
+    mock_exec = self._create_mock_workflow_exec()
+    self.mocked_wfe_params_loader_service.load_execution.return_value = (
+        mock_exec
+    )
+    self.mock_api_client.search_for_videos.return_value = [
+        {
+            "id": {"videoId": "vid1"},
+            "snippet": {
+                "title": "Title 1",
+                "description": "Desc 1",
+                "channelId": "c1",
+                "channelTitle": "Chan 1",
+                "publishedAt": "2025-04-01T00:00:00Z",
+            },
+        }
+    ]
+    self.mock_api_client.get_video_details.return_value = {}  # No stats
+
+    task = youtube_data.FindYoutubeVideos(
+        execution_id=self.execution_id,
+        my_required_task=self.required_task_mock
+    )
+
+    # Need to run the whole task to call _attach_video_stats_to_video_data
+    task.run()
+
+    # Assert that a warning was logged and data repo was called with original df
+    self.mock_api_client.get_video_details.assert_called_once()
+    self.mock_data_repo.write_sentiment_data.assert_called_once()
+    call_args, _ = self.mock_data_repo.write_sentiment_data.call_args
+    # The dataframe should be the normalized videos_df without stats
+    self.assertEqual(call_args[1].shape[0], 1)
+    self.assertNotIn("viewCount", call_args[1].columns)
 
 
 if __name__ == "__main__":

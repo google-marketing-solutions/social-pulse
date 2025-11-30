@@ -41,12 +41,7 @@ class SchemaResponseSchemaBuilderTest(unittest.TestCase):
     self.assertIn("sentimentScore", sentiment_item_properties)
     self.assertEqual(
         sentiment_item_properties["sentimentScore"]["type"],
-        "number"
-    )
-
-    self.assertIn("relevanceScore", sentiment_item_properties)
-    self.assertEqual(
-        sentiment_item_properties["relevanceScore"]["type"], "number"
+        "string"
     )
 
   def test_add_property_adds_new_property_to_sentiment_item(self):

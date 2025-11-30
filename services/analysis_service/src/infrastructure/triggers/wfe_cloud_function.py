@@ -18,21 +18,19 @@ import logging
 import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
-from socialpulse_common import config
 from socialpulse_common.messages import sentiment_report as report_msg
 from tasks.ports import trigger
 
 
 logger = logging.getLogger(__name__)
-settings = config.Settings()
 
 
 class HttpReportCompletionService(trigger.ReportCompletionService):
   """Triggers the Report Cloud Function by making a secure HTTP POST request."""
 
-  def __init__(self):
+  def __init__(self, report_api_url):
     self._auth_request = google.auth.transport.requests.Request()
-    self._report_api_url = settings.cloud.report_backend_api_url
+    self._report_api_url = report_api_url
 
   def _build_report_service_url(self, report_id: str = None) -> str:
     """Builds the URL for the report completion service Cloud Function."""

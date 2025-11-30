@@ -86,13 +86,13 @@ VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE = """
               * **`productOrBrand` (string):** The exact **Target Entity** you
                 were asked to analyze.
               * **`sentimentScore` (string - enumeration):**  Examine the video
-                content to determine the sentiment of the video towards the
-                **Target Entity**.  Use one of the enumerated values below to
-                represent the sentiment:
+                content to determine the OVERALL sentiment of the video towards
+                the **Target Entity**, and choose a **SINGLE STRING** value from
+                the list of enumerated sentiment values below:
                 * Extremely Positive ("EXTREME_POSITIVE")
                 * Positive ("POSITIVE")
                 * Partially Positive  ("PARTIAL_POSITIVE")
-                * Neutral  ("neutral")
+                * neutral  ("neutral")
                 * Partially Negative  ("PARTIAL_NEGATIVE")
                 * Negative  ("NEGATIVE")
                 * Extremely Negative  ("EXTREME_NEGATIVE")
@@ -176,13 +176,10 @@ VIDEO_SHARE_OF_VOICE_SCORE_PROMPT_TEMPLATE = """
 
           * **`productOrBrand` (string):** The name of the
               consolidated brand.
-          * **`sentimentScore` (string - enumeration):**
-                First, determine the sentiment from this list:
           * **`sentimentScore` (string - enumeration):**  Examine the video
                 content to determine the OVERALL sentiment of the video towards
-                the **Target Entity**, and choose a SINGLE value from below
-                to represent the overall sentiment.  Use one of the enumerated
-                values below:
+                the **Target Entity**, and choose a **SINGLE STRING** value from
+                the list of enumerated sentiment values below:
                 * Extremely Positive ("EXTREME_POSITIVE")
                 * Positive ("POSITIVE")
                 * Partially Positive  ("PARTIAL_POSITIVE")

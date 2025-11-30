@@ -165,6 +165,7 @@ httplib2==0.22.0
     # via
     #   google-api-python-client
     #   google-auth-httplib2
+httpx==0.25.2
 idna==3.10
     # via
     #   anyio
