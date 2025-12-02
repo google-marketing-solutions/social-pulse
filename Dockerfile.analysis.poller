@@ -30,11 +30,11 @@ WORKDIR /sp-analysis-poller
 COPY . .
 
 WORKDIR /sp-analysis-poller/services/shared_lib
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 RUN python -m build
 
 WORKDIR /sp-analysis-poller/services/analysis_service
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 WORKDIR /sp-analysis-poller/services/analysis_service/src
 EXPOSE 8080
