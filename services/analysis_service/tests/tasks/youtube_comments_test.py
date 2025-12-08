@@ -61,6 +61,17 @@ TEST_RAW_COMMENTS_JSON_DATA = [
 class YoutubeCommentsTest(unittest.TestCase):
   """Unit tests for the FindYoutubeComments Luigi task."""
 
+  def setUp(self):
+    """Set up a controlled environment with mocks before each test."""
+    super().setUp()
+
+    self._setup_mock_workflow_exec_loader()
+    self._setup_mock_youtube_api_client()
+    self._setup_mock_data_repo()
+    self._setup_mock_required_task()
+
+    self.execution_id = "exec_id_123"
+
   def _setup_mock_workflow_exec_loader(self):
     """Sets up and registers the mock WorkflowExecutionLoaderService."""
     self.mocked_wfe_params_loader_service = mock.Mock(
@@ -95,11 +106,6 @@ class YoutubeCommentsTest(unittest.TestCase):
         persistence.SentimentDataRepo, self.mock_data_repo
     )
 
-  def _setup_mock_settings(self):
-    """Sets up the patch for config settings."""
-    self.settings_patcher = mock.patch("tasks.youtube_comments.settings")
-    self.mock_settings = self.settings_patcher.start()
-
   def _setup_mock_required_task(self):
     """Sets up the mock for the required FindYoutubeVideos task's output."""
     self.mock_input_video_target = mock.Mock(
@@ -116,29 +122,19 @@ class YoutubeCommentsTest(unittest.TestCase):
         self.mock_input_video_target
     )
 
-  def setUp(self):
-    """Set up a controlled environment with mocks before each test."""
-    super().setUp()
-
-    self._setup_mock_workflow_exec_loader()
-    self._setup_mock_youtube_api_client()
-    self._setup_mock_data_repo()
-    self._setup_mock_settings()
-    self._setup_mock_required_task()
-
-    self.execution_id = "exec_id_123"
-
-  def tearDown(self):
-    """Clean up after each test."""
-    super().tearDown()
-    self.settings_patcher.stop()
-
   def test_run_loads_input_from_required_task_target(self):
-    """Verifies that run() loads data from preceding task's output target."""
-    expected_input_df = pd.DataFrame({
-        "videoId": ["vidTest"],
-        "summary": ["a video summary"]
-    })
+    """Tests that run() loads data from the preceding task's output.
+
+    Given a FindYoutubeComments task with a mocked input target.
+    When the run method is invoked.
+    Then the input target's load_sentiment_data method is called once.
+    """
+    expected_input_df = pd.DataFrame(
+        {
+            "videoId": ["vidTest"],
+            "summary": ["a video summary"]
+        }
+    )
     self.mock_input_video_target.load_sentiment_data.return_value = (
         expected_input_df
     )
@@ -150,14 +146,22 @@ class YoutubeCommentsTest(unittest.TestCase):
     task.run()
     self.mock_input_video_target.load_sentiment_data.assert_called_once_with()
 
-  def test_run_successful_workflow_with_replies(self):
-    """Tests main run logic: load input, fetch comments, flatten, write."""
+  def test_run_writes_successfully(self):
+    """Tests that run() successfully writes flattened comment data.
 
+    Given a FindYoutubeComments task with mocked video data and an API
+      client returning comments with replies.
+    When the run method is invoked.
+    Then the API client is called, and the flattened comment data is written
+      to the sentiment data repository.
+    """
     # Configure input data (from FindYoutubeVideos)
-    input_videos_df = pd.DataFrame({
-        "videoId": ["vidWithReplies"],
-        "summary": ["a video summary"]
-    })
+    input_videos_df = pd.DataFrame(
+        {
+            "videoId": ["vidWithReplies"],
+            "summary": ["a video summary"]
+        }
+    )
     self.mock_input_video_target.load_sentiment_data.return_value = (
         input_videos_df
     )
@@ -195,6 +199,110 @@ class YoutubeCommentsTest(unittest.TestCase):
         call_args[1], expected_comments_df, check_dtype=False
     )
 
+  def test_run_handles_videos_with_no_comments(self):
+    """Tests that run() handles videos that have no comments.
 
-if __name__ == "__main__":
-  unittest.main()
+    Given a FindYoutubeComments task where the API returns an empty list of
+      comments for a video.
+    When the run method is invoked.
+    Then an empty DataFrame is written to the output.
+    """
+    input_videos_df = pd.DataFrame(
+        {
+            "videoId": ["vidWithNoComments"],
+            "summary": ["a video summary"]
+        }
+    )
+    self.mock_input_video_target.load_sentiment_data.return_value = (
+        input_videos_df
+    )
+    self.mock_api_client.get_comments_for_videos.return_value = []
+
+    task = youtube_comments.FindYoutubeComments(
+        execution_id=self.execution_id,
+        my_required_task=self.mock_required_video_task,
+    )
+
+    task.run()
+
+    self.mock_data_repo.write_sentiment_data.assert_called_once()
+    call_args, _ = self.mock_data_repo.write_sentiment_data.call_args
+    written_df = call_args[1]
+    self.assertTrue(written_df.empty)
+
+  def test_run_raises_exception_on_data_load_error(self):
+    """Tests that an exception during data loading is propagated.
+
+    Given a FindYoutubeComments task where loading input data fails.
+    When the run method is invoked.
+    Then an exception is raised.
+    """
+    self.mock_input_video_target.load_sentiment_data.side_effect = Exception(
+        "Test Exception"
+    )
+    task = youtube_comments.FindYoutubeComments(
+        execution_id=self.execution_id,
+        my_required_task=self.mock_required_video_task,
+    )
+    with self.assertRaises(Exception):
+      task.run()
+
+  def test_run_raises_exception_malformed_api_response(self):
+    """Tests that run() raises an exception for malformed API data.
+
+    Given a FindYoutubeComments task where the API returns comments with
+      missing fields.
+    When the run method is invoked.
+    Then a KeyError is raised during data processing.
+    """
+    # This malformed data is missing 'textOriginal' in the top level
+    malformed_comments = [
+        {
+            "id": "top1",
+            "snippet": {
+                "videoId": "vidWithReplies",
+                "topLevelComment": {
+                    "snippet": {
+                        "authorChannelId": {"value": "authorA"},
+                        "publishedAt": "dateA",
+                        "likeCount": 10,
+                    }
+                },
+                "totalReplyCount": 1,
+            },
+            "replies": {
+                "comments": [
+                    {
+                        "id": "top1.reply1",
+                        "snippet": {
+                            "authorChannelId": {"value": "authorB"},
+                            "publishedAt": "dateB",
+                            "likeCount": 2,
+                            "textOriginal": "Text A",
+                            "parentId": "top1",
+                        },
+                    }
+                ]
+            },
+        }
+    ]
+    self.mock_api_client.get_comments_for_videos.return_value = (
+        malformed_comments
+    )
+    input_videos_df = pd.DataFrame(
+        {
+            "videoId": ["vidWithReplies"],
+            "summary": ["a video summary"]
+        }
+    )
+    self.mock_input_video_target.load_sentiment_data.return_value = (
+        input_videos_df
+    )
+
+    task = youtube_comments.FindYoutubeComments(
+        execution_id=self.execution_id,
+        my_required_task=self.mock_required_video_task,
+    )
+
+    with self.assertRaises(KeyError):
+      task.run()

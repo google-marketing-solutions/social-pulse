@@ -11,22 +11,14 @@
 
 3. Install the required packages.
    ```
-   pip install -r requirements.txt
+   pip install \
+      -r requirements.txt \
+      -r requirements-dev.txt \
+      --find-links=../shared_lib/dist
    ```
 
-4. Create a .env file in the microservice root directory, and copy and paste
-   the following into the file.  Then provide your values as instructed below.
-   ```
-   # Cloud Settings
-   CLOUD__PROJECT_ID=[Your GCP project ID]]
-
-   # API Settings
-   API__YOUTUBE__KEY=[Your API key, from your GCP project]
-
-   # Database Settings
-   DB__PASSWORD=[Your DB password]
-   DB__NAME=social_pulse_db
-   ```
+4. Copy the ".env.template" file to a .env file and provide the values as
+   needed.
 
 
 ### Setting up application PostgresDB
@@ -59,7 +51,7 @@
    exit
    psql -U social_pulse_user -d social_pulse_db -h localhost -W
 
-   SELECT has_database_privilege('social_pulse_user', 'social_pulse_reporting', 'CONNECT');
+   SELECT has_database_privilege('social_pulse_user', 'social_pulse_db', 'CONNECT');
    SELECT has_schema_privilege('social_pulse_user', 'public', 'CREATE');
    ```
 
@@ -87,42 +79,32 @@ pytest /tests
 
 ```
 
-### Running the Command Line Sentiment Analaysis Tool
-
-You execute the run_sentiment.py tool to run a workflow execution and generate sentiment analysis data.
+### Running the Report Runner API
+Once everything has been set up, you can run the Report Runner API using the
+uvicorn command.
 
 ```
-./run_sentiment.py --help
-usage: run_sentiment.py [-h] [-v] --source SOURCE --topic TOPIC
-                        [--output {SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} [{SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} ...]]
-                        --start-date START_DATE [--end-date END_DATE] [--parent_execution_id PARENT_EXECUTION_ID]
-
-Generate sentiment analysis for a given topic from a social media source.
-
-options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Increase output verbosity, by setting logging to DEBUG level.
-  --source SOURCE       Social media content source to retrieve ('Youtube', 'Twitter', etc.).
-  --topic TOPIC         Topic (brand, product or feature) to generate the sentiment analysis for.
-  --output {SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} [{SENTIMENT_DATA_TYPE_UNKNOWN,SENTIMENT_DATA_TYPE_SENTIMENT_SCORE,SENTIMENT_DATA_TYPE_SHARE_OF_VOICE} ...]
-                        Types of sentiment data to output. Defaults to sentiment score.
-  --start-date START_DATE
-                        Start date of the analysis window (format: YYYY-MM-DD).
-  --end-date END_DATE   End date of the analysis window (format: YYYY-MM-DD). Defaults to today.
-  --parent_execution_id PARENT_EXECUTION_ID
-                        Parent workflow execution ID.
+cd services/analysis_service/src
+uvicorn api.runner_entry:app --reload --port=8000
 ```
+### Creating a Run Report Request
 
-Please note the following when executing the run_sentiment.py CLI:
+You create a run report requet, which will then crate the 1 or more workflow
+executions required by sending a request to the HTTP endpoint.  You can do this
+via a cURL statement, like the one below.
 
-1. Currently, only the SOCIAL_MEDIA_SOURCE_YOUTUBE_VIDEO and
-   SOCIAL_MEDIA_SOURCE_YOUTUBE_COMMENT content types are supported.
-
-2. Currently, only the SENTIMENT_DATA_TYPE_SENTIMENT_SCORE output type is
-   supported.
-
-3. Whatever value you provide for the topic parameter is used as-is for doing a
-   search on the relevant social media content.  For example, if the topic is
-   set to “Product X text-to-image” and the source is Youtube videos, them a
-   search will be done on Youtube with “Product X text-to-image” to find the
-   videos and comments to analyze for sentiment.
+```
+curl -X POST 'http://127.0.0.1:8000/api/run_report' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "sources": [
+      "YOUTUBE_VIDEO",
+      "YOUTUBE_COMMENT"
+    ],
+    "data_output": "SENTIMENT_SCORE",
+    "topic": "Acme Widgets",
+    "start_time": "2024-01-01T00:00:00Z",
+    "end_time": "2024-12-31T23:59:59Z",
+    "include_justifications": true
+  }'
+```

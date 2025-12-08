@@ -19,11 +19,19 @@ charset-normalizer==3.4.3
 click==8.2.1
     # via pip-tools
 google-api-core[grpc]==2.25.1
-    # via google-cloud-secret-manager
+    # via
+    #   google-api-python-client
+    #   google-cloud-secret-manager
+google-api-python-client==2.184.0
+    # via -r requirements.in
 google-auth==2.40.3
     # via
     #   google-api-core
+    #   google-api-python-client
+    #   google-auth-httplib2
     #   google-cloud-secret-manager
+google-auth-httplib2==0.2.0
+    # via google-api-python-client
 google-cloud-secret-manager==2.24.0
     # via -r requirements.in
 googleapis-common-protos[grpc]==1.70.0
@@ -41,6 +49,10 @@ grpcio==1.74.0
     #   grpcio-status
 grpcio-status==1.74.0
     # via google-api-core
+httplib2==0.31.0
+    # via
+    #   google-api-python-client
+    #   google-auth-httplib2
 idna==3.10
     # via requests
 iniconfig==2.1.0
@@ -82,6 +94,8 @@ pydantic-settings==2.10.1
     # via -r requirements.in
 pygments==2.19.2
     # via pytest
+pyparsing==3.2.5
+    # via httplib2
 pyproject-hooks==1.2.0
     # via
     #   build
@@ -105,6 +119,8 @@ typing-inspection==0.4.1
     # via
     #   pydantic
     #   pydantic-settings
+uritemplate==4.2.0
+    # via google-api-python-client
 urllib3==2.5.0
     # via requests
 wheel==0.45.1

@@ -15,13 +15,11 @@
 
 import logging
 
-from socialpulse_common import config
 from socialpulse_common import service
 from tasks import core as tasks_core
 from tasks.ports import apis
 
 
-settings = config.Settings()
 logger = logging.getLogger(__name__)
 
 

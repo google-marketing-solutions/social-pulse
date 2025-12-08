@@ -15,13 +15,9 @@
 import logging
 from typing import Any
 import pandas as pd
-from socialpulse_common import config
 from socialpulse_common import service
 from tasks import core as tasks_core
 from tasks.ports import apis as ports_apis
-
-
-settings = config.Settings()
 
 
 class FindYoutubeComments(tasks_core.SentimentTask):
@@ -113,6 +109,8 @@ class FindYoutubeComments(tasks_core.SentimentTask):
     Returns:
       DataFrame where each row is a top-level comment thread.
     """
+    if not raw_comments_data:
+      return pd.DataFrame()
 
     try:
       # Normalize, selecting top-level fields and the replies structure
@@ -238,16 +236,21 @@ class FindYoutubeComments(tasks_core.SentimentTask):
         )
         return None
 
+      if normalized_replies.empty:
+          return None
+      processed_replies_filled = pd.DataFrame()
       if not normalized_replies.empty:
-        processed_replies_renamed = normalized_replies[
-            [
-                "id",
-                "snippet.authorChannelId.value",
-                "snippet.publishedAt",
-                "snippet.textOriginal",
-                "snippet.likeCount",
-            ]
-        ].rename(
+        cols_to_select = [
+            "id",
+            "snippet.authorChannelId.value",
+            "snippet.publishedAt",
+            "snippet.textOriginal",
+            "snippet.likeCount",
+        ]
+        existing_cols = [
+            col for col in cols_to_select if col in normalized_replies.columns
+        ]
+        processed_replies_renamed = normalized_replies[existing_cols].rename(
             columns={
                 "id": "commentId",
                 "snippet.authorChannelId.value": "authorId",

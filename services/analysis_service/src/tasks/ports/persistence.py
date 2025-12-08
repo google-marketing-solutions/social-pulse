@@ -42,8 +42,7 @@ class WorkflowExecutionPersistenceService(service.RegisterableService):
 
   @abc.abstractmethod
   def create_execution(
-      self,
-      execution_params: wfe.WorkflowExecutionParams
+      self, execution_params: wfe.WorkflowExecutionParams
   ) -> None:
     """Saves workflow execution parameters.
 
@@ -53,11 +52,7 @@ class WorkflowExecutionPersistenceService(service.RegisterableService):
     raise NotImplementedError
 
   @abc.abstractmethod
-  def mark_last_completed_task(
-      self,
-      execution_id: str,
-      task_name: str
-  ) -> None:
+  def mark_last_completed_task(self, execution_id: str, task_name: str) -> None:
     """Marks the last completed task for a workflow execution.
 
     Args:
@@ -67,11 +62,7 @@ class WorkflowExecutionPersistenceService(service.RegisterableService):
     raise NotImplementedError
 
   @abc.abstractmethod
-  def update_status(
-      self,
-      execution_id: str,
-      status: wfe.Status
-  ) -> None:
+  def update_status(self, execution_id: str, status: wfe.Status) -> None:
     """Updates the status of a workflow execution.
 
     Args:
@@ -104,6 +95,22 @@ class WorkflowExecutionPersistenceService(service.RegisterableService):
         A dictionary where keys are 'report_id's and values are a list of
         all WFE statuses associated with that report.
         Example: {"report-123": [COMPLETED, IN_PROGRESS]}
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def find_completed_reports(
+      self,
+  ) -> dict[str, list[wfe.WorkflowExecutionParams]]:
+    """Finds all distinct report_ids where all running WFEs have completed.
+
+    This method is used for monitoring.  It should find all reports that are
+    considered "completed", where all of the WFE's with the same report_id
+    are completed.
+
+    Returns:
+        A dictionary where keys are 'report_id's and values is a list of all
+        WFE's associated with that report.
     """
     raise NotImplementedError
 
@@ -142,9 +149,7 @@ class SentimentDataRepo(service.RegisterableService, abc.ABC):
 
   @abc.abstractmethod
   def write_sentiment_data(
-      self,
-      dataset_name: str,
-      sentiment_dataset: pd.DataFrame
+      self, dataset_name: str, sentiment_dataset: pd.DataFrame
   ) -> None:
     """Writes the provided data set to the specified sentiment data set.
 
@@ -156,9 +161,7 @@ class SentimentDataRepo(service.RegisterableService, abc.ABC):
     raise NotImplementedError
 
   def copy_sentiment_data(
-      self,
-      source_dataset_name: str,
-      target_dataset_name: str
+      self, source_dataset_name: str, target_dataset_name: str
   ) -> None:
     """Copies a sentiment data set to a provided name.
 

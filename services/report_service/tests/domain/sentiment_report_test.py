@@ -41,8 +41,7 @@ class SentimentReportEntityTest(unittest.TestCase):
     """Set up the mock for datetime.datetime.now()."""
     self.mock_now_ts = datetime.datetime(2025, 8, 7, 12, 0, 0)
     self.mock_datetime_patcher = mock.patch(
-        "domain.sentiment_report.datetime.datetime"
-    )
+        "domain.sentiment_report.datetime.datetime")
 
     self.mock_datetime = self.mock_datetime_patcher.start()
     self.mock_datetime.now.return_value = self.mock_now_ts
@@ -131,31 +130,29 @@ class SentimentReportEntityTest(unittest.TestCase):
     with self.assertRaisesRegex(ValueError, "SocialMediaSource.X_POST"):
       report.mark_as_completed(datasets)
 
-  @parameterized.parameterized.expand(
-      [
-          (
-              "empty_topic",
-              "",
-              [common_msg.SocialMediaSource.YOUTUBE_VIDEO],
-              common_msg.SentimentDataType.SENTIMENT_SCORE,
-              "Topic cannot be empty.",
-          ),
-          (
-              "empty_sources",
-              "Valid Topic",
-              [],
-              common_msg.SentimentDataType.SENTIMENT_SCORE,
-              "Sources cannot be empty.",
-          ),
-          (
-              "none_data_output",
-              "Valid Topic",
-              [common_msg.SocialMediaSource.YOUTUBE_VIDEO],
-              None,
-              "Data output cannot contain an empty output.",
-          ),
-      ]
-  )
+  @parameterized.parameterized.expand([
+      (
+          "empty_topic",
+          "",
+          [common_msg.SocialMediaSource.YOUTUBE_VIDEO],
+          common_msg.SentimentDataType.SENTIMENT_SCORE,
+          "Topic cannot be empty.",
+      ),
+      (
+          "empty_sources",
+          "Valid Topic",
+          [],
+          common_msg.SentimentDataType.SENTIMENT_SCORE,
+          "Sources cannot be empty.",
+      ),
+      (
+          "none_data_output",
+          "Valid Topic",
+          [common_msg.SocialMediaSource.YOUTUBE_VIDEO],
+          None,
+          "Data output cannot contain an empty output.",
+      ),
+  ])
   def test_create_sentiment_report_fails_with_invalid_fields(
       self,
       name,
@@ -186,67 +183,64 @@ class SentimentReportEntityTest(unittest.TestCase):
           start_time=self.start_date,
       )
 
-  @parameterized.parameterized.expand(
-      [
-          (
-              "empty_datasets",
-              [],
-              "Datasets cannot be empty.",
-          ),
-          (
-              "missing_dataset_uri",
-              [
-                  report_msg.SentimentReportDataset(
-                      report_id="some_id",
-                      source=common_msg.SocialMediaSource.X_POST,
-                      data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
-                      dataset_uri="",
-                  )
-              ],
-              "Dataset URI cannot be empty.",
-          ),
-          (
-              "missing_source",
-              [
-                  report_msg.SentimentReportDataset(
-                      report_id="some_id",
-                      source=None,
-                      data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
-                      dataset_uri="gs://bucket/some_data",
-                  )
-              ],
-              "Source cannot be empty.",
-          ),
-          (
-              "missing_data_output",
-              [
-                  report_msg.SentimentReportDataset(
-                      report_id="some_id",
-                      source=common_msg.SocialMediaSource.X_POST,
-                      data_output=None,
-                      dataset_uri="gs://bucket/some_data",
-                  )
-              ],
-              "Data output cannot be empty.",
-          ),
-          (
-              "missing_one_source_dataset",
-              [
-                  report_msg.SentimentReportDataset(
-                      report_id="some_id",
-                      source=common_msg.SocialMediaSource.X_POST,
-                      data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
-                      dataset_uri="gs://bucket/x_post_data",
-                  )
-              ],
-              r"Missing datasets for the following sources:" +
-              r".*SocialMediaSource\.YOUTUBE_VIDEO",
-          ),
-      ]
-  )
+  @parameterized.parameterized.expand([
+      (
+          "empty_datasets",
+          [],
+          "Datasets cannot be empty.",
+      ),
+      (
+          "missing_dataset_uri",
+          [
+              report_msg.SentimentReportDataset(
+                  report_id="some_id",
+                  source=common_msg.SocialMediaSource.X_POST,
+                  data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+                  dataset_uri="",
+              )
+          ],
+          "Dataset URI cannot be empty.",
+      ),
+      (
+          "missing_source",
+          [
+              report_msg.SentimentReportDataset(
+                  report_id="some_id",
+                  source=None,
+                  data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+                  dataset_uri="gs://bucket/some_data",
+              )
+          ],
+          "Source cannot be empty.",
+      ),
+      (
+          "missing_data_output",
+          [
+              report_msg.SentimentReportDataset(
+                  report_id="some_id",
+                  source=common_msg.SocialMediaSource.X_POST,
+                  data_output=None,
+                  dataset_uri="gs://bucket/some_data",
+              )
+          ],
+          "Data output cannot be empty.",
+      ),
+      (
+          "missing_one_source_dataset",
+          [
+              report_msg.SentimentReportDataset(
+                  report_id="some_id",
+                  source=common_msg.SocialMediaSource.X_POST,
+                  data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+                  dataset_uri="gs://bucket/x_post_data",
+              )
+          ],
+          r"Missing datasets for the following sources:" +
+          r".*SocialMediaSource\.YOUTUBE_VIDEO",
+      ),
+  ])
   def test_mark_as_completed_fails_with_invalid_datasets(
-      self, name, datasets, expected_message
-  ):
+      self, name, datasets, expected_message):
     """Fails when any dataset validation rule is violated.
 
     Given a set of invalid datasets
@@ -269,3 +263,24 @@ class SentimentReportEntityTest(unittest.TestCase):
           end_time=self.end_date,
       )
       report.mark_as_completed(datasets)
+
+  def test_marks_as_failed_sets_status_and_updated_fields_correctly(self):
+    """Marking a report as failed sets the status as FAILED.
+
+    Given a sentiment report entity.
+    When `mark_as_failed` is called with a reason.
+    Then the report's status is updated to `FAILED`
+    And`last_updated` timestamp is set to the current time.
+    """
+    report = sre.SentimentReportEntity.create_sentiment_report(
+        topic="Test Topic",
+        sources=self.sources,
+        data_output=self.data_output,
+        start_time=self.start_date,
+        end_time=self.end_date,
+    )
+
+    report.mark_as_failed("Failure reason")
+
+    self.assertEqual(report.status, report_msg.Status.FAILED)
+    self.assertEqual(report.last_updated, self.mock_now_ts)

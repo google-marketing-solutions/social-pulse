@@ -2,6 +2,7 @@ cloud-sql-python-connector[psycopg2]
 coverage
 db-dtypes
 fastapi
+google-cloud-logging
 parameterized
 protobuf
 psycopg2-binary
@@ -12,4 +13,4 @@ uvicorn
 yoyo-migrations
 
 # Shared social pulse library
--e file:../shared_lib
+socialpulse-common==0.1.0

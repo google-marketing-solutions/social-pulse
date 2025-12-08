@@ -12,32 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Dockerfile for building an analysis service server instance.
+# Dockerfile for building an report service server instance.
 #
 # This docker file should be built using the higher level /services directory
 # as the build context.  I.e.,
 #
 #   cd social_pulse/services
-#   docker build -t analysis_service:latest -f analysis_service/Dockerfile.runner .
+#   docker build -t report_service:latest -f report_service/Dockerfile.runner .
 
 FROM python:3.12-slim
 
-# Inbound Arg:  Product ID of the GCP project this image is deployed to
+# Inbound Arg:  Product ID of the GCP project this image is deplyed to
 ARG PROJECT_ID
 
-WORKDIR /sp-analysis-run
-
+WORKDIR /sp-report-dbmigrations
 COPY . .
 
-WORKDIR /sp-analysis-run/services/shared_lib
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+WORKDIR /sp-report-dbmigrations/services/shared_lib
+RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m build
 
-WORKDIR /sp-analysis-run/services/analysis_service
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+WORKDIR /sp-report-dbmigrations/services/report_service
+RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /sp-analysis-run/services/analysis_service/src
-EXPOSE 8080
+WORKDIR /sp-report-dbmigrations/services/report_service
 
+ENV DB__NAME="report-database"
+ENV CLOUD__PROJECT_ID=${PROJECT_ID}
 ENV LOG_LEVEL=DEBUG
-CMD uvicorn api.runner_entry:app --host 0.0.0.0 --port $PORT

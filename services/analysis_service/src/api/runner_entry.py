@@ -21,47 +21,64 @@ persisted workflow execution jobs.
 import datetime
 import logging
 import os
-import uuid
 import fastapi
 
+import google.cloud.logging
 from infrastructure.persistence.postgresdb import workflow_data_repo
 from socialpulse_common import config
+from socialpulse_common import service
 from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.messages import workflow_execution as wfe
 from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
-import uvicorn
 
 
-log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
-)
-log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=log_level, format=log_format)
+logging_client = google.cloud.logging.Client()
+logging_client.setup_logging()
+
+log_level = os.environ.get("LOG_LEVEL", "DEBUG").upper()
+logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
-settings = config.Settings()
+
+settings = None
+service_registry = None
+is_initialized = False
+
+app = fastapi.FastAPI()
 
 
-class AppConfig:
-  """Handles service bootstrapping and holds dependency instances."""
+def _bootstrap_services():
+  """Initializes and registers all necessary services for the function."""
+  global settings, is_initialized, service_registry
 
-  def __init__(self):
-    logger.info("Initializing AppConfig and bootstrapping services.")
-    postgres_client = client.PostgresDbClient(
-        host=settings.db.host,
-        port=settings.db.port,
-        database=settings.db.name,
-        user=settings.db.username,
-        password=settings.db.password,
-    )
-    self.workflow_repo: persistence.WorkflowExecutionPersistenceService = (
-        workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
-            postgres_client
-        )
-    )
-    logger.info("AppConfig initialized successfully.")
+  if is_initialized:
+    return
+
+  logger.info("Starting service bootstrapping for runner_entry.")
+  settings = config.Settings()
+  service_registry = service.registry
+
+  postgres_client = client.PostgresDbClient(
+      host=settings.db.host,
+      port=settings.db.port,
+      database=settings.db.name,
+      user=settings.db.username,
+      password=settings.db.password
+  )
+
+  workflow_repo: persistence.WorkflowExecutionPersistenceService = (
+      workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
+          postgres_client
+      )
+  )
+  service_registry.register(
+      persistence.WorkflowExecutionPersistenceService,
+      workflow_repo
+  )
+
+  is_initialized = True
 
 
 class Deaggregator:
@@ -129,10 +146,6 @@ class Deaggregator:
     return created_workflows
 
 
-app = fastapi.FastAPI()
-app_config = AppConfig()
-
-
 @app.post(
     "/api/run_report",
     response_model=report_msg.SentimentReport,
@@ -142,11 +155,14 @@ def deaggregate_report(
     report: report_msg.SentimentReport,
 ) -> report_msg.SentimentReport:
   """Creates new workflow execution records from a SentimentReport message."""
-  try:
-    deaggregator_logic = Deaggregator(app_config.workflow_repo)
 
-    # Generate a single, unique report_id for this entire request.
-    report.report_id = str(uuid.uuid4())
+  try:
+    _bootstrap_services()
+
+    workflow_repo = service.registry.get(
+        persistence.WorkflowExecutionPersistenceService
+    )
+    deaggregator_logic = Deaggregator(workflow_repo)
     logger.info(
         "Generated new report_id '%s' for topic '%s'",
         report.report_id,
@@ -168,18 +184,13 @@ def deaggregate_report(
     return report
 
   except (KeyError, ValueError) as e:
-    raise fastapi.HTTPException(status_code=400, detail=f"Bad request: {e}")
+    logger.exception("A bad request was received.")
+    raise fastapi.HTTPException(
+        status_code=400, detail=f"Bad request: {e}"
+    ) from e
+
   except Exception as e:
     logger.exception("An unexpected error occurred during de-aggregation.")
     raise fastapi.HTTPException(
         status_code=500, detail="Internal Server Error"
     ) from e
-
-
-if __name__ == "__main__":
-  uvicorn.run(
-      "runner_entry:app",
-      host="0.0.0.0",
-      port=8080,
-      reload=True,
-  )

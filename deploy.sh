@@ -25,8 +25,8 @@ fi
 PROJECT_ID="$1"
 LOCATION="us-central1" # Assuming fixed region from Terraform
 ANALYSIS_MIGRATION_JOB_NAME="sp-analysis-migration-job"
-WFE_SERVICE_NAME="sp-analysis-wfe"
-RUN_SERVICE_NAME="sp-analysis-run"
+REPORT_MIGRATION_JOB_NAME="sp-report-migration-job"
+
 
 echo "Setting gcloud configuration project to: $PROJECT_ID"
 gcloud config set project $PROJECT_ID
@@ -63,35 +63,30 @@ echo "Applying Terraform configuration..."
 terraform apply -auto-approve
 
 
-# --- MIGRATION EXECUTION (The crucial new step) ---
+# --- MIGRATION EXECUTION ---
 echo "Executing Cloud Run Job for Analysis Database Migrations..."
 
-# Execute the job and wait for it to finish (this ensures the DB is ready)
-# The image used here is the one built and pushed by Terraform's null_resource,
-# which now only contains the application code and yoyo utility.
 gcloud run jobs execute "${ANALYSIS_MIGRATION_JOB_NAME}" \
+   --region="${LOCATION}" \
+   --wait
+
+if [ $? -ne 0 ]; then
+   echo "Error: Database migration job failed. Halting deployment."
+   exit 1
+fi
+echo "[Analysis] Database migration successful. Directing traffic to new revisions."
+
+
+echo "Executing Cloud Run Job for Report Database Migrations..."
+gcloud run jobs execute "${REPORT_MIGRATION_JOB_NAME}" \
     --region="${LOCATION}" \
     --wait
 
-# Check the exit status of the migration job execution
 if [ $? -ne 0 ]; then
     echo "Error: Database migration job failed. Halting deployment."
     exit 1
 fi
-echo "Database migration successful. Directing traffic to new revisions."
+echo "[Analysis] Database migration successful. Directing traffic to new revisions."
 
-
-# --- TRAFFIC ROUTING (Move traffic to the new, migrated revisions) ---
-# Set 100% traffic to the latest revision of the WFE service
-# gcloud run services update-traffic "${WFE_SERVICE_NAME}" \
-#     --to-latest \
-#     --percent 100 \
-#     --region="${LOCATION}"
-
-# # Set 100% traffic to the latest revision of the RUN service
-# gcloud run services update-traffic "${RUN_SERVICE_NAME}" \
-#     --to-latest \
-#     --percent 100 \
-#     --region="${LOCATION}"
 
 echo "Deployment complete."

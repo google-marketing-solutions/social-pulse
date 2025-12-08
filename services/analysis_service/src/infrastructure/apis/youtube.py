@@ -153,7 +153,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
         video_ids (list[str]): A list of YouTube video IDs.
 
     Returns:
-        list: A list of video items containing detailed information.
+        dict: A dict of video stats keyed to their video ID.
 
     """
     if not video_ids:
@@ -164,7 +164,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
     total_ids = len(video_ids)
     current_window_start_index = 0
     current_window_end_index = 0
-    video_items: list[dict[str, Any]] = []
+    video_stats_map: dict[str, dict[str, Any]] = {}
 
     while current_window_start_index < total_ids:
       # Calculate end index for slicing, respecting API limits
@@ -189,8 +189,11 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
             maxResults=_MAX_VIDEO_IDS_PER_DETAIL_REQUEST
         )
         response = request.execute()
-        found_items = response.get("items", [])
-        video_items.extend(found_items)
+        found_items = response.get("items")
+
+        videos_by_id = {item["id"]: item for item in found_items}
+        video_stats_map.update(videos_by_id)
+
         logger.debug(
             "Fetched details for %d videos in this batch.", len(found_items)
         )
@@ -212,9 +215,9 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
 
     logger.info(
         "Finished fetching details. Retrieved details for %d videos.",
-        len(video_items)
+        len(video_stats_map)
     )
-    return video_items
+    return video_stats_map
 
   def get_comments_for_videos(self,
                               video_ids: list[str]) -> list[dict[str, Any]]:

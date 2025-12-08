@@ -17,11 +17,9 @@ import logging
 import string
 import pandas as pd
 from prompts import generator
-from socialpulse_common import config
 from tasks import constants
 from tasks import core as tasks_core
 
-settings = config.Settings()
 
 TEXT_EXTRACTION_SYSTEM_INSTRUCTION = """You are a text analyst that carefully
     looks through all sentences of provided text, extracting out the pieces

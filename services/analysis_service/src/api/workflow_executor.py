@@ -28,6 +28,7 @@ import os
 import sys
 
 
+import google.cloud.logging
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
 from infrastructure.persistence.bigquery import sentiment_data_repo
@@ -42,72 +43,76 @@ from tasks.ports import apis
 from tasks.ports import persistence
 
 
-log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
-)
+logging_client = google.cloud.logging.Client()
+logging_client.setup_logging()
+
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.basicConfig(level=log_level, format=log_format)
+logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
 
-settings = config.Settings()
+
+settings = None
+service_registry = None
+is_initialized = False
 
 
-class AppConfig:
-  """Handles service bootstrapping."""
+def _bootstrap_services():
+  """Initializes and registers all necessary services for the function."""
+  global settings, is_initialized, service_registry
 
-  def __init__(self):
-    logger.info("Initializing AppConfig for Workflow Executor...")
+  if is_initialized:
+    return
 
-    self.postgres_client = client.PostgresDbClient(
-        host=settings.db.host,
-        port=settings.db.port,
-        database=settings.db.name,
-        user=settings.db.username,
-        password=settings.db.password,
-    )
-    self.workflow_repo = (
-        workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
-            self.postgres_client
-        )
-    )
-    self.bq_repo = sentiment_data_repo.BigQuerySentimentDataRepo(
-        gcp_project_id=settings.cloud.project_id,
-        bq_dataset_name=settings.cloud.dataset_name,
-    )
+  logger.info("Starting service bootstrapping for workflow_executor.")
+  settings = config.Settings()
+  service_registry = service.registry
 
-    self.yt_api = youtube.YoutubeApiHttpClient(api_key=settings.api.youtube.key)
-    self.vertex_api = vertexai.VertexAiLlmBatchJobApiClient(
-        project_id=settings.cloud.project_id,
-        region=settings.cloud.region,
-        bq_dataset_name=settings.cloud.dataset_name,
-    )
-    logger.info("AppConfig initialized successfully.")
+  # Bootstrap the WFE persistence service
+  postgres_client = client.PostgresDbClient(
+      host=settings.db.host,
+      port=settings.db.port,
+      database=settings.db.name,
+      user=settings.db.username,
+      password=settings.db.password,
+  )
+  workflow_repo = (
+      workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
+          postgres_client
+      )
+  )
+  service_registry.register(
+      persistence.WorkflowExecutionPersistenceService,
+      workflow_repo,
+  )
+
+  # Bootstrap the sentiment data repo
+  bq_repo = sentiment_data_repo.BigQuerySentimentDataRepo(
+      gcp_project_id=settings.cloud.project_id,
+      bq_dataset_name=settings.cloud.dataset_name,
+  )
+  service.registry.register(
+      persistence.SentimentDataRepo, bq_repo
+  )
+
+  # Bootstrap the YT and Vertext AI API client
+  yt_api = youtube.YoutubeApiHttpClient(api_key=settings.api.youtube.key)
+  vertex_api = vertexai.VertexAiLlmBatchJobApiClient(
+      project_id=settings.cloud.project_id,
+      region=settings.cloud.region,
+      bq_dataset_name=settings.cloud.dataset_name,
+  )
+  service.registry.register(apis.YoutubeApiClient, yt_api)
+  service.registry.register(apis.LlmBatchJobApiClient, vertex_api)
+
+  is_initialized = True
 
 
 class PipelineRunner:
   """Handles the core logic of running a single Luigi pipeline."""
 
-  def __init__(self, runner_config: AppConfig):
-    self._config = runner_config
-
-  def _register_services_for_pipeline(self):
-    """Registers all necessary services into the global service registry."""
-    logger.info("Registering services for Luigi pipeline...")
-    service.registry.register(
-        persistence.WorkflowExecutionPersistenceService,
-        self._config.workflow_repo,
-    )
-    service.registry.register(
-        persistence.SentimentDataRepo, self._config.bq_repo
-    )
-    service.registry.register(apis.YoutubeApiClient, self._config.yt_api)
-    service.registry.register(
-        apis.LlmBatchJobApiClient, self._config.vertex_api
-    )
-
   def run(self, execution_id: str) -> luigi.execution_summary.LuigiRunResult:
     """Configures the environment and executes the Luigi pipeline."""
-    self._register_services_for_pipeline()
+
     logger.info("Invoking luigi.build for execution_id: %s", execution_id)
     run_result = luigi.build(
         [execution.WorkflowExecution(execution_id=execution_id)],
@@ -128,18 +133,17 @@ class PipelineRunner:
       )
 
 
-app_config = AppConfig()
-
-
 def main():
   """Executes the Luigi pipeline for the given execution_id."""
   if len(sys.argv) < 2:
     logger.error("An execution ID was not provided")
-    sys.exit(1)
+    raise ValueError("No execution ID provided to the executor.")
 
-  execution_id = sys.argv[1]
   try:
-    runner = PipelineRunner(app_config)
+    _bootstrap_services()
+
+    runner = PipelineRunner()
+    execution_id = sys.argv[1]
     run_result = runner.run(execution_id)
 
     if run_result.status not in (
@@ -152,7 +156,6 @@ def main():
           run_result.summary_text
       )
       runner.mark_as_failed(execution_id)
-      sys.exit(1)
 
     logger.info("Luigi pipeline succeeded for execution_id: %s.", execution_id)
 
@@ -161,10 +164,9 @@ def main():
         "Critical error occurred in the workflow executor for execution_id: %s",
         execution_id,
     )
-    # For any other unexpected crash
     if runner:
       runner.mark_as_failed(execution_id)
-    sys.exit(1)
+    raise
 
 
 if __name__ == "__main__":

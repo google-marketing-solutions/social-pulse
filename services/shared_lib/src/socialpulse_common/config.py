@@ -24,14 +24,14 @@ import pydantic
 import pydantic_settings
 
 
-ENV_DEVELOPMENT = "development"
-ENV_PRODUCTION = "production"
+ENV_DEVELOPMENT = "dev"
+ENV_PRODUCTION = "prod"
 
 NESTED_CONFIG_SETTING_DELIMITER = "__"
 
-WORKFLOW_RUNNER_DEPLOY_NAME = "sp-analysis-runner"
+WORKFLOW_RUNNER_DEPLOY_NAME = "sp-analysis-run"
 WORKFLOW_EXECUTOR_DEPLOY_NAME = "sp-analysis-executor"
-REPORT_BACKEND_DEPLOY_NAME = "sp-report"
+REPORT_BACKEND_DEPLOY_NAME = "sp-reporting-api"
 
 
 def _load_all_gcp_secrets_to_env(project_id: str):
@@ -64,9 +64,10 @@ def _load_all_gcp_secrets_to_env(project_id: str):
   for secret in secrets_list:
     secret_id = secret.name.split("/")[-1]
 
-    # Unfortunately, GCP Secrets Manager doesn't allow dot notation ('.') in
-    # seret ID names.  Hence, in GCP we'll use a dash ('-') to separate
-    # property levels, but convert them to dots when adding to memory
+    # Unfortunately, some cloud secret managers don't allow dot notation ('.')
+    # in secret ID names. In the secrets manager we use a dash ('-') to
+    # separate property levels, but convert them to '__' when adding to the
+    # env.
     env_var_name = re.sub(
         r"-", NESTED_CONFIG_SETTING_DELIMITER, secret_id.upper()
     )
@@ -75,6 +76,7 @@ def _load_all_gcp_secrets_to_env(project_id: str):
       version_name = f"{secret.name}/versions/latest"
       response = client.access_secret_version(request={"name": version_name})
       payload = response.payload.data.decode("UTF-8")
+
       os.environ[env_var_name] = payload
       logging.debug("Loaded '%s' into env var '%s'", secret_id, env_var_name)
       loaded_count += 1
@@ -92,6 +94,12 @@ class _DbSettings(pydantic.BaseModel):
   username: str = pydantic.Field(default="social_pulse_user")
   name: str = pydantic.Field(default="social_pulse_db")
   password: str = pydantic.Field(repr=False)
+
+  @pydantic.model_validator(mode="before")
+  @classmethod
+  def print_db_settings(cls, data: Any) -> Any:
+    logging.debug("Database settings: %s", data)
+    return data
 
 
 class _CloudSettings(pydantic.BaseModel):
@@ -118,23 +126,25 @@ class _CloudSettings(pydantic.BaseModel):
     Returns:
       The modified dictionary with dynamic API URLs set if applicable.
     """
-    if isinstance(data, dict) and not data.get("workflow_runner_api_url"):
-      project_id = data.get("project_id")
+    logging.debug("Checking config for dynamic API URLs:  %s", data)
+    if isinstance(data, dict) and not is_development():
+      project_number = data.get("project_number")
       region = data.get("region", "us-central1")
 
-      if project_id and region:
+      if project_number and region:
         data["workflow_runner_api_url"] = (
-            f"https://{WORKFLOW_RUNNER_DEPLOY_NAME}-{project_id}.{region}"
+            f"https://{WORKFLOW_RUNNER_DEPLOY_NAME}-{project_number}.{region}"
             ".run.app"
         )
         data["workflow_executor_api_url"] = (
-            f"https://{WORKFLOW_EXECUTOR_DEPLOY_NAME}-{project_id}.{region}"
+            f"https://{WORKFLOW_EXECUTOR_DEPLOY_NAME}-{project_number}.{region}"
             ".run.app"
         )
         data["report_backend_api_url"] = (
-            f"https://{REPORT_BACKEND_DEPLOY_NAME}-{project_id}.{region}"
+            f"https://{REPORT_BACKEND_DEPLOY_NAME}-{project_number}.{region}"
             ".run.app"
         )
+        logging.debug("Added dynamic API URLs to config data:  %s", data)
     return data
 
 
@@ -199,19 +209,25 @@ class Settings:
     if self._initialized:
       return
 
-    try:
-      dotenv_file_location = dotenv.find_dotenv(
-          usecwd=True,
-          raise_error_if_not_found=False
-      )
-      dotenv.load_dotenv(dotenv_path=dotenv_file_location)
-    except IOError:
-      logging.info("No .env file found, proceeding with environment variables.")
+    if is_development():
+      try:
+        dotenv_file_location = dotenv.find_dotenv(
+            usecwd=True,
+            raise_error_if_not_found=True
+        )
+        logging.info(
+            "Loading configuration from .env file: %s", dotenv_file_location)
+        dotenv.load_dotenv(dotenv_path=dotenv_file_location)
+      except IOError:
+        logging.info(
+            "No .env file found, proceeding with environment variables."
+        )
 
-    gcp_project_id = os.getenv(
-        f"CLOUD{NESTED_CONFIG_SETTING_DELIMITER}PROJECT_ID"
-    )
-    _load_all_gcp_secrets_to_env(gcp_project_id)
+    # if not is_development():
+    #   gcp_project_id = os.getenv(
+    #       f"CLOUD{NESTED_CONFIG_SETTING_DELIMITER}PROJECT_ID"
+    #   )
+    #   _load_all_gcp_secrets_to_env(gcp_project_id)
 
     self._internal_settings = _AppSettings()
     self._initialized = True
@@ -223,6 +239,13 @@ class Settings:
       logging.error("Unknown configuration setting requested: %s", name)
       raise
 
-  @property
-  def is_development(self) -> bool:
-    return self.app_env == ENV_DEVELOPMENT
+
+def is_development() -> bool:
+  """Flag idicating if the application is running in development mode.
+
+  Returns:
+    True if the application is running in development mode, False otherwise.
+  """
+  app_env = os.getenv("APP_ENV", ENV_PRODUCTION)
+  logging.debug("Application environment: %s", app_env)
+  return app_env == ENV_DEVELOPMENT

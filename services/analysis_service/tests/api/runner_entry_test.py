@@ -11,150 +11,249 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-"""Unit tests for the Runner FastAPI service."""
+"""Unit tests for the runner_entry FastAPI application."""
 
+import datetime
 import unittest
 from unittest import mock
-from api import runner_entry
 
+from api import runner_entry
 from fastapi.testclient import TestClient
+from socialpulse_common import service
+from socialpulse_common.messages import common as common_msg
+from socialpulse_common.messages import sentiment_report as report_msg
+from socialpulse_common.persistence import postgresdb_client as client
 from tasks.ports import persistence
 
 
-class RunnerEntryApiTest(unittest.TestCase):
-  """Tests the /api/run_report endpoint and its underlying logic."""
+class RunnerEntryTest(unittest.TestCase):
+  """Tests the runner_entry FastAPI endpoint."""
 
   def setUp(self):
-    """Set up mocks for external dependencies for each test."""
+    """Sets up the test environment."""
     super().setUp()
-
     self.client = TestClient(runner_entry.app)
+    self._mock_config_settings()
+    self._mock_postgres_client()
+    self._mock_workflow_execution_repo()
 
-    self.mock_workflow_repo = mock.MagicMock(
+  def _mock_config_settings(self):
+    """Mocks configuration settings."""
+    self._mock_settings = mock.Mock()
+    self._mock_settings.db.host = "test_db_host"
+    self._mock_settings.db.port = 1234
+    self._mock_settings.db.name = "test_db_name"
+    self._mock_settings.db.username = "test_db_user"
+    self._mock_settings.db.password = "test_db_password"
+
+    patcher = mock.patch("socialpulse_common.config.Settings")
+    self._mock_settings_cls = patcher.start()
+    self.addCleanup(patcher.stop)
+    self._mock_settings_cls.return_value = self._mock_settings
+
+  def _mock_postgres_client(self):
+    """Mocks the PostgresDbClient."""
+    patcher = mock.patch.object(client, "PostgresDbClient")
+    self.mock_postgres_client_cls = patcher.start()
+    self.addCleanup(patcher.stop)
+
+  def _mock_workflow_execution_repo(self):
+    self.mock_repo = mock.Mock(
         spec=persistence.WorkflowExecutionPersistenceService
     )
-    self.repo_patcher = mock.patch(
-        "api.runner_entry.app_config.workflow_repo", self.mock_workflow_repo
+    patcher = mock.patch.object(
+        service.registry,
+        "get",
+        return_value=self.mock_repo,
     )
-    self.repo_patcher.start()
+    self.mock_registry_get = patcher.start()
+    self.addCleanup(patcher.stop)
 
-    # Define common test data to be used across multiple tests.
-    self.base_payload = {
-        "topic": "social pulse test",
-        "start_time": "2025-01-01T00:00:00Z",
-        "end_time": "2025-08-31T23:59:59Z",
-        "data_output": "SENTIMENT_SCORE",
-        "include_justifications": False,
-    }
+  def test_deaggregate_report_with_youtube_video(self):
+    """Tests de-aggregation for a report with only YouTube video source.
 
-  def tearDown(self):
-    """Clean up patches after each test."""
-    super().tearDown()
-    self.repo_patcher.stop()
-
-  @mock.patch("api.runner_entry.uuid.uuid4", return_value="mock-report-id-123")
-  def test_video_and_comment_request_creates_both_workflows(
-      self, mock_uuid
-  ):  # pylint: disable=unused-argument
-    """Tests that a valid request for both video and comments succeeds.
-
-    Given a valid request for both video and comments,
-    When the /api/run_report endpoint is called,
-    Then it should return a 201 status,
-    And create two linked workflows with a shared report_id,
-    And return the correct response body.
-
-    Args:
-        mock_uuid: Injected by the @mock.patch decorator to control the
-        return value of uuid.uuid4().
+    Given a sentiment report with YOUTUBE_VIDEO as the source.
+    When the /api/run_report endpoint is called.
+    Then a single workflow execution for video is created.
     """
     # Arrange
-    payload = self.base_payload.copy()
-    payload["sources"] = ["YOUTUBE_VIDEO", "YOUTUBE_COMMENT"]
-    self.mock_workflow_repo.create_execution.side_effect = [
-        "vid-exec-123",
-        "com-exec-456",
-    ]
+    self.mock_repo.create_execution.return_value = "video-exec-id"
+    report = report_msg.SentimentReport(
+        report_id="test-report",
+        topic="Test Topic",
+        sources=[common_msg.SocialMediaSource.YOUTUBE_VIDEO],
+        start_time=datetime.datetime.now(datetime.timezone.utc),
+        end_time=datetime.datetime.now(datetime.timezone.utc),
+        data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+        include_justifications=True,
+    )
 
     # Act
-    response = self.client.post("/api/run_report", json=payload)
+    response = self.client.post(
+        "/api/run_report", json=report.model_dump(mode="json")
+    )
 
-    # Assert Response
+    # Assert
     self.assertEqual(response.status_code, 201)
-    response_data = response.json()
-    self.assertEqual(response_data["report_id"], "mock-report-id-123")
-    self.assertEqual(response_data["topic"], "social pulse test")
-    self.assertEqual(response_data["status"], "NEW")
-    self.assertIn("created_on", response_data)
+    self.mock_repo.create_execution.assert_called_once()
+    call_args = self.mock_repo.create_execution.call_args[0][0]
+    self.assertEqual(
+        call_args.source, common_msg.SocialMediaSource.YOUTUBE_VIDEO
+    )
 
-    # Assert Database Interaction
-    self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
-    calls = self.mock_workflow_repo.create_execution.call_args_list
-    video_params = calls[0].args[0]
-    comment_params = calls[1].args[0]
+  def test_deaggregate_report_with_youtube_comment(self):
+    """Tests de-aggregation for a report with only YouTube comment source.
 
-    self.assertEqual(video_params.report_id, "mock-report-id-123")
-    self.assertEqual(comment_params.report_id, "mock-report-id-123")
-    self.assertEqual(comment_params.parent_execution_id, "vid-exec-123")
-
-  @mock.patch("api.run_report.uuid.uuid4", return_value="mock-report-id-456")
-  def test_comment_only_request_implicitly_creates_parent(
-      self, mock_uuid
-  ):  # pylint: disable=unused-argument
-    """Tests that a request for only comments creates a hidden parent.
-
-    Given a valid request for only comments,
-    When the /api/run_report endpoint is called,
-    Then it should implicitly create a parent video workflow,
-    And the response should only contain the comment workflow ID.
-
-    Args:
-      mock_uuid: Injected by the @mock.patch decorator.
+    Given a sentiment report with YOUTUBE_COMMENT as the source.
+    When the /api/run_report endpoint is called.
+    Then two workflow executions are created: one for video and one for
+    comments.
     """
     # Arrange
-    payload = self.base_payload.copy()
-    payload["sources"] = ["YOUTUBE_COMMENT"]
-    self.mock_workflow_repo.create_execution.side_effect = [
-        "implicit-vid-789",
-        "com-exec-101",
+    self.mock_repo.create_execution.side_effect = [
+        "video-exec-id",
+        "comment-exec-id",
     ]
+    report = report_msg.SentimentReport(
+        report_id="test-report",
+        topic="Test Topic",
+        sources=[common_msg.SocialMediaSource.YOUTUBE_COMMENT],
+        start_time=datetime.datetime.now(datetime.timezone.utc),
+        end_time=datetime.datetime.now(datetime.timezone.utc),
+        data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+        include_justifications=True,
+    )
 
     # Act
-    response = self.client.post("/api/run_report", json=payload)
+    response = self.client.post(
+        "/api/run_report", json=report.model_dump(mode="json")
+    )
 
-    # Assert Response
+    # Assert
     self.assertEqual(response.status_code, 201)
-    response_data = response.json()
-    self.assertEqual(response_data["report_id"], "mock-report-id-456")
-    self.assertEqual(response_data["status"], "NEW")
-    self.assertEqual(response_data["sources"], ["YOUTUBE_COMMENT"])
+    self.assertEqual(self.mock_repo.create_execution.call_count, 2)
+    video_call_args = self.mock_repo.create_execution.call_args_list[0][0][0]
+    comment_call_args = self.mock_repo.create_execution.call_args_list[1][0][0]
+    self.assertEqual(
+        video_call_args.source, common_msg.SocialMediaSource.YOUTUBE_VIDEO
+    )
+    self.assertEqual(
+        comment_call_args.source, common_msg.SocialMediaSource.YOUTUBE_COMMENT
+    )
+    self.assertEqual(comment_call_args.parent_execution_id, "video-exec-id")
 
-    # Assert Database Interaction
-    self.assertEqual(self.mock_workflow_repo.create_execution.call_count, 2)
-    calls = self.mock_workflow_repo.create_execution.call_args_list
-    video_params = calls[0].args[0]
-    comment_params = calls[1].args[0]
+  def test_deaggregate_report_with_video_and_comment(self):
+    """Tests de-aggregation with both video and comment sources.
 
-    self.assertEqual(video_params.report_id, "mock-report-id-456")
-    self.assertEqual(comment_params.report_id, "mock-report-id-456")
-    self.assertEqual(comment_params.parent_execution_id, "implicit-vid-789")
-
-  def test_bad_request_missing_field_returns_422(self):
-    """Tests that a missing field returns a 422 error.
-
-    Given a request payload that is missing a required field,
-    When the /api/run_report endpoint is called,
-    Then FastAPI should automatically return a 422 Unprocessable Entity error.
+    Given a sentiment report with both YOUTUBE_VIDEO and YOUTUBE_COMMENT.
+    When the /api/run_report endpoint is called.
+    Then two workflow executions are created with the correct dependency.
     """
     # Arrange
-    payload = self.base_payload.copy()
-    del payload["topic"]  # Missing a required field
+    self.mock_repo.create_execution.side_effect = [
+        "video-exec-id",
+        "comment-exec-id",
+    ]
+    report = report_msg.SentimentReport(
+        report_id="test-report",
+        topic="Test Topic",
+        sources=[
+            common_msg.SocialMediaSource.YOUTUBE_VIDEO,
+            common_msg.SocialMediaSource.YOUTUBE_COMMENT,
+        ],
+        start_time=datetime.datetime.now(datetime.timezone.utc),
+        end_time=datetime.datetime.now(datetime.timezone.utc),
+        data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+        include_justifications=True,
+    )
 
     # Act
-    response = self.client.post("/api/run_report", json=payload)
+    response = self.client.post(
+        "/api/run_report", json=report.model_dump(mode="json")
+    )
+
+    # Assert
+    self.assertEqual(response.status_code, 201)
+    self.assertEqual(self.mock_repo.create_execution.call_count, 2)
+    video_call_args = self.mock_repo.create_execution.call_args_list[0][0][0]
+    comment_call_args = self.mock_repo.create_execution.call_args_list[1][0][0]
+    self.assertEqual(
+        video_call_args.source, common_msg.SocialMediaSource.YOUTUBE_VIDEO
+    )
+    self.assertEqual(
+        comment_call_args.source, common_msg.SocialMediaSource.YOUTUBE_COMMENT
+    )
+    self.assertEqual(comment_call_args.parent_execution_id, "video-exec-id")
+
+  def test_deaggregate_report_with_no_youtube_sources(self):
+    """Tests that no workflows are created if there are no YouTube sources.
+
+    Given a sentiment report with no YouTube-related sources.
+    When the /api/run_report endpoint is called.
+    Then no workflow executions are created.
+    """
+    # Arrange
+    report = report_msg.SentimentReport(
+        report_id="test-report",
+        topic="Test Topic",
+        sources=[],  # No relevant sources
+        start_time=datetime.datetime.now(datetime.timezone.utc),
+        end_time=datetime.datetime.now(datetime.timezone.utc),
+        data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+        include_justifications=True,
+    )
+
+    # Act
+    response = self.client.post(
+        "/api/run_report", json=report.model_dump(mode="json")
+    )
+
+    # Assert
+    self.assertEqual(response.status_code, 201)
+    self.mock_repo.create_execution.assert_not_called()
+
+  def test_deaggregate_report_handles_validation_error(self):
+    """Tests that a 422 error is returned for a validation error.
+
+    Given an invalid report payload.
+    When the /api/run_report endpoint is called.
+    Then the endpoint returns a 422 Unprocessable Entity status.
+    """
+    # Act
+    response = self.client.post("/api/run_report", json={"sources": "invalid"})
 
     # Assert
     self.assertEqual(response.status_code, 422)
+
+  def test_deaggregate_report_handles_db_connection_error(self):
+    """Tests that a 500 error is returned for a db connection error.
+
+    Given a database connection error.
+    When the /api/run_report endpoint is called.
+    Then the endpoint returns a 500 Internal Server Error status.
+    """
+    # Arrange
+    self.mock_postgres_client_cls.side_effect = Exception(
+        "DB connection error"
+    )
+    runner_entry.is_initialized = False
+    report = report_msg.SentimentReport(
+        report_id="test-report",
+        topic="Test Topic",
+        sources=[],
+        start_time=datetime.datetime.now(datetime.timezone.utc),
+        end_time=datetime.datetime.now(datetime.timezone.utc),
+        data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+        include_justifications=True,
+    )
+
+    # Act
+    response = self.client.post(
+        "/api/run_report", json=report.model_dump(mode="json")
+    )
+
+    # Assert
+    self.assertEqual(response.status_code, 500)
 
 
 if __name__ == "__main__":

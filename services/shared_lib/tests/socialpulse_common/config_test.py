@@ -184,7 +184,7 @@ class ConfigTest(unittest.TestCase):
   @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")
   @mock.patch("dotenv.load_dotenv")
-  def test_is_development_mode_is_one_if_app_evn_set_to_dev(
+  def test_development_mode_is_true_if_app_env_set_to_dev(
       self,
       mocked_load_dotenv,
       mocked_find_dotenv,
@@ -192,8 +192,8 @@ class ConfigTest(unittest.TestCase):
   ):
     """Development mode flag is true if app env is set to development.
 
-    Given the app_env env variable is set to "development"
-    When is_development is called
+    Given the app_env env variable is set to "dev"
+    When is_development() is called
     Then the return value is True
 
     Args:
@@ -205,9 +205,8 @@ class ConfigTest(unittest.TestCase):
     del mocked_load_dotenv
     del mocked_secrets_loader
 
-    with mock.patch.dict(os.environ, {"APP_ENV": "development"}):
-      settings = config.Settings()
-      self.assertTrue(settings.is_development)
+    with mock.patch.dict(os.environ, {"APP_ENV": "dev"}):
+      self.assertTrue(config.is_development())
 
   @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")

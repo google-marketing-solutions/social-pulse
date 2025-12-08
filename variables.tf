@@ -5,6 +5,12 @@ variable "project_id" {
   default     = "your-project-id"
 }
 
+variable "project_number" {
+  description = "The project number of the GCP project to create or use."
+  type        = string
+  default     = "your-project-number"
+}
+
 variable "region" {
   description = "The GCP region for deploying resources."
   type        = string

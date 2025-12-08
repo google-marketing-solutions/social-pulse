@@ -16,13 +16,10 @@
 import logging
 import requests
 
-from socialpulse_common import config
 from tasks.ports import trigger
 
 
 logger = logging.getLogger(__name__)
-settings = config.Settings()
-
 
 # Cloud Run Job Name for the WFE Executor Job
 CLOUD_RUN_JOB_NAME = "sp-analysis-wfe"

@@ -180,6 +180,34 @@ class PostgresDbClient:
       if conn is not None:
         self._connection_pool.putconn(conn)
 
+  def delete_rows(self, query: str, params: tuple[any, ...] = None) -> None:
+    """Deletes rows from the database based on the given query.
+
+    Args:
+      query (str): The SQL DELETE query to execute.
+      params (tuple, optional): Parameters to pass to the query. Defaults to
+        None.
+
+    Returns:
+      None
+
+    Raises:
+      psycopg2.Error: If there is an error executing the query.
+    """
+    conn = None
+
+    try:
+      conn = self._connection_pool.getconn()
+      with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        conn.commit()
+    except Exception:
+      conn.rollback()
+      raise
+    finally:
+      if conn is not None:
+        self._connection_pool.putconn(conn)
+
   def retrieve_rows(
       self, query: str, params: tuple[any, ...] = None
   ) -> list[tuple[any, ...]]:

@@ -30,14 +30,14 @@ WORKDIR /sp-analysis-run
 COPY . .
 
 WORKDIR /sp-analysis-run/services/shared_lib
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m build
 
-WORKDIR /sp-analysis-run/services/analysis_service
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+WORKDIR /sp-analysis-run/services/report_service
+RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /sp-analysis-run/services/analysis_service/src
+WORKDIR /sp-analysis-run/services/report_service/src
 EXPOSE 8080
 
 ENV LOG_LEVEL=DEBUG
-CMD uvicorn api.runner_entry:app --host 0.0.0.0 --port $PORT
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT

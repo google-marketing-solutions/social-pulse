@@ -26,9 +26,14 @@ from tasks.ports import trigger
 class PollerHandlerTest(unittest.TestCase):
   """Tests the core logic of the PollerHandler."""
 
-  def setUp(self):
+  def setUp(self):  # No MockSettings here
     """Set up mocks for external dependencies for each test."""
     super().setUp()
+
+    self._mock_services()
+    self._mock_config_settings()
+
+  def _mock_services(self):
     self.mock_repo = mock.Mock(
         spec=persistence.WorkflowExecutionPersistenceService
     )
@@ -41,22 +46,62 @@ class PollerHandlerTest(unittest.TestCase):
         trigger.WorkflowExecutionTrigger, self.mock_trigger
     )
 
-  def test_poll_and_trigger_does_nothing_when_no_ready_workflows(self):
-    """Tests that no triggers are called if no workflows are found."""
+    self.mock_report_completion_trigger = mock.Mock(
+        spec=trigger.ReportCompletionService
+    )
+    service.registry.register(
+        trigger.ReportCompletionService, self.mock_report_completion_trigger
+    )
+
+  def _mock_config_settings(self):
+    self._mock_settings = mock.Mock()
+
+    self._mock_settings.db.host = "test_db_host"
+    self._mock_settings.db.port = 1234
+    self._mock_settings.db.name = "test_db_name"
+    self._mock_settings.db.username = "test_db_user"
+    self._mock_settings.db.password = "test_db_password"
+
+    self._mock_settings.api.youtube.key = "test_yt_key"
+
+    self._mock_settings.cloud.project_id = "test_project_id"
+    self._mock_settings.cloud.region = "test_region"
+    self._mock_settings.cloud.dataset_name = "test_dataset_name"
+
+    patcher = mock.patch("socialpulse_common.config.Settings")
+
+    self._mock_settings_cls = patcher.start()
+    self.addCleanup(patcher.stop)
+    self._mock_settings_cls.return_value = self._mock_settings
+
+  def test_trigger_ready_workflow_execs_does_nothing_when_no_ready_workflows(
+      self
+  ):
+    """Tests that no triggers are called if no workflows are found.
+
+    Given no ready workflow executions.
+    When the trigger_ready_workflow_execs method is invoked.
+    Then no triggers are called, and no status updates are made.
+    """
     # Arrange
     self.mock_repo.find_ready_executions.return_value = []
 
     # Act
     handler = poller.PollerHandler()
-    handler.poll_and_trigger()
+    handler.trigger_ready_workflow_execs()
 
     # Assert
     self.mock_repo.find_ready_executions.assert_called_once()
     self.mock_trigger.trigger_workflow.assert_not_called()
     self.mock_repo.update_status.assert_not_called()
 
-  def test_poll_and_trigger_processes_single_ready_workflow(self):
-    """Tests that a single ready workflow is triggered and updated."""
+  def test_trigger_ready_workflow_execs_processes_single_ready_workflow(self):
+    """Tests that a single ready workflow is triggered and its status updated.
+
+    Given a single ready workflow execution.
+    When the trigger_ready_workflow_execs method is invoked.
+    Then the workflow is triggered, and its status is updated to IN_PROGRESS.
+    """
     # Arrange
     ready_exec = wfe.WorkflowExecutionParams(
         execution_id="exec-123", status=wfe.Status.NEW
@@ -65,7 +110,7 @@ class PollerHandlerTest(unittest.TestCase):
 
     # Act
     handler = poller.PollerHandler()
-    handler.poll_and_trigger()
+    handler.trigger_ready_workflow_execs()
 
     # Assert
     self.mock_trigger.trigger_workflow.assert_called_once_with("exec-123")
@@ -73,8 +118,16 @@ class PollerHandlerTest(unittest.TestCase):
         "exec-123", wfe.Status.IN_PROGRESS
     )
 
-  def test_poll_and_trigger_processes_multiple_ready_workflows(self):
-    """Tests that multiple ready workflows are all triggered and updated."""
+  def test_trigger_ready_workflow_execs_processes_multiple_ready_workflows(
+      self
+  ):
+    """Tests that multiple ready workflows are all triggered and updated.
+
+    Given multiple ready workflow executions.
+    When the trigger_ready_workflow_execs method is invoked.
+    Then all workflows are triggered, and their statuses are updated to
+    IN_PROGRESS.
+    """
     # Arrange
     exec1 = wfe.WorkflowExecutionParams(
         execution_id="exec-123", status=wfe.Status.NEW
@@ -86,7 +139,7 @@ class PollerHandlerTest(unittest.TestCase):
 
     # Act
     handler = poller.PollerHandler()
-    handler.poll_and_trigger()
+    handler.trigger_ready_workflow_execs()
 
     # Assert
     self.assertEqual(self.mock_trigger.trigger_workflow.call_count, 2)
@@ -102,7 +155,13 @@ class PollerHandlerTest(unittest.TestCase):
     )
 
   def test_failure_in_one_workflow_does_not_stop_others(self):
-    """Tests that an error for one workflow doesn't prevent others from processing."""
+    """Tests other WFE's continue processing even if 1 fails.
+
+    Given multiple ready workflow executions, where one fails to trigger.
+    When the trigger_ready_workflow_execs method is invoked.
+    Then the failing workflow's trigger attempt is logged, and other
+    workflows are still processed.
+    """
     # Arrange
     exec1_fail = wfe.WorkflowExecutionParams(
         execution_id="exec-123-fail", status=wfe.Status.NEW
@@ -120,7 +179,7 @@ class PollerHandlerTest(unittest.TestCase):
 
     # Act
     handler = poller.PollerHandler()
-    handler.poll_and_trigger()
+    handler.trigger_ready_workflow_execs()
 
     # Assert that the trigger was attempted for both workflows
     self.assertEqual(self.mock_trigger.trigger_workflow.call_count, 2)
