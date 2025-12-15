@@ -1,5 +1,4 @@
 cloud-sql-python-connector[psycopg2]
-coverage
 db-dtypes
 fastapi
 google-cloud-logging

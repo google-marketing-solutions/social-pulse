@@ -1,7 +1,5 @@
-build
 google_api_python_client
 google-cloud-secret-manager
-pip-tools
 protobuf
 psycopg2-binary
 pydantic-settings

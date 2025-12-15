@@ -1,5 +1,4 @@
 cloud-sql-python-connector[psycopg2]
-coverage
 db-dtypes
 fastapi
 functions-framework
@@ -10,7 +9,6 @@ google-cloud-secret-manager
 luigi
 pandas
 parameterized
-pip-tools
 protobuf
 psycopg2-binary
 pyarrow

@@ -2,13 +2,11 @@
 variable "project_id" {
   description = "The ID of the GCP project to create or use."
   type        = string
-  default     = "your-project-id"
 }
 
 variable "project_number" {
   description = "The project number of the GCP project to create or use."
   type        = string
-  default     = "your-project-number"
 }
 
 variable "region" {

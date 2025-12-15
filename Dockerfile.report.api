@@ -25,18 +25,18 @@ FROM python:3.12-slim
 # Inbound Arg:  Product ID of the GCP project this image is deployed to
 ARG PROJECT_ID
 
-WORKDIR /sp-analysis-run
+WORKDIR /sp-report-api
 
 COPY . .
 
-WORKDIR /sp-analysis-run/services/shared_lib
-RUN pip install --no-cache-dir -r requirements.txt
-RUN python -m build
+WORKDIR /sp-report-api/services/report_service
 
-WORKDIR /sp-analysis-run/services/report_service
-RUN pip install --no-cache-dir -r requirements.txt
+# It is assumed that the socialpulse-common wheel has been pre-built and
+# its hash is correctly updated in requirements.txt before starting the Docker build.
+# The --find-links option tells pip where to find the local wheel.
+RUN pip install --no-cache-dir --require-hashes --find-links ../shared_lib/dist -r requirements.txt
 
-WORKDIR /sp-analysis-run/services/report_service/src
+WORKDIR /sp-report-api/services/report_service/src
 EXPOSE 8080
 
 ENV LOG_LEVEL=DEBUG

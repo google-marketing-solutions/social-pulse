@@ -29,12 +29,12 @@ WORKDIR /sp-analysis-wfe
 
 COPY . .
 
-WORKDIR /sp-analysis-wfe/services/shared_lib
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
-RUN python -m build
-
 WORKDIR /sp-analysis-wfe/services/analysis_service
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+
+# It is assumed that the socialpulse-common wheel has been pre-built and
+# its hash is correctly updated in requirements.txt before starting the Docker build.
+# The --find-links option tells pip where to find the local wheel.
+RUN pip install --no-cache-dir --require-hashes --find-links ../shared_lib/dist -r requirements.txt
 
 WORKDIR /sp-analysis-wfe/services/analysis_service/src
 

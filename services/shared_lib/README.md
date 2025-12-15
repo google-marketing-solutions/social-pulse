@@ -3,37 +3,33 @@
 This sub-project contains the common shared library of tools and messages used
 by other parts of the Social Pulse solution.
 
-## Set up
-If you downloaded the Social Puse solution for the first time, you'll need
-to run the following commands to get the latest common code ready to be used
-by the micro-services.
 
-1. Enter into the shared library root directory.  Assuming you checked out the
-   repo into ```~/myprojects/social_pulse```
-  ```
-  cd ~/myprojects/social_pulse/services/shared_lib
-  ```
+## Deployment Workflow
 
-2. Install all the dependecies
-  ```
-  pip install -r requirements.txt
-  ```
+Whenever you make changes to this `socialpulse-common` library, you must rebuild
+the package and update the dependent services (`analysis_service` and
+`report_service`) before building their Docker images (for production
+deployment) or running the services locally (for local development).
 
-3. Run the protobuf compiler to generate the Python messages
-  ```
-  protoc \
-    --proto_path=$(pwd)/src/socialpulse_common/messages/proto \
-    --python_out=$(pwd)/src/socialpulse_common/messages \
-    $(pwd)/src/socialpulse_common/messages/proto/*.proto
-  ```
+A script has been provided to automate this entire process.
 
-4. Build the distribution
-  ```
-  python -m build
-  ```
+### Steps
 
-5. Re-install the packaged commons distribution in the microservice
-  ```
-  cd ../analysis_service
-  pip install -r requirements.txt
-  ```
+1.  Navigate to the shared library directory:
+    ```bash
+    cd /path/to/your/project/social_pulse/services/shared_lib
+    ```
+
+2.  Make your changes (ie, add a new field to one of the common data classes).
+
+3.  Run the deployment script:
+    ```bash
+    ./deploy_to_services.sh
+    ```
+
+This script handles building the `socialpulse-common` wheel, calculating its new
+SHA256 hash, and patching the `requirements.txt` files in all dependent
+services.
+
+After running the script, you can proceed to run the deployment scripts or
+start up your local web services.
