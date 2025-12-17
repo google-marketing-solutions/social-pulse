@@ -160,6 +160,7 @@ class SentimentDataRepo(service.RegisterableService, abc.ABC):
     """
     raise NotImplementedError
 
+  @abc.abstractmethod
   def copy_sentiment_data(
       self, source_dataset_name: str, target_dataset_name: str
   ) -> None:
@@ -168,5 +169,26 @@ class SentimentDataRepo(service.RegisterableService, abc.ABC):
     Args:
       source_dataset_name: The name of the data set to copy from.
       target_dataset_name: The name of the new data set to create.
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def list_datasets_for_execution_id(self, execution_id: str) -> list[str]:
+    """Finds all datasets for the provided execution ID.
+
+    Args:
+      execution_id: The ID of the workflow execution.
+
+    Returns:
+      A list of dataset names.
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def delete_dataset(self, dataset_name: str) -> None:
+    """Deletes a sentiment data set from the specified table.
+
+    Args:
+      dataset_name: The name of the data set to delete.
     """
     raise NotImplementedError

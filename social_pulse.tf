@@ -17,6 +17,7 @@ locals {
 
 # Create a new service account
 resource "google_service_account" "social-pulse-sa" {
+  project      = var.project_id
   account_id   = "social-pulse-sa"
   display_name = "Service account for social pulse"
 }
@@ -84,11 +85,13 @@ resource "google_storage_bucket_object" "source_zip_object" {
 
 # Set up VPC network
 resource "google_compute_network" "vpc_network" {
+  project                 = var.project_id
   name                    = "sp-vpc-network"
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "vpc_subnet" {
+  project       = var.project_id
   name          = "sp-vpc-subnet"
   ip_cidr_range = "10.0.0.0/24"
   region        = "us-central1"
@@ -96,6 +99,7 @@ resource "google_compute_subnetwork" "vpc_subnet" {
 }
 
 resource "google_compute_global_address" "private_ip_alloc" {
+  project       = var.project_id
   name          = "sp-cloudsql-private-ip-alloc"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
@@ -149,6 +153,7 @@ resource "google_sql_database_instance" "social_pulse_postgres_db_server" {
 
 # -- Create the user to access all DB instances
 resource "google_sql_user" "postgres_db_user" {
+  project  = var.project_id
   name     = var.db_username
   instance = google_sql_database_instance.social_pulse_postgres_db_server.name
   password = var.db_password
@@ -174,11 +179,11 @@ resource "google_sql_database" "reporting_db" {
 
 # BigQuery Dataset
 resource "google_bigquery_dataset" "social_pulse_sentiment_dataset" {
-  dataset_id    = "social_pulse_sentiment_data"
-  friendly_name = "Social Pulse Sentiment Data"
-  description   = "Dataset for social pulse sentiment analysis data"
+  dataset_id    = var.bq_dataset_name
   location      = var.region
   project       = var.project_id
+  friendly_name = "Social Pulse Sentiment Data"
+  description   = "Dataset for social pulse sentiment analysis data"
 
   access {
     role          = "OWNER"
@@ -893,6 +898,7 @@ resource "google_cloud_run_v2_job" "report_migration_job" {
 }
 
 resource "google_vpc_access_connector" "connector" {
+  project       = var.project_id
   name          = "sp-vpc-connector"
   region        = "us-central1"
   ip_cidr_range = "10.8.0.0/28" # A non-overlapping range within your VPC
@@ -924,6 +930,7 @@ resource "google_secret_manager_secret" "postgres_password" {
 }
 
 resource "google_secret_manager_secret" "postgres_host" {
+  project   = var.project_id
   secret_id = "DB-HOST"
 
   replication {
@@ -932,6 +939,7 @@ resource "google_secret_manager_secret" "postgres_host" {
 }
 
 resource "google_secret_manager_secret" "youtube_api_key" {
+  project   = var.project_id
   secret_id = "API-YOUTUBE-KEY"
 
   replication {
@@ -940,6 +948,7 @@ resource "google_secret_manager_secret" "youtube_api_key" {
 }
 
 resource "google_secret_manager_secret_version" "postgres_username_version" {
+  project     = var.project_id
   secret      = google_secret_manager_secret.postgres_username.id
   secret_data = var.db_username
 
@@ -947,6 +956,7 @@ resource "google_secret_manager_secret_version" "postgres_username_version" {
 }
 
 resource "google_secret_manager_secret_version" "postgres_password_version" {
+  project     = var.project_id
   secret      = google_secret_manager_secret.postgres_password.id
   secret_data = var.db_password
 
@@ -954,6 +964,7 @@ resource "google_secret_manager_secret_version" "postgres_password_version" {
 }
 
 resource "google_secret_manager_secret_version" "postgres_host_version" {
+  project     = var.project_id
   secret      = google_secret_manager_secret.postgres_host.id
   secret_data = google_sql_database_instance.social_pulse_postgres_db_server.private_ip_address
 
@@ -961,6 +972,7 @@ resource "google_secret_manager_secret_version" "postgres_host_version" {
 }
 
 resource "google_secret_manager_secret_version" "youtube_api_key_version" {
+  project     = var.project_id
   secret      = google_secret_manager_secret.youtube_api_key.id
   secret_data = var.yt_api_key
 

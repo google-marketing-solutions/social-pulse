@@ -15,6 +15,12 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "bq_dataset_name" {
+  description = "Name of the BQ dataset to store sentiment data created by the analysis."
+  type        = string
+  default     = "sentiment_analysis"
+}
+
 variable "create_new_project" {
   description = "Set to true to create a new GCP project, false to use an existing one."
   type        = bool

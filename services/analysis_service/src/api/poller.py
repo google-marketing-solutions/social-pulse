@@ -27,6 +27,7 @@ import os
 
 import fastapi
 import google.cloud.logging
+from infrastructure.persistence.bigquery import sentiment_data_repo
 from infrastructure.persistence.postgresdb import workflow_data_repo
 from infrastructure.triggers import wfe_cloud_function
 from infrastructure.triggers import wfe_cloud_run_job
@@ -64,6 +65,7 @@ def _bootstrap_services():
   settings = config.Settings()
   service_registry = service.registry
 
+  # Register WFE persistence service impl
   postgres_client = client.PostgresDbClient(
       host=settings.db.host,
       port=settings.db.port,
@@ -80,6 +82,7 @@ def _bootstrap_services():
       persistence.WorkflowExecutionPersistenceService, workflow_repo_adapter
   )
 
+  # Register report completion service impl
   report_completion_service = (
       wfe_cloud_function.HttpReportCompletionService(
           settings.cloud.report_backend_api_url
@@ -89,10 +92,19 @@ def _bootstrap_services():
       trigger.ReportCompletionService, report_completion_service
   )
 
+  # Register trigger service impl
   trigger_adapter = wfe_cloud_run_job.CloudJobWorkflowExecutionTrigger(
       project_id=settings.cloud.project_id, region=settings.cloud.region
   )
   service_registry.register(trigger.WorkflowExecutionTrigger, trigger_adapter)
+
+  # Register sentiment data repo impl
+  sentiment_data_repo_adapter = sentiment_data_repo.BigQuerySentimentDataRepo(
+      gcp_project_id=settings.cloud.project_id,
+      bq_dataset_name=settings.cloud.dataset_name
+  )
+  service_registry.register(
+      persistence.SentimentDataRepo, sentiment_data_repo_adapter)
 
   is_initialized = True
   logger.info("Service bootstrapping complete.")
@@ -153,8 +165,11 @@ class PollerHandler:
 
       try:
         self._mark_report_as_completed(report_id, completed_wfes)
+
         for workflow in completed_wfes:
           self._repo.update_status(workflow.execution_id, wfe.Status.EXPORTED)
+          self._clean_up_staging_datasets(workflow.execution_id)
+
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception("Failed to process report_id: %s.", report_id)
 
@@ -191,6 +206,26 @@ class PollerHandler:
     self._mark_completed_trigger.mark_report_completed(
         report_id=report_id, datasets=report_datasets
     )
+
+  def _clean_up_staging_datasets(self, execution_id: str):
+    """Cleans up staging datasets for a given execution ID.
+
+    Args:
+      execution_id: The unique ID of the workflow execution.
+    """
+    repo = service.registry.get(persistence.SentimentDataRepo)
+    sentiment_datasets = repo.list_datasets_for_execution_id(
+        execution_id
+    )
+
+    logger.info(
+        "Cleaning up %d staging datasets for execution_id: %s.",
+        len(sentiment_datasets),
+        execution_id,
+    )
+    for dataset_name in sentiment_datasets:
+      if not dataset_name.startswith("SentimentDataset"):
+        repo.delete_dataset(dataset_name)
 
 
 @app.post("/poller")
