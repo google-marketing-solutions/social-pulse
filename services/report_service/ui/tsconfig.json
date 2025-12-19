@@ -1,0 +1,43 @@
+{
+  "extends": "./node_modules/gts/tsconfig-google.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx",
+    "src/**/*.json",
+    ".next/types/**/*.ts",
+    "next-env.d.ts",
+    "tailwind.config.ts",
+    "next.config.js",
+    "postcss.config.mjs",
+    ".prettierrc.js",
+    "eslint.config.js",
+    "eslint.ignores.js"
+  ],
+  "exclude": ["node_modules", "build"],
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "rootDir": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "outDir": "build",
+    "jsx": "preserve",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "incremental": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "noEmit": true
+  }
+}

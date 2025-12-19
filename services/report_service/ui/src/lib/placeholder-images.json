@@ -1,0 +1,10 @@
+{
+  "placeholderImages": [
+    {
+      "id": "logo",
+      "description": "The main logo for the Social Pulse application.",
+      "imageUrl": "/icon.png",
+      "imageHint": "pulse logo"
+    }
+  ]
+}
