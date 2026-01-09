@@ -2,19 +2,23 @@
 variable "project_id" {
   description = "The ID of the GCP project to create or use."
   type        = string
-  default     = "your-project-id"
 }
 
 variable "project_number" {
   description = "The project number of the GCP project to create or use."
   type        = string
-  default     = "your-project-number"
 }
 
 variable "region" {
   description = "The GCP region for deploying resources."
   type        = string
   default     = "us-central1"
+}
+
+variable "bq_dataset_name" {
+  description = "Name of the BQ dataset to store sentiment data created by the analysis."
+  type        = string
+  default     = "sentiment_analysis"
 }
 
 variable "create_new_project" {

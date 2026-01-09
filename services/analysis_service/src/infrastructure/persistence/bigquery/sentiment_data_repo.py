@@ -41,7 +41,8 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
 
     logger.info(
         "BigQuery based repo built successfully (project=%s, dataset=%s).",
-        self._gcp_project_id, self._bq_dataset_name
+        self._gcp_project_id,
+        self._bq_dataset_name,
     )
 
   def exists(self, table_name: str) -> bool:
@@ -54,7 +55,7 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
       True if the table exists, False otherwise.
     """
     try:
-      table_name_ref = self._generate_table_ref(table_name)
+      table_name_ref = self._generate_bq_table_ref(table_name)
       logger.debug("Checking if table exists:  %s", table_name_ref)
 
       self._client.get_table(table_name_ref)
@@ -75,16 +76,14 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
       A pandas DataFrame containing the sentiment data.
     """
 
-    query = f"SELECT * FROM `{self._generate_table_ref(table_name)}`"
+    query = f"SELECT * FROM `{self._generate_bq_table_ref(table_name)}`"
     logger.debug("Executing query: %s", query)
 
     query_job = self._client.query(query)
     return query_job.to_dataframe()
 
   def write_sentiment_data(
-      self,
-      table_name: str,
-      sentiment_dataset: pd.DataFrame
+      self, table_name: str, sentiment_dataset: pd.DataFrame
   ) -> None:
     """Writes a  sentiment data set to the specified BQ table.
 
@@ -98,7 +97,7 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     """
     load_data_job = self._client.load_table_from_dataframe(
         sentiment_dataset,
-        self._generate_table_ref(table_name),
+        self._generate_bq_table_ref(table_name),
         job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
     )
 
@@ -106,9 +105,7 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     load_data_job.result()
 
   def copy_sentiment_data(
-      self,
-      source_dataset_name: str,
-      target_dataset_name: str
+      self, source_dataset_name: str, target_dataset_name: str
   ) -> None:
     """Copies a sentiment data set to a provided name.
 
@@ -119,10 +116,10 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     logger.info(
         "Copying data from table '%s' to table '%s'.",
         source_dataset_name,
-        target_dataset_name
+        target_dataset_name,
     )
-    old_table_ref = self._generate_table_ref(source_dataset_name)
-    new_table_ref = self._generate_table_ref(target_dataset_name)
+    old_table_ref = self._generate_bq_table_ref(source_dataset_name)
+    new_table_ref = self._generate_bq_table_ref(target_dataset_name)
     self._validate_table_names(source_dataset_name, target_dataset_name)
 
     job_config = bigquery.CopyJobConfig()
@@ -136,9 +133,7 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     logger.info("Table successfully created: %s", new_table_ref)
 
   def _validate_table_names(
-      self,
-      source_dataset_name: str,
-      target_dataset_name: str
+      self, source_dataset_name: str, target_dataset_name: str
   ) -> None:
     """Validates that the dataset names are valid for copying.
 
@@ -165,7 +160,40 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
           f"{target_dataset_name}"
       )
 
-  def _generate_table_ref(self, table_name: str) -> str:
+  def list_datasets_for_execution_id(self, execution_id: str) -> list[str]:
+    """Finds all datasets for the provided execution ID.
+
+    Args:
+      execution_id: The ID of the workflow execution.
+
+    Returns:
+      A list of dataset names.
+    """
+    return [
+        table.table_id
+        for table in self._client.list_tables(self._generate_bq_dataset_ref())
+        if table.table_id.endswith(execution_id)
+    ]
+
+  def delete_dataset(self, dataset_name):
+    """Deletes a sentiment data set from the specified table.
+
+    Args:
+      dataset_name: The name of the data set to delete.
+    """
+    table_ref = self._generate_bq_table_ref(dataset_name)
+    logger.debug("Deleting table: %s", table_ref)
+    self._client.delete_table(table_ref, not_found_ok=True)
+
+  def _generate_bq_dataset_ref(self) -> str:
+    """Generates a fully qualified dataset reference string.
+
+    Returns:
+      A string representing the fully qualified dataset reference.
+    """
+    return f"{self._gcp_project_id}.{self._bq_dataset_name}"
+
+  def _generate_bq_table_ref(self, table_name: str) -> str:
     """Generates a fully qualified table reference string.
 
     This method constructs a string that represents the full path to a table
@@ -177,4 +205,4 @@ class BigQuerySentimentDataRepo(persistence.SentimentDataRepo):
     Returns:
       A string representing the fully qualified table reference.
     """
-    return f"{self._gcp_project_id}.{self._bq_dataset_name}.{table_name}"
+    return f"{self._generate_bq_dataset_ref()}.{table_name}"
