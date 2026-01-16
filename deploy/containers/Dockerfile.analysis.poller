@@ -18,26 +18,27 @@
 # as the build context.  I.e.,
 #
 #   cd social_pulse/services
-#   docker build -t analysis_service:latest -f analysis_service/Dockerfile.runner .
+#   docker build -t analysis_service:latest -f analysis_service/Dockerfile.pollerner .
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # Inbound Arg:  Product ID of the GCP project this image is deployed to
 ARG PROJECT_ID
 
-WORKDIR /sp-report-api
+WORKDIR /sp-analysis-poller
 
 COPY . .
 
-WORKDIR /sp-report-api/services/report_service
+WORKDIR /sp-analysis-poller/services/analysis_service
 
 # It is assumed that the socialpulse-common wheel has been pre-built and
 # its hash is correctly updated in requirements.txt before starting the Docker build.
 # The --find-links option tells pip where to find the local wheel.
 RUN pip install --no-cache-dir --require-hashes --find-links ../shared_lib/dist -r requirements.txt
 
-WORKDIR /sp-report-api/services/report_service/src
+WORKDIR /sp-analysis-poller/services/analysis_service/src
 EXPOSE 8080
 
+ENV CLOUD__PROJECT_ID=${PROJECT_ID}
 ENV LOG_LEVEL=DEBUG
-CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+CMD ["uvicorn", "api.poller:app", "--host", "0.0.0.0", "--port", "8080"]

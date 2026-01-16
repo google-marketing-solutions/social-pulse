@@ -13,7 +13,24 @@ deployment) or running the services locally (for local development).
 
 A script has been provided to automate this entire process.
 
-### Steps
+### Making changes to the project dependecies
+
+This project uses `pip-compile` to manage the `requirements.txt` file, based on
+the dependencies listed in the `requirements.in` file.  In addition, when
+compiling the `requirements.txt` file, hashes are included for additional
+security.
+
+If you add a depency, make sure to add the `generate-hashes` flag to the
+compile call:
+
+```
+pip-compile \
+   --generate-hashes \
+   --find-links=../shared_lib/dist \
+   --no-emit-index-url \
+   requirements.in
+```
+### Running the deployment script
 
 1.  Navigate to the shared library directory:
     ```bash

@@ -20,25 +20,24 @@
 #   cd social_pulse/services
 #   docker build -t analysis_service:latest -f analysis_service/Dockerfile.runner .
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # Inbound Arg:  Product ID of the GCP project this image is deployed to
 ARG PROJECT_ID
 
-WORKDIR /sp-analysis-wfe
+WORKDIR /sp-report-api
 
 COPY . .
 
-WORKDIR /sp-analysis-wfe/services/analysis_service
+WORKDIR /sp-report-api/services/report_service
 
 # It is assumed that the socialpulse-common wheel has been pre-built and
 # its hash is correctly updated in requirements.txt before starting the Docker build.
 # The --find-links option tells pip where to find the local wheel.
 RUN pip install --no-cache-dir --require-hashes --find-links ../shared_lib/dist -r requirements.txt
 
-WORKDIR /sp-analysis-wfe/services/analysis_service/src
+WORKDIR /sp-report-api/services/report_service/src
+EXPOSE 8080
 
-ENV PYTHONPATH=/sp-analysis-wfe/services/analysis_service/src
-ENV DB__NAME="analysis-database"
-ENV CLOUD__PROJECT_ID=${PROJECT_ID}
 ENV LOG_LEVEL=DEBUG
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT

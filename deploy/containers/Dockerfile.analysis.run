@@ -20,7 +20,7 @@
 #   cd social_pulse/services
 #   docker build -t analysis_service:latest -f analysis_service/Dockerfile.runner .
 
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # Inbound Arg:  Product ID of the GCP project this image is deployed to
 ARG PROJECT_ID
