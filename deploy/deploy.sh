@@ -58,10 +58,10 @@ set +x
 # --- TERRAFORM EXECUTION (Creates the job definition and new service revisions) ---
 echo "Initializing Terraform..."
 cd terraform/
-# terraform init
+terraform init
 
 echo "Applying Terraform configuration..."
-#terraform apply -auto-approve
+terraform apply -auto-approve
 
 
 # --- MIGRATION EXECUTION ---
