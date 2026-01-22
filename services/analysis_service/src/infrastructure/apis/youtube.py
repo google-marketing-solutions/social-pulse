@@ -22,6 +22,7 @@ from googleapiclient import discovery
 from googleapiclient import errors
 
 from tasks.ports import apis as ports_apis
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_API_SERVICE_NAME = "youtube"
@@ -42,7 +43,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
       self,
       api_key: str,
       service_name: str = _DEFAULT_API_SERVICE_NAME,
-      version: str = _DEFAULT_API_VERSION
+      version: str = _DEFAULT_API_VERSION,
   ):
     """Initializes the YoutubeApiHttpClient.
 
@@ -63,7 +64,8 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
       )
       logger.info(
           "YT API client built successfully (service=%s, version=%s).",
-          service_name, version
+          service_name,
+          version,
       )
     except errors.HttpError as e:
       logger.exception(
@@ -77,7 +79,6 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
   def search_for_videos(
       self, criteria: ports_apis.YoutubeSearchCriteria
   ) -> list[dict[str, Any]]:
-
     """Searches for videos using the YouTube Data API based on the given criteria.
 
     Args:
@@ -97,8 +98,10 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
 
     while num_videos_collected < criteria.max_results:
       num_of_results = min(
-          [_MAX_VIDEO_IDS_PER_SEARCH_RESPONSE,
-           criteria.max_results - num_videos_collected]
+          [
+              _MAX_VIDEO_IDS_PER_SEARCH_RESPONSE,
+              criteria.max_results - num_videos_collected,
+          ]
       )
 
       try:
@@ -113,6 +116,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
             "pageToken": next_page_token,
             "publishedAfter": criteria.published_after_as_str(),
             "publishedBefore": criteria.published_before_as_str(),
+            "regionCode": "US",
         }
         # Filter out None values before making the call
         request_params = {
@@ -128,6 +132,11 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
         num_videos_collected += count_this_page
 
         next_page_token = response.get("nextPageToken")
+        logger.info(
+            "Total videos collected: %s  . Next page token: %s",
+            num_videos_collected,
+            next_page_token,
+        )
         if not next_page_token:
           break
 
@@ -142,7 +151,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
 
     logger.info(
         "YouTube search finished. Collected %d video items.",
-        num_videos_collected
+        num_videos_collected,
     )
     return video_items
 
@@ -170,23 +179,24 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
       # Calculate end index for slicing, respecting API limits
       current_window_end_index = min(
           current_window_start_index + _MAX_VIDEO_IDS_PER_DETAIL_REQUEST,
-          total_ids
+          total_ids,
       )
 
       video_ids_slice = video_ids[
-          current_window_start_index : current_window_end_index
+          current_window_start_index:current_window_end_index
       ]
 
       logger.debug(
           "Getting details for videos index %d to %d",
-          current_window_start_index, current_window_end_index
+          current_window_start_index,
+          current_window_end_index,
       )
 
       try:
         request = self._client.videos().list(
             part="statistics",
             id=",".join(video_ids_slice),
-            maxResults=_MAX_VIDEO_IDS_PER_DETAIL_REQUEST
+            maxResults=_MAX_VIDEO_IDS_PER_DETAIL_REQUEST,
         )
         response = request.execute()
         found_items = response.get("items")
@@ -201,13 +211,15 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
         logger.error(
             "HTTP error %s getting video details for batch"
             "starting at index %d: %s",
-            e.resp.status, current_window_start_index, e
+            e.resp.status,
+            current_window_start_index,
+            e,
         )
         raise
       except Exception:
         logger.exception(
             "Error getting video details for batch starting at index %d.",
-            current_window_start_index
+            current_window_start_index,
         )
         raise
       # Move to the next batch start index
@@ -215,12 +227,13 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
 
     logger.info(
         "Finished fetching details. Retrieved details for %d videos.",
-        len(video_stats_map)
+        len(video_stats_map),
     )
     return video_stats_map
 
-  def get_comments_for_videos(self,
-                              video_ids: list[str]) -> list[dict[str, Any]]:
+  def get_comments_for_videos(
+      self, video_ids: list[str]
+  ) -> list[dict[str, Any]]:
     """Retrieves comments for multiple videos by iterating calls to a helper."""
     if not video_ids:
       return []
@@ -237,12 +250,13 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
 
     logger.info(
         "Finished fetching comments. Retrieved %d comment threads total.",
-        len(all_comments)
+        len(all_comments),
     )
     return all_comments
 
-  def _get_comments_for_single_video(self,
-                                     video_id: str) -> list[dict[str, Any]]:
+  def _get_comments_for_single_video(
+      self, video_id: str
+  ) -> list[dict[str, Any]]:
     """Helper to retrieve all comment threads for a specific video.
 
     Args:
@@ -263,7 +277,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
             part="snippet,replies",
             videoId=video_id,
             maxResults=100,
-            pageToken=next_page_token
+            pageToken=next_page_token,
         )
 
         response = request.execute()
@@ -278,17 +292,18 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
       except errors.HttpError as e:
         logger.error(
             "HTTP error %s getting comments for video %s: %s",
-            e.resp.status, video_id, e
+            e.resp.status,
+            video_id,
+            e,
         )
         return []
 
       except Exception:  # pylint: disable=broad-exception-caught
         logger.exception(
             "Unexpected error getting comments page %d for video %s.",
-            page_num, video_id
+            page_num,
+            video_id,
         )
         return []
 
     return video_comments
-
-
