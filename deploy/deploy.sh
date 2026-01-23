@@ -55,6 +55,12 @@ gcloud services enable vpcaccess.googleapis.com
 gcloud services enable youtube.googleapis.com
 set +x
 
+# --- SHARED LIBRARY BUILD/DEPLOYMENT AND REQUIREMENTS UPDATE ---
+echo "Building shared library and updating dependent service requirements..."
+cd ../services/shared_lib
+./deploy_to_services.sh
+cd ../../deploy
+
 # --- TERRAFORM EXECUTION (Creates the job definition and new service revisions) ---
 echo "Initializing Terraform..."
 cd terraform/
@@ -62,7 +68,6 @@ terraform init
 
 echo "Applying Terraform configuration..."
 terraform apply -auto-approve
-
 
 # --- MIGRATION EXECUTION ---
 echo "Executing Cloud Run Job for Analysis Database Migrations..."
