@@ -207,6 +207,7 @@ export function CreateReportForm() {
                             >
                               <FormControl>
                                 <Checkbox
+                                  id={source.id}
                                   checked={field.value?.includes(source.id)}
                                   onCheckedChange={checked => {
                                     return checked
@@ -222,7 +223,10 @@ export function CreateReportForm() {
                                   }}
                                 />
                               </FormControl>
-                              <Label className="font-normal flex items-center gap-2 cursor-pointer">
+                              <Label
+                                htmlFor={source.id}
+                                className="font-normal flex items-center gap-2 cursor-pointer"
+                              >
                                 {source.icon} {source.label}
                               </Label>
                             </FormItem>

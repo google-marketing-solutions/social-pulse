@@ -5,4 +5,8 @@ module.exports = [
   'out/',
   'dist/',
   'src/components/ui',
+  'jest.setup.js',
+  'jest.config.js',
+  'next.config.js',
+  'tsconfig.json',
 ];

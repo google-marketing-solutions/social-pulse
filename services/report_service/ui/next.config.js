@@ -30,6 +30,7 @@ const nextConfig = {
       },
     ],
   },
+  transpilePackages: ['lucide-react', 'react-day-picker'],
 };
 
 module.exports = nextConfig;

@@ -18,7 +18,7 @@
   "exclude": ["node_modules", "build"],
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
-    "rootDir": "src",
+    "types": ["jest", "node"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

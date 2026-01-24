@@ -7,7 +7,6 @@ import {
   ReportForList,
   Status,
   SocialMediaSource,
-  SentimentDataType,
 } from '@/lib/types';
 import {
   Table,

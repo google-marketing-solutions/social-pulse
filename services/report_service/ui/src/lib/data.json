@@ -4,7 +4,9 @@
     "createdOn": "2026-01-08T12:00:00.000Z",
     "lastUpdatedOn": "2026-01-08T12:00:00.000Z",
     "status": "NEW",
-    "sources": ["YOUTUBE_VIDEO"],
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
     "dataOutput": "SHARE_OF_VOICE",
     "startTime": "2026-01-01T12:00:00.000Z",
     "endTime": "2026-01-08T12:00:00.000Z",
@@ -19,7 +21,9 @@
     "createdOn": "2026-01-08T12:00:00.000Z",
     "lastUpdatedOn": "2026-01-08T12:00:00.000Z",
     "status": "COLLECTING_DATA",
-    "sources": ["YOUTUBE_COMMENT"],
+    "sources": [
+      "YOUTUBE_COMMENT"
+    ],
     "dataOutput": "SENTIMENT_SCORE",
     "startTime": "2026-01-05T12:00:00.000Z",
     "endTime": "2026-01-08T12:00:00.000Z",
@@ -31,7 +35,10 @@
   },
   {
     "topic": "SAP Joule",
-    "sources": ["YOUTUBE_VIDEO", "YOUTUBE_COMMENT"],
+    "sources": [
+      "YOUTUBE_VIDEO",
+      "YOUTUBE_COMMENT"
+    ],
     "dataOutput": "SHARE_OF_VOICE",
     "startTime": "2025-11-01T00:00:00.000Z",
     "endTime": "2026-01-07T20:28:49.701Z",
@@ -48,7 +55,10 @@
     "createdOn": "2025-12-29T12:00:00.000Z",
     "lastUpdatedOn": "2026-01-03T12:00:00.000Z",
     "status": "COMPLETED",
-    "sources": ["YOUTUBE_VIDEO", "REDDIT_POST"],
+    "sources": [
+      "YOUTUBE_VIDEO",
+      "REDDIT_POST"
+    ],
     "dataOutput": "SENTIMENT_SCORE",
     "startTime": "2025-12-24T12:00:00.000Z",
     "endTime": "2025-12-31T12:00:00.000Z",
@@ -184,7 +194,7 @@
           "positive": 334,
           "negative": 127,
           "neutral": 134,
-          "average": 0.5613445378151261
+          "average": 0.561344537815126
         }
       }
     }
@@ -194,7 +204,9 @@
     "createdOn": "2025-12-27T12:00:00.000Z",
     "lastUpdatedOn": "2026-01-02T12:00:00.000Z",
     "status": "COMPLETED",
-    "sources": ["X_POST"],
+    "sources": [
+      "X_POST"
+    ],
     "dataOutput": "SHARE_OF_VOICE",
     "startTime": "2025-12-19T12:00:00.000Z",
     "endTime": "2025-12-29T12:00:00.000Z",
@@ -228,5 +240,73 @@
         ]
       }
     }
+  },
+  {
+    "report_id": "019bee93-2c68-7b35-a22b-47a34f1bfcff",
+    "created_on": "2026-01-23T21:56:21.224282",
+    "last_updated_on": "2026-01-23T21:56:21.224286",
+    "status": null,
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "data_output": "SENTIMENT_SCORE",
+    "start_time": "2026-01-01T08:00:00Z",
+    "end_time": "2026-01-24T05:42:38.434000Z",
+    "include_justifications": false,
+    "topic": "Hinge app",
+    "datasets": [],
+    "report_artifact_type": "BQ_TABLE",
+    "report_artifact_uri": null
+  },
+  {
+    "report_id": "019beeb4-658b-74c1-8226-610ee9194a8c",
+    "created_on": "2026-01-23T22:32:38.539434",
+    "last_updated_on": "2026-01-23T22:32:38.539441",
+    "status": null,
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "data_output": "SHARE_OF_VOICE",
+    "start_time": "2025-11-01T07:00:00Z",
+    "end_time": "2026-01-24T06:32:15.710000Z",
+    "include_justifications": false,
+    "topic": "Dating apps",
+    "datasets": [],
+    "report_artifact_type": "BQ_TABLE",
+    "report_artifact_uri": null
+  },
+  {
+    "report_id": "019bf774-6db3-7fc5-8209-78ee7d51bcf3",
+    "created_on": "2026-01-25T15:19:21.268317",
+    "last_updated_on": "2026-01-25T15:19:21.268402",
+    "status": null,
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "data_output": "SHARE_OF_VOICE",
+    "start_time": "2026-01-01T08:00:00Z",
+    "end_time": "2026-01-25T23:18:43.513000Z",
+    "include_justifications": false,
+    "topic": "Dating apps",
+    "datasets": [],
+    "report_artifact_type": "BQ_TABLE",
+    "report_artifact_uri": null
+  },
+  {
+    "report_id": "019bfb44-3c45-7068-aa76-d3e8d607ebdb",
+    "created_on": "2026-01-26T09:05:11.750720",
+    "last_updated_on": "2026-01-26T09:05:11.750850",
+    "status": null,
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "data_output": "SHARE_OF_VOICE",
+    "start_time": "2026-01-01T08:00:00Z",
+    "end_time": "2026-01-26T17:04:19.735000Z",
+    "include_justifications": false,
+    "topic": "AI native ERP",
+    "datasets": [],
+    "report_artifact_type": "BQ_TABLE",
+    "report_artifact_uri": null
   }
 ]
