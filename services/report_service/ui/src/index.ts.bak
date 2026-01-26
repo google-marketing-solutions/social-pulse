@@ -20,7 +20,7 @@ const re = /foo {3}bar/;
  * @param withThis A string.
  * @param andThat Another string.
  * @param andThose An array of strings.
- * @returns A boolean.
+ * @return A boolean.
  */
 export function doSomeStuff(
   withThis: string,

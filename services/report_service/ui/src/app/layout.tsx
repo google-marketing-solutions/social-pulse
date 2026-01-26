@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 /**
  * The root layout for the application.
  * @param children The children to render.
- * @returns The root layout.
+ * @return The root layout.
  */
 export default function RootLayout({
   children,

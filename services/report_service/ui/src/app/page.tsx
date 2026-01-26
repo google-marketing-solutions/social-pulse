@@ -7,7 +7,7 @@ import {SentimentReport, ReportForList} from '@/lib/types';
 
 /**
  * The page to display all reports.
- * @returns The reports list page.
+ * @return The reports list page.
  */
 export default async function ReportsListPage() {
   const reports: SentimentReport[] = await getReports();

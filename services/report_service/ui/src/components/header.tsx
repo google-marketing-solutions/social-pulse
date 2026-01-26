@@ -6,7 +6,7 @@ import {PlaceHolderImages} from '@/lib/placeholder-images';
 
 /**
  * The header for the application.
- * @returns The header component.
+ * @return The header component.
  */
 export function Header() {
   const logo = PlaceHolderImages.find(img => img.id === 'logo');

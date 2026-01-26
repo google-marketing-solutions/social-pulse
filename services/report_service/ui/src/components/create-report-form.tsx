@@ -52,7 +52,7 @@ const topicDescriptions = {
 
 /**
  * Renders a form to create a new report.
- * @returns The create report form component.
+ * @return The create report form component.
  */
 export function CreateReportForm() {
   const {toast} = useToast();

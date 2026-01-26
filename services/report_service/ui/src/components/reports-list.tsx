@@ -36,7 +36,7 @@ const statusColors: {[key in Status]: 'default' | 'secondary' | 'destructive'} =
 /**
  * Renders a list of reports.
  * @param reports The reports to render.
- * @returns The reports list component.
+ * @return The reports list component.
  */
 export function ReportsList({reports}: {reports: ReportForList[]}) {
   const router = useRouter();

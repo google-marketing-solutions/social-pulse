@@ -12,7 +12,7 @@ import {useToast} from '@/hooks/use-toast';
 
 /**
  * Renders the toaster component.
- * @returns The toaster component.
+ * @return The toaster component.
  */
 export const Toaster = () => {
   const {toasts} = useToast();

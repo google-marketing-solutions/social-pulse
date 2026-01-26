@@ -2,7 +2,7 @@ import {CreateReportForm} from '@/components/create-report-form';
 
 /**
  * The page to create a new report.
- * @returns The create report page.
+ * @return The create report page.
  */
 export default function CreateReportPage() {
   return (

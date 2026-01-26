@@ -22,7 +22,7 @@ interface DateRangePickerProps extends React.ComponentProps<'div'> {
  * @param date The selected date range.
  * @param onDateChange The callback when the date range changes.
  * @param disabled Whether the component is disabled.
- * @returns The date range picker component.
+ * @return The date range picker component.
  */
 export function DateRangePicker({
   className,

@@ -4,7 +4,7 @@ const MOBILE_BREAKPOINT = 768;
 
 /**
  * A hook to determine if the current device is a mobile device.
- * @returns True if the device is a mobile device, false otherwise.
+ * @return True if the device is a mobile device, false otherwise.
  */
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(
