@@ -14,6 +14,7 @@
    pip install \
       -r requirements.txt \
       -r requirements-dev.txt \
+      -r base-tooling-requirements.txt \
       --find-links=../shared_lib/dist
    ```
 
@@ -77,6 +78,24 @@ service directory.  For example:
 cd services/analysis_service
 pytest /tests
 
+```
+
+### Making changes to the project dependecies
+
+This project uses `pip-compile` to manage the `requirements.txt` file, based on
+the dependencies listed in the `requirements.in` file.  In addition, when
+compiling the `requirements.txt` file, hashes are included for additional
+security.
+
+If you add a depency, make sure to add the `generate-hashes` flag to the
+compile call:
+
+```
+pip-compile \
+   --generate-hashes \
+   --find-links=../shared_lib/dist \
+   --no-emit-index-url \
+   requirements.in
 ```
 
 ### Running the Report Runner API

@@ -1,0 +1,68 @@
+steps:
+# 1. Analysis Run Image
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-run:latest
+  - --dockerfile=deploy/containers/Dockerfile.analysis.run
+  - --context=dir:///workspace
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-'] # Start immediately
+
+# 2. Reporting API Image
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-report-api:latest
+  - --dockerfile=deploy/containers/Dockerfile.report.api
+  - --context=dir:///workspace
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-']
+
+# 3. WFE Image
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-wfe:latest
+  - --dockerfile=deploy/containers/Dockerfile.analysis.wfe
+  - --context=dir:///workspace
+  - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-']
+
+# 4. Poller Image
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-poller:latest
+  - --dockerfile=deploy/containers/Dockerfile.analysis.poller
+  - --context=dir:///workspace
+  - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-']
+
+# 5. Analysis DB Migrations
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-dbmigration:latest
+  - --dockerfile=deploy/containers/Dockerfile.analysis.dbmigrations
+  - --context=dir:///workspace
+  - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-']
+
+# 6. Report DB Migrations
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-report-dbmigration:latest
+  - --dockerfile=deploy/containers/Dockerfile.report.dbmigrations
+  - --context=dir:///workspace
+  - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-']
+
+options:
+  machineType: 'E2_HIGHCPU_32'
+  logging: CLOUD_LOGGING_ONLY

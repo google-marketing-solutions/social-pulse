@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """Module for sentiment report repo implementations in PostgresDB."""
+import logging
 from typing import Any
 
 from domain import sentiment_report
@@ -31,6 +32,9 @@ DATERANGEEND_COL_INDEX = 5
 STATUS_COL_INDEX = 6
 CREATEDON_COL_INDEX = 7
 LASTUPDATEDON_COL_INDEX = 8
+
+
+logger = logging.getLogger(__name__)
 
 
 class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
@@ -234,7 +238,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
 
     query = """
       SELECT
-          reportId
+          reportId,
           source,
           dataOutput,
           outputUri
