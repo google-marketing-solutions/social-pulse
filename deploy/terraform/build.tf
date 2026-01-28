@@ -46,6 +46,6 @@ resource "null_resource" "cloud_build_trigger" {
 
   depends_on = [
     google_project_iam_member.cloudbuild_artifact_writer,
-    google_storage_bucket_object.source_zip_object,
+    google_storage_bucket_object.source_zip_object
   ]
 }

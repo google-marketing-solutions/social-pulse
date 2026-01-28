@@ -32,6 +32,13 @@ module "sp_analysis_run" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+
+  depends_on = [google_service_account.social-pulse-sa,
+                google_vpc_access_connector.connector,
+                google_secret_manager_secret.postgres_username,
+                google_secret_manager_secret.postgres_password,
+                google_secret_manager_secret.postgres_host,
+                google_secret_manager_secret.youtube_api_key]
 }
 
 module "sp_reporting_api" {
@@ -58,6 +65,13 @@ module "sp_reporting_api" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+
+  depends_on = [google_service_account.social-pulse-sa,
+                google_vpc_access_connector.connector,
+                google_secret_manager_secret.postgres_username,
+                google_secret_manager_secret.postgres_password,
+                google_secret_manager_secret.postgres_host,
+                google_secret_manager_secret.youtube_api_key]
 }
 
 module "sp_analysis_poller" {
@@ -84,6 +98,13 @@ module "sp_analysis_poller" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+
+  depends_on = [google_service_account.social-pulse-sa,
+                google_vpc_access_connector.connector,
+                google_secret_manager_secret.postgres_username,
+                google_secret_manager_secret.postgres_password,
+                google_secret_manager_secret.postgres_host,
+                google_secret_manager_secret.youtube_api_key]
 }
 
 resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
@@ -92,6 +113,9 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
   service  = module.sp_analysis_poller.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.social-pulse-sa.email}"
+
+  depends_on = [google_service_account.social-pulse-sa,
+                module.sp_analysis_poller]
 }
 
 resource "google_cloud_scheduler_job" "poller_scheduler" {
@@ -112,9 +136,9 @@ resource "google_cloud_scheduler_job" "poller_scheduler" {
       audience              = module.sp_analysis_poller.uri
     }
   }
-  depends_on = [
-    module.sp_analysis_poller
-  ]
+  depends_on = [module.sp_analysis_poller,
+                google_cloud_run_service_iam_member.cloud_run_invoker_role,
+                google_service_account.social-pulse-sa]
 }
 
 module "sp_analysis_wfe" {
@@ -146,6 +170,13 @@ module "sp_analysis_wfe" {
   }
   max_retries = 1
   timeout     = "3600s"
+
+  depends_on = [google_service_account.social-pulse-sa,
+                google_vpc_access_connector.connector,
+                google_secret_manager_secret.postgres_username,
+                google_secret_manager_secret.postgres_password,
+                google_secret_manager_secret.postgres_host,
+                google_secret_manager_secret.youtube_api_key]
 }
 
 module "analysis_migration_job" {
@@ -168,6 +199,14 @@ module "analysis_migration_job" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+
+  depends_on = [google_service_account.social-pulse-sa,
+                google_vpc_access_connector.connector,
+                google_sql_database_instance.social_pulse_postgres_db_server,
+                google_secret_manager_secret.postgres_username,
+                google_secret_manager_secret.postgres_password,
+                google_secret_manager_secret.postgres_host,
+                google_secret_manager_secret.youtube_api_key]
 }
 
 module "report_migration_job" {
@@ -190,4 +229,12 @@ module "report_migration_job" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+
+  depends_on = [google_service_account.social-pulse-sa,
+                google_vpc_access_connector.connector,
+                google_sql_database_instance.social_pulse_postgres_db_server,
+                google_secret_manager_secret.postgres_username,
+                google_secret_manager_secret.postgres_password,
+                google_secret_manager_secret.postgres_host,
+                google_secret_manager_secret.youtube_api_key]
 }

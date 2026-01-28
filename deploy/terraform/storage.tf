@@ -12,12 +12,14 @@ resource "google_storage_bucket_object" "source_zip_object" {
   bucket       = google_storage_bucket.source_code_bucket.name
   source       = data.archive_file.source_zip.output_path
   content_type = "application/zip"
+
+  depends_on = [google_storage_bucket.source_code_bucket]
 }
 
 # Create an Artifact Registry repository for the container image
 resource "google_artifact_registry_repository" "my_repo" {
   project       = var.project_id
   location      = "us-central1"
-  repository_id = "cloud-run-repo"
+  repository_id = "sp-cloud-run-repo"
   format        = "DOCKER"
 }

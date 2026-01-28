@@ -27,6 +27,8 @@ resource "google_sql_user" "postgres_db_user" {
   name     = var.db_username
   instance = google_sql_database_instance.social_pulse_postgres_db_server.name
   password = var.db_password
+
+  depends_on = [google_sql_database_instance.social_pulse_postgres_db_server]
 }
 
 # -- Create the DB for the Analysis services
@@ -36,6 +38,8 @@ resource "google_sql_database" "analysis_db" {
   charset   = "UTF8"
   collation = "en_US.UTF8"
   project   = var.project_id
+
+  depends_on = [google_sql_database_instance.social_pulse_postgres_db_server]
 }
 
 # -- Create the DB for the Reporting services
@@ -45,6 +49,8 @@ resource "google_sql_database" "reporting_db" {
   charset   = "UTF8"
   collation = "en_US.UTF8"
   project   = var.project_id
+
+  depends_on = [google_sql_database_instance.social_pulse_postgres_db_server]
 }
 
 # BigQuery Dataset
@@ -60,7 +66,5 @@ resource "google_bigquery_dataset" "social_pulse_sentiment_dataset" {
     user_by_email = "social-pulse-sa@${var.project_id}.iam.gserviceaccount.com"
   }
 
-  depends_on = [
-    google_service_account.social-pulse-sa
-  ]
+  depends_on = [google_service_account.social-pulse-sa]
 }

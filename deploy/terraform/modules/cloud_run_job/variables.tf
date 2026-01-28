@@ -75,3 +75,15 @@ variable "deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "image_wait_retries" {
+  description = "How many times to poll Artifact Registry for the image before failing."
+  type        = number
+  default     = 30
+}
+
+variable "image_wait_sleep" {
+  description = "Seconds to sleep between image existence polls."
+  type        = number
+  default     = 5
+}

@@ -59,7 +59,8 @@ resource "google_secret_manager_secret_version" "postgres_host_version" {
   secret      = google_secret_manager_secret.postgres_host.id
   secret_data = google_sql_database_instance.social_pulse_postgres_db_server.private_ip_address
 
-  depends_on = [google_secret_manager_secret.postgres_host]
+  depends_on = [google_secret_manager_secret.postgres_host,
+                google_sql_database_instance.social_pulse_postgres_db_server]
 }
 
 resource "google_secret_manager_secret_version" "youtube_api_key_version" {
@@ -75,6 +76,8 @@ resource "google_secret_manager_secret_iam_member" "postgres_username_accessor" 
   secret_id = google_secret_manager_secret.postgres_username.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
+
+  depends_on = [google_service_account.social-pulse-sa]
 }
 
 resource "google_secret_manager_secret_iam_member" "postgres_password_accessor" {
@@ -82,6 +85,8 @@ resource "google_secret_manager_secret_iam_member" "postgres_password_accessor" 
   secret_id = google_secret_manager_secret.postgres_password.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
+
+  depends_on = [google_service_account.social-pulse-sa]
 }
 
 resource "google_secret_manager_secret_iam_member" "postgres_host_accessor" {
@@ -89,6 +94,8 @@ resource "google_secret_manager_secret_iam_member" "postgres_host_accessor" {
   secret_id = google_secret_manager_secret.postgres_host.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
+
+  depends_on = [google_service_account.social-pulse-sa]
 }
 
 resource "google_secret_manager_secret_iam_member" "youtube_api_key_accessor" {
@@ -96,4 +103,6 @@ resource "google_secret_manager_secret_iam_member" "youtube_api_key_accessor" {
   secret_id = google_secret_manager_secret.youtube_api_key.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
+
+  depends_on = [google_service_account.social-pulse-sa]
 }
