@@ -28,6 +28,7 @@ module "sp_analysis_run" {
     "CLOUD__PROJECT_ID"   = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
     "CLOUD__REGION"       = var.region
+    "CLOUD__DATASET_NAME" = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
@@ -35,10 +36,10 @@ module "sp_analysis_run" {
 
   depends_on = [google_service_account.social-pulse-sa,
                 google_vpc_access_connector.connector,
-                google_secret_manager_secret.postgres_username,
-                google_secret_manager_secret.postgres_password,
-                google_secret_manager_secret.postgres_host,
-                google_secret_manager_secret.youtube_api_key]
+                google_secret_manager_secret_version.postgres_username_version,
+                google_secret_manager_secret_version.postgres_password_version,
+                google_secret_manager_secret_version.postgres_host_version,
+                google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "sp_reporting_api" {
@@ -61,6 +62,7 @@ module "sp_reporting_api" {
     "CLOUD__PROJECT_ID"   = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
     "CLOUD__REGION"       = var.region
+    "CLOUD__DATASET_NAME" = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
@@ -68,10 +70,10 @@ module "sp_reporting_api" {
 
   depends_on = [google_service_account.social-pulse-sa,
                 google_vpc_access_connector.connector,
-                google_secret_manager_secret.postgres_username,
-                google_secret_manager_secret.postgres_password,
-                google_secret_manager_secret.postgres_host,
-                google_secret_manager_secret.youtube_api_key]
+                google_secret_manager_secret_version.postgres_username_version,
+                google_secret_manager_secret_version.postgres_password_version,
+                google_secret_manager_secret_version.postgres_host_version,
+                google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "sp_analysis_poller" {
@@ -94,6 +96,7 @@ module "sp_analysis_poller" {
     "CLOUD__PROJECT_ID"   = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
     "CLOUD__REGION"       = var.region
+    "CLOUD__DATASET_NAME" = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
@@ -101,10 +104,10 @@ module "sp_analysis_poller" {
 
   depends_on = [google_service_account.social-pulse-sa,
                 google_vpc_access_connector.connector,
-                google_secret_manager_secret.postgres_username,
-                google_secret_manager_secret.postgres_password,
-                google_secret_manager_secret.postgres_host,
-                google_secret_manager_secret.youtube_api_key]
+                google_secret_manager_secret_version.postgres_username_version,
+                google_secret_manager_secret_version.postgres_password_version,
+                google_secret_manager_secret_version.postgres_host_version,
+                google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
@@ -164,6 +167,7 @@ module "sp_analysis_wfe" {
     "CLOUD__PROJECT_ID"   = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
     "CLOUD__REGION"       = var.region
+    "CLOUD__DATASET_NAME" = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
@@ -173,10 +177,10 @@ module "sp_analysis_wfe" {
 
   depends_on = [google_service_account.social-pulse-sa,
                 google_vpc_access_connector.connector,
-                google_secret_manager_secret.postgres_username,
-                google_secret_manager_secret.postgres_password,
-                google_secret_manager_secret.postgres_host,
-                google_secret_manager_secret.youtube_api_key]
+                google_secret_manager_secret_version.postgres_username_version,
+                google_secret_manager_secret_version.postgres_password_version,
+                google_secret_manager_secret_version.postgres_host_version,
+                google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "analysis_migration_job" {
@@ -203,10 +207,10 @@ module "analysis_migration_job" {
   depends_on = [google_service_account.social-pulse-sa,
                 google_vpc_access_connector.connector,
                 google_sql_database_instance.social_pulse_postgres_db_server,
-                google_secret_manager_secret.postgres_username,
-                google_secret_manager_secret.postgres_password,
-                google_secret_manager_secret.postgres_host,
-                google_secret_manager_secret.youtube_api_key]
+                google_secret_manager_secret_version.postgres_username_version,
+                google_secret_manager_secret_version.postgres_password_version,
+                google_secret_manager_secret_version.postgres_host_version,
+                google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "report_migration_job" {
@@ -233,8 +237,8 @@ module "report_migration_job" {
   depends_on = [google_service_account.social-pulse-sa,
                 google_vpc_access_connector.connector,
                 google_sql_database_instance.social_pulse_postgres_db_server,
-                google_secret_manager_secret.postgres_username,
-                google_secret_manager_secret.postgres_password,
-                google_secret_manager_secret.postgres_host,
-                google_secret_manager_secret.youtube_api_key]
+                google_secret_manager_secret_version.postgres_username_version,
+                google_secret_manager_secret_version.postgres_password_version,
+                google_secret_manager_secret_version.postgres_host_version,
+                google_secret_manager_secret_version.youtube_api_key_version]
 }

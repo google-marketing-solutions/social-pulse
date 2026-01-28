@@ -95,7 +95,9 @@ resource "google_secret_manager_secret_iam_member" "postgres_host_accessor" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 
-  depends_on = [google_service_account.social-pulse-sa]
+  depends_on = [google_service_account.social-pulse-sa,
+                google_sql_database_instance.social_pulse_postgres_db_server,
+                google_secret_manager_secret_version.postgres_host_version]
 }
 
 resource "google_secret_manager_secret_iam_member" "youtube_api_key_accessor" {
