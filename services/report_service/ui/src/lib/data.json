@@ -1,5 +1,22 @@
 [
   {
+    "reportId": "34ebf88d-0632-4c4e-976b-265220c12920",
+    "topic": "AI native ERP",
+    "status": "NEW",
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "dataOutput": "SHARE_OF_VOICE",
+    "startTime": "2025-12-01T08:00:00Z",
+    "endTime": "2025-12-31T08:00:00Z",
+    "createdOn": "2026-01-28T09:27:28.352678",
+    "lastUpdatedOn": "2026-01-28T09:27:28.352687",
+    "includeJustifications": false,
+    "datasets": [],
+    "reportArtifactType": "BQ_TABLE",
+    "reportArtifactUri": null
+  },
+  {
     "reportId": "rep_1704702000000_abcdefg",
     "createdOn": "2026-01-08T12:00:00.000Z",
     "lastUpdatedOn": "2026-01-08T12:00:00.000Z",
@@ -308,5 +325,13 @@
     "datasets": [],
     "report_artifact_type": "BQ_TABLE",
     "report_artifact_uri": null
+  },
+  {
+    "topic": "Hinge app",
+    "status": "NEW",
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "datasets": []
   }
 ]

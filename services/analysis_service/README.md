@@ -2,19 +2,17 @@
 
 ### Setting up environment
 
-1. Using a Google Cloud Project, create a Big Query dataset called
-   "social_pulse_sentiment_data" and make sure you pick the specific location
-   of "us-central1" to host it.  This is required so that the Gemini models can
-   be found by Big Query.
+1. Create a virtual environmnet for the microservice.
 
-2. Create a virtual environmnet for the microservice.
+2. Install the required tooling packages.
+   ```
+   pip install -r base-tooling-requirements.txt
 
-3. Install the required packages.
+   ```
+3. Install the project specific packages
    ```
    pip install \
       -r requirements.txt \
-      -r requirements-dev.txt \
-      -r base-tooling-requirements.txt \
       --find-links=../shared_lib/dist
    ```
 

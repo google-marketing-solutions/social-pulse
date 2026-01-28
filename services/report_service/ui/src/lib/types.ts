@@ -91,7 +91,7 @@ export interface SentimentReport {
   endTime?: string; // ISO string
   includeJustifications?: boolean;
   topic?: string;
-  datasets: SentimentReportDataset[];
+  datasets?: SentimentReportDataset[];
   reportArtifactType: ReportArtifactType;
   reportArtifactUri?: string;
   analysisResults?: Record<SocialMediaSource, AnalysisResult>;

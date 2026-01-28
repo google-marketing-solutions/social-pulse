@@ -95,12 +95,6 @@ class _DbSettings(pydantic.BaseModel):
   name: str = pydantic.Field(default="social_pulse_db")
   password: str = pydantic.Field(repr=False)
 
-  @pydantic.model_validator(mode="before")
-  @classmethod
-  def print_db_settings(cls, data: Any) -> Any:
-    logging.debug("Database settings: %s", data)
-    return data
-
 
 class _CloudSettings(pydantic.BaseModel):
   """Cloud-related settings."""

@@ -1,100 +1,112 @@
-// Copyright 2025 Google LLC
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     https://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-import {createReport} from '@/lib/api';
+import {createReport, getReports} from './api';
 import {
-  SentimentReport as Report,
-  Status,
+  SentimentReport,
   SocialMediaSource,
   SentimentDataType,
   ReportArtifactType,
-} from '@/lib/types';
+} from './types';
 
-// Mock the global fetch function
+// Mock global fetch
 global.fetch = jest.fn();
 
-const mockReport: Report = {
-  reportId: '123',
-  // reportName: 'Test Report', // This property doesn't exist on SentimentReport
-  topic: 'Test Report',
-  sources: [SocialMediaSource.YOUTUBE_VIDEO],
-  dataOutput: SentimentDataType.SENTIMENT_SCORE,
-  startTime: '2024-01-01T00:00:00Z',
-  endTime: '2024-01-02T00:00:00Z',
-  status: Status.NEW,
-  reportArtifactType: ReportArtifactType.BQ_TABLE,
-  reportArtifactUri: '',
-  createdOn: '2024-01-01T00:00:00Z',
-  datasets: [],
-};
-
-describe('createReport', () => {
+describe('api.ts', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.NEXT_PUBLIC_REPORTING_API_URL = 'http://test-api';
+    jest.resetAllMocks();
+    process.env.NEXT_PUBLIC_REPORTING_API_URL = 'http://localhost:8000';
   });
 
-  it('should create a report successfully', async () => {
-    /**
-     * Tests successful report creation.
-     *
-     * Given valid report data,
-     * When createReport is called,
-     * Then a POST request is made to the correct API endpoint
-     * and the function returns the created report data.
-     */
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockReport,
+  describe('getReports', () => {
+    it('should fetch reports successfully', async () => {
+      const mockReports: SentimentReport[] = [
+        {
+          reportId: '123',
+          topic: 'Test Topic',
+          sources: [SocialMediaSource.REDDIT_POST],
+          dataOutput: SentimentDataType.SENTIMENT_SCORE,
+          datasets: [],
+          reportArtifactType: ReportArtifactType.BQ_TABLE,
+        },
+      ];
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockReports,
+      });
+
+      const result = await getReports();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/reports',
+        {
+          cache: 'no-store',
+        },
+      );
+      expect(result).toEqual(mockReports);
     });
 
-    const result = await createReport(mockReport);
+    it('should throw error when fetch fails', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+      });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith('http://test-api/api/report', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mockReport),
+      await expect(getReports()).rejects.toThrow('Failed to fetch reports');
     });
-    expect(result).toEqual(mockReport);
   });
 
-  it('should throw an error if the API call fails', async () => {
-    /**
-     * Tests report creation failure.
-     *
-     * Given valid report data,
-     * When createReport is called and the API returns an error,
-     * Then an error is thrown.
-     */
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: false,
+  describe('createReport', () => {
+    it('should create a report successfully', async () => {
+      const mockReport: SentimentReport = {
+        reportId: '456',
+        topic: 'New Topic',
+        sources: [SocialMediaSource.YOUTUBE_VIDEO],
+        dataOutput: SentimentDataType.SENTIMENT_SCORE,
+        datasets: [],
+        reportArtifactType: ReportArtifactType.BQ_TABLE,
+      };
+      const reportData = {
+        topic: 'New Topic',
+        sources: [SocialMediaSource.YOUTUBE_VIDEO],
+        dataOutput: SentimentDataType.SENTIMENT_SCORE,
+        reportArtifactType: ReportArtifactType.BQ_TABLE,
+      };
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockReport,
+      });
+
+      const result = await createReport(reportData);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:8000/api/report',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(reportData),
+        },
+      );
+      expect(result).toEqual(mockReport);
     });
 
-    await expect(createReport(mockReport)).rejects.toThrow(
-      'Failed to create report',
-    );
+    it('should throw error when createReport fetch fails', async () => {
+      const reportData = {
+        topic: 'New Topic',
+        sources: [SocialMediaSource.YOUTUBE_VIDEO],
+        dataOutput: SentimentDataType.SENTIMENT_SCORE,
+        reportArtifactType: ReportArtifactType.BQ_TABLE,
+      };
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch).toHaveBeenCalledWith('http://test-api/api/report', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(mockReport),
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+      });
+
+      await expect(createReport(reportData)).rejects.toThrow(
+        'Failed to create report',
+      );
     });
   });
 });

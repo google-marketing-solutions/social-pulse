@@ -69,7 +69,18 @@ and analyzed.
 
 ## Architecture
 
-### Overview
+### Concepts and Entities
+
+#### Reports, Workflow Executions and Tasks
+The core entity in the solution is a Report, representing a complete analysis of social media content to extract sentiment trends.
+A Report is composed of a series of Workflow Executions, each one representing the work required to generate a sub-set of sentiment data required by a Report.  Sentiment analysis data is divided by 1) social media content types, and 2) topics.  For example, if a Report is looking to compare sentiment between Product A (Brand A) and Product B (Brand B) by analyzing YT videos, YT comments and Reddit posts, then that would result in 6 Workflow executions (2 topics x 3 sources).
+Finally, Workflow Executions are composed of Tasks, discrete units of work that can be executed in a stateless manner, and are chained together.  Each task is able to access the data outputted by its preceding Task, where it can process/transform it, and then persist it for use by the next Task.
+
+#### Micro-services
+When looking to design the solution, the team decided to frame it as a software-as-a-service (SAAS) application, where the functionalities of the solution were broken up into micro-services.   As such, the solution is broken up into 2 current micro-services, with 1 future service being planned:
+
+1. **Reporting Service.**  Responsible for managing report creation, scheduling analysis and packaging results for export.
+2. **Analysis Service.**  Responsible for determining how many Workflow Executions are required to build the report, what tasks need to be executed in each Workflow Execution, and track the status of all running Workflow Executions.
 
 
 ### Sequence Diagram - Running Reports

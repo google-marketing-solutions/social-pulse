@@ -51,6 +51,7 @@ class SentimentReportsSortBy(enum.StrEnum):
   TOPIC = "topic"
   START_DATE = "start_date"
   END_DATE = "end_date"
+  CREATED_ON = "created_on"
 
 
 class SentimentReportSearchCriteria:
@@ -60,10 +61,17 @@ class SentimentReportSearchCriteria:
     status: The status of the sentiment report to filter by.
     topic: The topic of the sentiment report to filter by.
   """
-  status: report_msg.Status
-  topic_contains: str
-  sort_by: SentimentReportsSortBy
-  sort_ascending: bool = True
+  def __init__(
+       self,
+      status: report_msg.Status = None,
+      topic_contains: str = "",
+      sort_by: SentimentReportsSortBy = SentimentReportsSortBy.CREATED_ON,
+      sort_ascending: bool = True
+  ):
+    self.status = status
+    self.topic_contains = topic_contains
+    self.sort_by = sort_by
+    self.sort_ascending = sort_ascending
 
 
 class SentimentReportSearchRepo(abc.ABC):

@@ -4,6 +4,7 @@ dist/
 .vscode
 .coverage
 **/*.log
+build/
 
 # Ignore protobuf generated Python files
 **/*_pb2.py

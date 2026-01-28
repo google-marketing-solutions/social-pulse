@@ -6,7 +6,7 @@ import {revalidatePath} from 'next/cache';
 import {z} from 'zod';
 
 import {createReportSchema} from './schema';
-import {SentimentReport, SocialMediaSource} from './types';
+import {SentimentReport, SocialMediaSource, ReportArtifactType} from './types';
 
 type CreateReportState = {
   errors?: z.inferFlattenedErrors<typeof createReportSchema>['fieldErrors'];
@@ -14,7 +14,10 @@ type CreateReportState = {
   success?: boolean;
 };
 
-import {createReport as apiCreateReport} from './api';
+import {
+  createReport as apiCreateReport,
+  getReports as apiGetReports,
+} from './api';
 
 const dataFilePath = path.join(process.cwd(), 'src', 'lib', 'data.json');
 
@@ -57,10 +60,7 @@ async function writeData(data: SentimentReport[]) {
  * @return A promise that resolves to an array of reports.
  */
 export async function getReports(): Promise<SentimentReport[]> {
-  // TODO: Replace this with your actual database/API call to fetch all reports.
-  // TODO: Add unit tests verifying the data returned by the API call is
-  //       properly loaded into data objects.
-  return await readData();
+  return await apiGetReports();
 }
 
 /**
@@ -112,13 +112,17 @@ export async function createReport(
   const payload = {
     topic,
     sources: sources as SocialMediaSource[],
-    data_output: dataOutput,
-    start_time: dateRange?.from
+    dataOutput,
+    startTime: dateRange?.from
       ? new Date(dateRange.from).toISOString()
       : undefined,
-    end_time: dateRange?.to ? new Date(dateRange.to).toISOString() : undefined,
+    endTime: dateRange?.to ? new Date(dateRange.to).toISOString() : undefined,
     // Defaulting to false for now, as it's not in the form
-    include_justifications: false,
+    includeJustifications: false,
+    // Defaulting to BQ_TABLE for now, as it's not in the form
+    reportArtifactType: ReportArtifactType.BQ_TABLE,
+    // Defaulting to empty array for now, as it's not in the form
+    datasets: [],
   };
 
   try {

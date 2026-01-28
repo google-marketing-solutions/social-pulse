@@ -71,7 +71,7 @@ export function ReportsList({reports}: {reports: ReportForList[]}) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[150px]">Report ID</TableHead>
+              {/* <TableHead className="w-[150px]">Report ID</TableHead> */}
               <TableHead className="w-[200px]">Topic</TableHead>
               <TableHead>Analysis</TableHead>
               <TableHead>Sources</TableHead>
@@ -98,9 +98,9 @@ export function ReportsList({reports}: {reports: ReportForList[]}) {
                       : 'View pending report'
                 }
               >
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                {/* <TableCell className="font-mono text-xs text-muted-foreground">
                   {report.reportId}
-                </TableCell>
+                </TableCell> */}
                 <TableCell className="font-medium">{report.topic}</TableCell>
                 <TableCell className="capitalize text-muted-foreground">
                   {report.dataOutput?.replace(/_/g, ' ')}

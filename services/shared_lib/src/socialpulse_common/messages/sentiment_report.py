@@ -18,6 +18,7 @@ import enum
 import typing
 
 import pydantic
+from pydantic import alias_generators
 import socialpulse_common.messages.common as msg_common
 
 
@@ -39,7 +40,11 @@ class ReportArtifactType(enum.StrEnum):
 
 class SentimentReportDataset(pydantic.BaseModel):
   """Represents the sentiment data sets created to produce a report."""
-  model_config = pydantic.ConfigDict(use_enum_names=True)
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
 
   report_id: typing.Optional[str] = None
   source: typing.Optional[msg_common.SocialMediaSource] = None
@@ -54,7 +59,11 @@ class SentimentReport(pydantic.BaseModel):
   with each workflow analyzing sentiment of a certain topic, from a
   certain source, within a certain timeframe.
   """
-  model_config = pydantic.ConfigDict(use_enum_names=True)
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
 
   # Unique identifier for this report.
   report_id: typing.Optional[str] = None

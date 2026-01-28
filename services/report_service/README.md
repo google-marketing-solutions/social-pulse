@@ -1,67 +1,23 @@
-## Architecture Overview
-
-### Sequence/Status Diagram
-+------------------+             +------------------+
-|  Report Service  |             | Analysis Service |
-|                  |             |                  |
-+------------------+             +------------------+     +---------------+        +---------------+
-         |                                |               | Workflow Exec |        | Workflow Exec |
-         |                                |               |      1        |  ...   |      N        |
-         |      create_dataset            |               +---------------+        +---------------+
-         |------------------------------->|                      |                        |
-         |[STATUS = COLLECTING_DATA]      |                      |                        |
-         |                                |--------------------->|                        |
-         |                                |<---------------------|                        |
-         |                                |                      |                        |
-         |                                |---------------------------------------------->|
-         |                                |<----------------------------------------------|
-         |                                |                      |                        |
-         |      mark_data_collected       |                      |                        |
-         |<-------------------------------|                      *                        *     +------------------+
-         |[STATUS = DATA_COLLECTED]       |                                                     | RptSrvc:         |
-         |                                |                                                     | Report Generator |
-         |                                |                                                     +-   --------------+
-         |                                |       generate_report                                         |
-         |----------------------------------------------------------------------------------------------->|
-         |[STATUS = GENERATING_REPORT]    |                                                               |
-         |                                |                                                               |
-         |                                |       mark_report_completed                                   |
-         |<-----------------------------------------------------------------------------------------------|
-         |[STATUS = COMPLETD]             |                                                               |
-         |                                |                                                               |
-         |                                |                                                               |
-         |                                |                                                               *
-         *                                *
-
 ## Local Developement
 
 ### Setting up environment
 
 1. Create a virtual environmnet for the microservice.
 
-2. Install the required packages.
+2. Install the required tooling packages.
+   ```
+   pip install -r base-tooling-requirements.txt
+
+   ```
+3. Install the project specific packages
    ```
    pip install \
       -r requirements.txt \
-      -r requirements-dev.txt \
-      -r base-tooling-requirements.txt \
       --find-links=../shared_lib/dist
    ```
 
-3. Create a .env file in the microservice root directory, and copy and paste
-   the following into the file.  Then provide your values as instructed below.
-   ```
-   # Cloud Settings
-   CLOUD__PROJECT_ID=[Your GCP project ID]
-
-   # API Settings
-   API__YOUTUBE__KEY=[Your API key, from your GCP project]
-
-   # Database Settings
-   DB__PASSWORD=[Your DB password]
-   DB__NAME=social_pulse_reporting_db
-   ```
-
+4. Copy the ".env.template" file to a .env file and provide the values as
+   needed.
 
 ### Setting up the reporting service PostgresDB
 
