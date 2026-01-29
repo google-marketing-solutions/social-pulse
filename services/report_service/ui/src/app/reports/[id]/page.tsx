@@ -49,7 +49,7 @@ const PendingState = ({status}: {status?: Status}) => (
 export default async function ReportDetailPage({
   params,
 }: {
-  params: {id: string};
+  params: Promise<{id: string}>;
 }) {
   const resolvedParams = await params;
   const reportId = resolvedParams.id;
@@ -57,6 +57,7 @@ export default async function ReportDetailPage({
 
   if (!report) {
     notFound();
+    return;
   }
 
   const renderCharts = () => {

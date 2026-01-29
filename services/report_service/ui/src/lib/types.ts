@@ -94,7 +94,7 @@ export interface SentimentReport {
   datasets?: SentimentReportDataset[];
   reportArtifactType: ReportArtifactType;
   reportArtifactUri?: string;
-  analysisResults?: Record<SocialMediaSource, AnalysisResult>;
+  analysisResults?: Partial<Record<SocialMediaSource, AnalysisResult>>;
 }
 
 export type ReportForList = Omit<SentimentReport, 'datasets'>;

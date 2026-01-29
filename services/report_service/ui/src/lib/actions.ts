@@ -17,6 +17,7 @@ type CreateReportState = {
 import {
   createReport as apiCreateReport,
   getReports as apiGetReports,
+  getReportById as apiGetReportsById,
 } from './api';
 
 const dataFilePath = path.join(process.cwd(), 'src', 'lib', 'data.json');
@@ -71,13 +72,13 @@ export async function getReports(): Promise<SentimentReport[]> {
 export async function getReportById(
   id: string,
 ): Promise<SentimentReport | undefined> {
-  // TODO: Replace this with your actual database/API call to fetch a single
-  //       report by its ID.
-  // TODO: Add unit tests verifying the data returned by the API call is
-  //       properly loaded into data objects.
-  const reports = await readData();
-  const report = reports.find(report => report.reportId === id);
-  return report;
+  try {
+    const report = await apiGetReportsById(id);
+    return report;
+  } catch (error) {
+    console.error(`Failed to fetch report with id ${id}:`, error);
+    return undefined;
+  }
 }
 
 /**

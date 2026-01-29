@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {SentimentReport as Report, SentimentReportDataset} from '@/lib/types';
+import {SentimentReport as Report} from '@/lib/types';
 
 /**
  * Creates a new sentiment report by making a POST request to the backend API.
@@ -53,6 +53,29 @@ export async function getReports(): Promise<Report[]> {
 
   if (!response.ok) {
     throw new Error('Failed to fetch reports');
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Fetches a single report by ID.
+ *
+ * @param id The ID of the report to fetch.
+ * @return A promise that resolves to the report.
+ */
+export async function getReportById(id: string): Promise<Report> {
+  const baseUrl = process.env.NEXT_PUBLIC_REPORTING_API_URL;
+  const response = await fetch(`${baseUrl}/api/report/${id}`, {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Report not found');
+    }
+    throw new Error('Failed to fetch report');
   }
 
   const data = await response.json();

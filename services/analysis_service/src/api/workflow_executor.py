@@ -139,11 +139,13 @@ def main():
     logger.error("An execution ID was not provided")
     raise ValueError("No execution ID provided to the executor.")
 
+  execution_id = sys.argv[1]
+  runner = None
+
   try:
     _bootstrap_services()
 
     runner = PipelineRunner()
-    execution_id = sys.argv[1]
     run_result = runner.run(execution_id)
 
     if run_result.status not in (

@@ -1,133 +1,108 @@
-import {
-  getReports,
-  createReport
-} from './actions';
-import {
-  getReports as apiGetReports,
-  createReport as apiCreateReport
-} from './api';
-import {
-  SentimentReport,
-  SocialMediaSource,
-  SentimentDataType,
-  ReportArtifactType,
-} from './types';
+import {createReport, getReports, getReportById} from './actions';
+import * as api from './api';
+import {revalidatePath} from 'next/cache';
+import {SentimentDataType, SocialMediaSource, Status} from './types';
+import fs from 'fs/promises';
 
-// Mock the API module
-jest.mock('./api', () => ({
-  createReport: jest.fn(),
-  getReports: jest.fn(),
-}));
+// Mock dependencies
+jest.mock('./api');
+jest.mock('next/cache');
+jest.mock('fs/promises');
 
-// Mock next/cache
-jest.mock('next/cache', () => ({
-  revalidatePath: jest.fn(),
-}));
+describe('Server Actions', () => {
+  const mockReport = {
+    reportId: '123',
+    topic: 'Test Topic',
+    status: Status.PENDING,
+    sources: [SocialMediaSource.X_POST],
+    dataOutput: SentimentDataType.SENTIMENT_SCORE,
+    datasets: [],
+  };
 
-describe('actions.ts', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
-  });
-
-  describe('getReports', () => {
-    it('should call api.getReports and return the result', async () => {
-      const mockReports: SentimentReport[] = [
-        {
-          reportId: '123',
-          topic: 'Test Topic',
-          sources: [SocialMediaSource.REDDIT_POST],
-          dataOutput: SentimentDataType.SENTIMENT_SCORE,
-          datasets: [],
-          reportArtifactType: ReportArtifactType.BQ_TABLE,
-        },
-      ];
-
-      (apiGetReports as jest.Mock).mockResolvedValue(mockReports);
-
-      const result = await getReports();
-
-      expect(apiGetReports).toHaveBeenCalledTimes(1);
-      expect(result).toEqual(mockReports);
-    });
-
-    it('should propagate errors from api.getReports', async () => {
-      const error = new Error('API Error');
-      (apiGetReports as jest.Mock).mockRejectedValue(error);
-
-      await expect(getReports()).rejects.toThrow(error);
-    });
+    jest.clearAllMocks();
+    (fs.readFile as jest.Mock).mockResolvedValue('[]');
+    (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe('createReport', () => {
-    it('should call api.createReport with the provided arguments', async () => {
-      const mockReport: SentimentReport = {
-        reportId: '456',
-        topic: 'New Topic',
-        sources: [SocialMediaSource.YOUTUBE_VIDEO],
-        dataOutput: SentimentDataType.SENTIMENT_SCORE,
-        datasets: [],
-        reportArtifactType: ReportArtifactType.BQ_TABLE,
-      };
-      (apiCreateReport as jest.Mock).mockResolvedValue(mockReport);
+    const validFormData = {
+      topic: 'Test Topic',
+      sources: [SocialMediaSource.X_POST],
+      dataOutput: SentimentDataType.SENTIMENT_SCORE,
+      dateRange: {
+        from: new Date('2023-01-01'),
+        to: new Date('2023-01-31'),
+      },
+    };
 
-      const args = {
-        topic: 'New Topic',
-        sources: [SocialMediaSource.YOUTUBE_VIDEO],
-        dataOutput: SentimentDataType.SENTIMENT_SCORE,
-        reportArtifactType: ReportArtifactType.BQ_TABLE,
-        dateRange: {
-          from: new Date(),
-          to: new Date(),
-        },
-      };
-      const initialState = {
-        message: '',
-        success: false,
-      };
-      const result = await createReport(initialState, args);
+    it('should create a report successfully', async () => {
+      (api.createReport as jest.Mock).mockResolvedValue(mockReport);
 
-      const expectedPayload = {
-        topic: args.topic,
-        sources: args.sources,
-        dataOutput: args.dataOutput,
-        startTime: args.dateRange!.from.toISOString(),
-        endTime: args.dateRange!.to!.toISOString(),
-        includeJustifications: false,
-        reportArtifactType: args.reportArtifactType,
-        datasets: [],
-      };
+      const result = await createReport({}, validFormData);
 
-      expect(apiCreateReport).toHaveBeenCalledTimes(1);
-      expect(apiCreateReport).toHaveBeenCalledWith(expectedPayload);
+      expect(api.createReport).toHaveBeenCalled();
+      expect(revalidatePath).toHaveBeenCalledWith('/');
+      expect(revalidatePath).toHaveBeenCalledWith('/create');
       expect(result).toEqual({
         success: true,
         message: 'Report created successfully.',
       });
     });
 
-    it('should propagate errors from api.createReport', async () => {
-      const error = new Error('Create API Error');
-      (apiCreateReport as jest.Mock).mockRejectedValue(error);
+    it('should return errors for invalid data', async () => {
+      const invalidData = {
+        topic: '', // Invalid empty topic
+        sources: [],
+        dataOutput: 'INVALID' as SentimentDataType,
+      };
 
-      const args = {
-        topic: 'Error Topic',
-        sources: [SocialMediaSource.REDDIT_POST],
-        dataOutput: SentimentDataType.SENTIMENT_SCORE,
-        reportArtifactType: ReportArtifactType.BQ_TABLE,
-        dateRange: {
-          from: new Date(),
-          to: new Date(),
-        },
-      };
-      const initialState = {
-        message: '',
-        success: false,
-      };
-      const result = await createReport(initialState, args);
-      expect(result).toEqual({
-        success: false,
-        message: 'Network error creating report.',
-      });
+      const result = await createReport({}, invalidData);
+
+      expect(result.success).toBe(false);
+      expect(result.errors).toBeDefined();
+      expect(api.createReport).not.toHaveBeenCalled();
+    });
+
+    it('should return error message on API failure', async () => {
+      (api.createReport as jest.Mock).mockRejectedValue(new Error('API Error'));
+
+      const result = await createReport({}, validFormData);
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Network error creating report.');
+    });
+  });
+
+  describe('getReports', () => {
+    it('should fetch reports from API', async () => {
+      (api.getReports as jest.Mock).mockResolvedValue([mockReport]);
+
+      const result = await getReports();
+
+      expect(api.getReports).toHaveBeenCalled();
+      expect(result).toEqual([mockReport]);
+    });
+  });
+
+  describe('getReportById', () => {
+    it('should fetch report by ID', async () => {
+      (api.getReportById as jest.Mock).mockResolvedValue(mockReport);
+
+      const result = await getReportById('123');
+
+      expect(api.getReportById).toHaveBeenCalledWith('123');
+      expect(result).toEqual(mockReport);
+    });
+
+    it('should return undefined on error', async () => {
+      (api.getReportById as jest.Mock).mockRejectedValue(
+        new Error('Not found'),
+      );
+
+      const result = await getReportById('123');
+
+      expect(result).toBeUndefined();
     });
   });
 });

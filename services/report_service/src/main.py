@@ -26,6 +26,8 @@ from infrastructure.persistence.postgresdb import sentiment_report_search_repo
 from socialpulse_common import config
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import postgresdb_client as client
+from socialpulse_common.persistence import bigquery_client
+from infrastructure.bigquery.dataset import bq_dataset_repo
 
 
 log_level = os.environ.get("LOG_LEVEL", "DEBUG").upper()
@@ -63,6 +65,11 @@ class AppConfig:
     )
     self.wfe_service = wfe_service_lib.HttpEndpoingWorkflowExecutionService(
         settings.cloud.workflow_runner_api_url
+    )
+
+    self.bq_client = bigquery_client.BigQueryClient()
+    self.dataset_repository = bq_dataset_repo.BigQueryDatasetRepo(
+        self.bq_client
     )
 
 
@@ -151,10 +158,39 @@ def create_report(
     ) from e
 
 
+def _entity_to_message(
+    entity: sentiment_report.SentimentReportEntity,
+) -> report_msg.SentimentReport:
+  """Converts a SentimentReportEntity to a SentimentReport message."""
+  return report_msg.SentimentReport(
+      report_id=entity.entity_id,
+      created_on=entity.created,
+      last_updated_on=entity.last_updated,
+      topic=entity.topic,
+      status=entity.status,
+      sources=entity.sources,
+      data_output=entity.data_outputs[0] if entity.data_outputs else None,
+      start_time=entity.start_time,
+      end_time=entity.end_time,
+      include_justifications=entity.include_justifications,
+      datasets=entity.datasets,
+      # These fields might need to be populated if available in entity
+      report_artifact_type=getattr(
+          entity,
+          "report_artifact_type",
+          report_msg.ReportArtifactType.BQ_TABLE,
+      ),
+      report_artifact_uri=getattr(entity, "report_artifact_uri", None),
+      # Manually attach analysis results if they were dynamically added to
+      # entity
+      analysis_results=getattr(entity, "analysis_results", None),
+  )
+
+
 @app.post("/api/{report_id}/mark_as_completed")
 def mark_as_completed(
     report_id: str, datasets: list[report_msg.SentimentReportDataset]
-) -> report_msg.SentimentReport:
+):
   """Marks a sentiment report as completed and associates datasets with it.
 
   Args:
@@ -169,25 +205,6 @@ def mark_as_completed(
     report_entity.mark_as_completed(datasets)
     app_config.sentiment_report_repository.persist_report(report_entity)
 
-    # We need to convert Entity back to Message to return it
-    # But since mark_as_completed returns report_msg.SentimentReport in signature,
-    # we should probably do a better mapping.
-    # For now, let's assume we just return the Entity (which might be pydantic compatible? NO)
-    # The original code returned report_entity but typed as report_msg.SentimentReport?
-    # Wait, Entity is NOT a Pydantic model. It's a Python class?
-    # Let's check `src/domain/sentiment_report.py`.
-
-    # Existing code: return report_entity.
-    # If Entity is not Pydantic model, FastAPI might struggle or standard dataclass.
-    # Re-reading Step 9: `return report_entity`.
-    # And signature says `-> report_msg.SentimentReport`.
-    # This implies `SentimentReportEntity` might be compatible or FastAPI converts it?
-    # Or previous code was broken/loose?
-    # I'll stick to what was there or leave it be if I'm not touching it.
-    # But I am touching `create_report`?
-    # I touched `create_report` to fix `data_output` list wrapping.
-
-    return report_entity
   except Exception as e:  # pylint: disable=broad-except
     logger.exception("Error occurred, will return 500 error:")
 
@@ -203,11 +220,26 @@ def get_report(report_id: str) -> report_msg.SentimentReport:
     report_entity = app_config.sentiment_report_repository.load_report(
         report_id
     )
-    # Again, returning Entity where Message is expected.
-    # If the Entity has the same attributes, Pydantic (v2 in standard mode) might validate it from attributes.
-    # But with alias generator involved now, we might need to be careful.
-    # I will leave get_report as is for now to avoid scope creep, but ideally we should map it.
-    return report_entity
+
+    # If report is completed, try to fetch analysis results from BigQuery
+    if (
+        report_entity.status == report_msg.Status.COMPLETED
+        and report_entity.datasets
+    ):
+      try:
+        report_entity.analysis_results = (
+            app_config.dataset_repository.get_analysis_results(
+                report_entity.datasets
+            )
+        )
+      except Exception as e:
+        logger.warning(
+            f"Failed to fetch analysis results for report {report_id}: {e}"
+        )
+        # Fail gracefully? Or partial result?
+        # Proceeding with valid report entity but potentially missing results.
+
+    return _entity_to_message(report_entity)
   except ValueError as e:
     raise fastapi.HTTPException(
         status_code=fastapi.status.HTTP_404_NOT_FOUND, detail=str(e)

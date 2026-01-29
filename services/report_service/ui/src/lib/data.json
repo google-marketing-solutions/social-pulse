@@ -1,5 +1,23 @@
 [
   {
+    "reportId": "8289fe2e-258a-49a5-8a81-5110aa45b23a",
+    "createdOn": "2026-01-29T15:15:30.725177",
+    "lastUpdatedOn": "2026-01-29T15:15:30.725184",
+    "status": "NEW",
+    "sources": [
+      "YOUTUBE_VIDEO"
+    ],
+    "dataOutput": "SENTIMENT_SCORE",
+    "startTime": "2025-01-01T08:00:00Z",
+    "endTime": "2025-12-31T08:00:00Z",
+    "includeJustifications": false,
+    "topic": "SAP Joule",
+    "datasets": [],
+    "reportArtifactType": "BQ_TABLE",
+    "reportArtifactUri": null,
+    "analysisResults": null
+  },
+  {
     "reportId": "34ebf88d-0632-4c4e-976b-265220c12920",
     "topic": "AI native ERP",
     "status": "NEW",
