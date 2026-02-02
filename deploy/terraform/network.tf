@@ -31,8 +31,8 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_alloc.name]
 
-  depends_on              = [google_compute_global_address.private_ip_alloc,
-                             google_compute_network.vpc_network]
+  depends_on = [google_compute_global_address.private_ip_alloc,
+  google_compute_network.vpc_network]
 }
 
 resource "google_vpc_access_connector" "connector" {

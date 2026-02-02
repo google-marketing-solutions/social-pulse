@@ -44,37 +44,4 @@ resource "google_cloud_run_v2_job" "default" {
       }
     }
   }
-
-  depends_on = [null_resource.job_dep]
 }
-
-resource "null_resource" "wait_for_image" {
-  provisioner "local-exec" {
-    command = <<EOT
-#!/usr/bin/env bash
-set -e
-IMAGE="${var.image}"
-PROJECT="${var.project_id}"
-TRIES=${var.image_wait_retries}
-SLEEP=${var.image_wait_sleep}
-i=0
-  while [ $i -lt $TRIES ]; do
-  if gcloud artifacts docker images describe "$${IMAGE}" --project="$${PROJECT}" >/dev/null 2>&1; then
-    echo "Image $${IMAGE} found."
-    exit 0
-  fi
-  i=$((i+1))
-  echo "Waiting for image $${IMAGE}... retry $i/$TRIES"
-  sleep $SLEEP
-done
-echo "Image $${IMAGE} not found after $${TRIES} attempts." >&2
-exit 1
-EOT
-  }
-}
-
-/* Make job creation wait for image */
-resource "null_resource" "job_dep" {
-  depends_on = [null_resource.wait_for_image]
-}
-

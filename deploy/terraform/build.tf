@@ -21,7 +21,7 @@ data "archive_file" "source_zip" {
     ".terraform.lock.hcl",
     "social_pulse.zip",
     "deploy/terraform/**", # Exclude terraform files
-    ".git/**"             # Exclude git directory
+    ".git/**"              # Exclude git directory
   ]
 }
 
@@ -34,10 +34,10 @@ resource "null_resource" "cloud_build_trigger" {
   }
 
   provisioner "local-exec" {
-    command = <<EOT
+    command     = <<EOT
       gcloud builds submit \
         --config ../../deploy/cloudbuild.yaml \
-        --substitutions=_REGION=${var.region},_REPOSITORY=${google_artifact_registry_repository.my_repo.repository_id} \
+        --substitutions=_REGION=${var.region},_REPOSITORY=${google_artifact_registry_repository.my_repo.repository_id},_ARTIFACT_REGISTRY_URL=https://${var.region}-python.pkg.dev/${var.project_id}/${google_artifact_registry_repository.python_repo.repository_id}/simple/ \
         --project=${var.project_id} \
         ${data.archive_file.source_zip.output_path}
     EOT

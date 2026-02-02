@@ -60,7 +60,7 @@ resource "google_secret_manager_secret_version" "postgres_host_version" {
   secret_data = google_sql_database_instance.social_pulse_postgres_db_server.private_ip_address
 
   depends_on = [google_secret_manager_secret.postgres_host,
-                google_sql_database_instance.social_pulse_postgres_db_server]
+  google_sql_database_instance.social_pulse_postgres_db_server]
 }
 
 resource "google_secret_manager_secret_version" "youtube_api_key_version" {
@@ -96,8 +96,8 @@ resource "google_secret_manager_secret_iam_member" "postgres_host_accessor" {
   member    = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_sql_database_instance.social_pulse_postgres_db_server,
-                google_secret_manager_secret_version.postgres_host_version]
+    google_sql_database_instance.social_pulse_postgres_db_server,
+  google_secret_manager_secret_version.postgres_host_version]
 }
 
 resource "google_secret_manager_secret_iam_member" "youtube_api_key_accessor" {

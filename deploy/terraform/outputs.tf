@@ -31,3 +31,8 @@ output "pubsub_topic_name" {
 
   depends_on = [google_pubsub_topic.workflow_executor_topic]
 }
+
+output "python_repository_url" {
+  description = "The URL of the Python Artifact Registry repository."
+  value       = "https://${var.region}-python.pkg.dev/${var.project_id}/${google_artifact_registry_repository.python_repo.repository_id}/simple/"
+}

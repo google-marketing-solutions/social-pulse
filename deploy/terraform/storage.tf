@@ -23,3 +23,11 @@ resource "google_artifact_registry_repository" "my_repo" {
   repository_id = "sp-cloud-run-repo"
   format        = "DOCKER"
 }
+
+# Create an Artifact Registry repository for Python packages
+resource "google_artifact_registry_repository" "python_repo" {
+  project       = var.project_id
+  location      = "us-central1"
+  repository_id = "sp-python-repo"
+  format        = "PYTHON"
+}

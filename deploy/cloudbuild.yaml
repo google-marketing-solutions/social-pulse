@@ -5,6 +5,7 @@ steps:
   - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-run:latest
   - --dockerfile=deploy/containers/Dockerfile.analysis.run
   - --context=dir:///workspace
+  - --build-arg=ARTIFACT_REGISTRY_URL=${_ARTIFACT_REGISTRY_URL}
   - --cache=true
   - --cache-ttl=24h
   waitFor: ['-'] # Start immediately
@@ -15,6 +16,7 @@ steps:
   - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-report-api:latest
   - --dockerfile=deploy/containers/Dockerfile.report.api
   - --context=dir:///workspace
+  - --build-arg=ARTIFACT_REGISTRY_URL=${_ARTIFACT_REGISTRY_URL}
   - --cache=true
   - --cache-ttl=24h
   waitFor: ['-']
@@ -26,6 +28,7 @@ steps:
   - --dockerfile=deploy/containers/Dockerfile.analysis.wfe
   - --context=dir:///workspace
   - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --build-arg=ARTIFACT_REGISTRY_URL=${_ARTIFACT_REGISTRY_URL}
   - --cache=true
   - --cache-ttl=24h
   waitFor: ['-']
@@ -37,6 +40,7 @@ steps:
   - --dockerfile=deploy/containers/Dockerfile.analysis.poller
   - --context=dir:///workspace
   - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --build-arg=ARTIFACT_REGISTRY_URL=${_ARTIFACT_REGISTRY_URL}
   - --cache=true
   - --cache-ttl=24h
   waitFor: ['-']
@@ -48,6 +52,7 @@ steps:
   - --dockerfile=deploy/containers/Dockerfile.analysis.dbmigrations
   - --context=dir:///workspace
   - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --build-arg=ARTIFACT_REGISTRY_URL=${_ARTIFACT_REGISTRY_URL}
   - --cache=true
   - --cache-ttl=24h
   waitFor: ['-']
@@ -59,6 +64,7 @@ steps:
   - --dockerfile=deploy/containers/Dockerfile.report.dbmigrations
   - --context=dir:///workspace
   - --build-arg=PROJECT_ID=${PROJECT_ID}
+  - --build-arg=ARTIFACT_REGISTRY_URL=${_ARTIFACT_REGISTRY_URL}
   - --cache=true
   - --cache-ttl=24h
   waitFor: ['-']

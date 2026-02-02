@@ -72,15 +72,32 @@ and analyzed.
 ### Concepts and Entities
 
 #### Reports, Workflow Executions and Tasks
-The core entity in the solution is a Report, representing a complete analysis of social media content to extract sentiment trends.
-A Report is composed of a series of Workflow Executions, each one representing the work required to generate a sub-set of sentiment data required by a Report.  Sentiment analysis data is divided by 1) social media content types, and 2) topics.  For example, if a Report is looking to compare sentiment between Product A (Brand A) and Product B (Brand B) by analyzing YT videos, YT comments and Reddit posts, then that would result in 6 Workflow executions (2 topics x 3 sources).
-Finally, Workflow Executions are composed of Tasks, discrete units of work that can be executed in a stateless manner, and are chained together.  Each task is able to access the data outputted by its preceding Task, where it can process/transform it, and then persist it for use by the next Task.
+The core entity in the solution is a Report, representing a complete analysis of
+social media content to extract sentiment trends.
+A Report is composed of a series of Workflow Executions, each one representing
+the work required to generate a sub-set of sentiment data required by a Report.
+Sentiment analysis data is divided by 1) social media content types, and 2)
+topics.  For example, if a Report is looking to compare sentiment between
+Product A (Brand A) and Product B (Brand B) by analyzing YT videos, YT comments
+and Reddit posts, then that would result in 6 Workflow executions (2 topics x 3
+sources).
+Finally, Workflow Executions are composed of Tasks, discrete units of work that
+can be executed in a stateless manner, and are chained together.  Each task is
+able to access the data outputted by its preceding Task, where it can
+process/transform it, and then persist it for use by the next Task.
 
 #### Micro-services
-When looking to design the solution, the team decided to frame it as a software-as-a-service (SAAS) application, where the functionalities of the solution were broken up into micro-services.   As such, the solution is broken up into 2 current micro-services, with 1 future service being planned:
+When looking to design the solution, the team decided to frame it as a
+software-as-a-service (SAAS) application, where the functionalities of the
+solution were broken up into micro-services.   As such, the solution is broken
+up into 2 current micro-services, with 1 future service being planned:
 
-1. **Reporting Service.**  Responsible for managing report creation, scheduling analysis and packaging results for export.
-2. **Analysis Service.**  Responsible for determining how many Workflow Executions are required to build the report, what tasks need to be executed in each Workflow Execution, and track the status of all running Workflow Executions.
+1. **Reporting Service.**  Responsible for managing report creation, scheduling
+   analysis and packaging results for export.
+2. **Analysis Service.**  Responsible for determining how many Workflow
+   Executions are required to build the report, what tasks need to be executed
+   in each Workflow Execution, and track the status of all running Workflow
+   Executions.
 
 
 ### Sequence Diagram - Running Reports
@@ -181,8 +198,17 @@ flowchart LR
 4. Update the `terraform.tfvars` file with the details for your project.
 
 5. Run `deploy.sh` with the project ID of the GCP project you're installing
-   Social Pulse onto.  For example:
-   ```deploy.sh my-gcp-project```
+   Social Pulse onto.
+
+   **Note**: This script requires `python3` and `pip` to be available in your
+   environment. It will create a temporary virtual environment to install
+   necessary build dependencies (`twine`,
+   `keyrings.google-artifactregistry-auth`) for publishing the shared library.
+
+   ```bash
+   cd deploy
+   ./deploy.sh <PROJECT_ID>
+   ```
 
 
 ### Creating a Sentiment Analysis Report
@@ -201,13 +227,15 @@ create report endpoint by posting a JSON request to the `/api/report` URL.
 
     ```shell
       # Share of Voice
-      curl -X POST 'https://sp-reporting-api-[Your GCP Project NUMBER].[Project Location].run.app/api/report' \
+      curl -X POST \
+        'https://sp-reporting-api-[Your GCP Project NUMBER].[Project Location].run.app/api/report' \
         -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
         -H 'Content-Type: application/json' \
         -d '{ "sources": [ "YOUTUBE_VIDEO" ], "data_output": "SHARE_OF_VOICE", "topic": "[Your Topic]", "start_time": "2024-12-01T00:00:00Z", "end_time": "2025-12-01T23:59:59Z", "include_justifications": false }'
 
       # Sentiment Scoring
-      curl -X POST 'https://sp-reporting-api-[Your GCP NUMBER].[Project Location].run.app/api/report' \
+      curl -X POST \
+        'https://sp-reporting-api-[Your GCP NUMBER].[Project Location].run.app/api/report' \
         -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
         -H 'Content-Type: application/json' \
         -d '{ "sources": [ "YOUTUBE_VIDEO" ], "data_output": "SENTIMENT_SCORE", "topic": [Your Topic], "start_time": "2024-12-01T00:00:00Z", "end_time": "2025-12-01T23:59:59Z", "include_justifications": true }'
@@ -316,9 +344,16 @@ create report endpoint by posting a JSON request to the `/api/report` URL.
     ;
    ```
 
-## Deploying for local development
+## Local Development Workflow
 
-### Steps
+This section outlines the flow for developers working on Social Pulse,
+especially when modifying the shared library or services.
+
+### Prerequisites
+
+**Tools**: Ensure you have `python3` and `pip` installed.
+
+### Setting up your local environment
 1. Choose or create a Google Cloud Platform (GCP) project to use to generate
 your sentiment analysis reports.  Make sure it has the following:
   a. It's associated with a billing account
@@ -344,6 +379,71 @@ micro-service.
 file and follow the instructions there to set up and run the reporting
 micro-service.
 
+### Running the workflow executor
+
+When developing locally, you can manually trigger the workflow execution:
+
+1.  **Create a Report**:
+    Issue a request to the Reporting Service to create the report and generate
+    the initial workflow records.
+
+    ```bash
+    curl -X POST http://localhost:8008/api/report \
+      -H "Content-Type: application/json" \
+      -d '{
+        "sources": ["YOUTUBE_VIDEO"],
+        "data_output": "SENTIMENT_SCORE",
+        "topic": "Manual Test",
+        "start_time": "2024-01-01T00:00:00Z",
+        "end_time": "2024-01-31T23:59:59Z",
+        "include_justifications": false
+      }'
+    ```
+    *Take note of the `id` returned in the response (e.g., `report_id`).*
+
+2.  **Get the Execution ID**:
+    Connect to the Analysis Database (`social_pulse_db`) and query the
+    `WorkflowExecutions` table to find the pending execution for your report.
+
+    ```sql
+      SELECT
+        executionid,
+        reportid,
+        dataoutputs,
+        topic,
+        status,
+        createdon
+      FROM
+        workflowexecutionparams
+      WHERE
+        status = 'NEW'
+      ORDER BY createdon DESC
+    ```
+    *Copy the `executionId`.*
+
+3.  **Run the Workflow Executor**:
+    Use the helper script in the Analysis Service to run the specific execution.
+
+    ```bash
+    ./services/analysis_service/run_wfe.sh <EXECUTION ID>
+    ```
+
+4.  **Mark Report as Completed**:
+    Once the workflow is successful, manually notify the Reporting Service that
+    the report is ready (normally done by the Poller).
+
+    ```bash
+    curl -X POST http://localhost:8008/api/<REPORT ID>/mark_as_completed \
+      -H "Content-Type: application/json" \
+      -d '[{
+        "reportId": "<REPORT ID>",
+        "source": "YOUTUBE_VIDEO",
+        "dataOutput": "SENTIMENT_SCORE",
+        "datasetUri": "bq://<PROJECT_ID>/<DATASET>/SentimentDataset_<EXECUTION ID>"
+      }]'
+    ```
+
+
 
 ## FAQ
 
@@ -353,6 +453,6 @@ micro-service.
 
 *Q. What output formats are currently supported?*
 *A. Currently, sentiment score and share of voice reports are supported.  In
-    addition, you can include justifications (quotes taken directly from the social
-    content) in the output for sentiment score reports by setting the
+    addition, you can include justifications (quotes taken directly from the
+    social content) in the output for sentiment score reports by setting the
     `include_justifications` flag to true in the request.

@@ -9,105 +9,105 @@ locals {
 }
 
 module "sp_analysis_run" {
-  source                  = "./modules/cloud_run_service"
-  project_id              = var.project_id
-  location                = var.region
-  service_name            = "sp-analysis-run"
-  image                   = local.run_image_name
+  source                = "./modules/cloud_run_service"
+  project_id            = var.project_id
+  location              = var.region
+  service_name          = "sp-analysis-run"
+  image                 = local.run_image_name
   service_account_email = google_service_account.social-pulse-sa.email
-  vpc_connector_id        = google_vpc_access_connector.connector.id
+  vpc_connector_id      = google_vpc_access_connector.connector.id
   secret_env_vars = {
-    "DB__USERNAME"    = google_secret_manager_secret.postgres_username.secret_id
-    "DB__PASSWORD"    = google_secret_manager_secret.postgres_password.secret_id
-    "DB__HOST"        = google_secret_manager_secret.postgres_host.secret_id
+    "DB__USERNAME"      = google_secret_manager_secret.postgres_username.secret_id
+    "DB__PASSWORD"      = google_secret_manager_secret.postgres_password.secret_id
+    "DB__HOST"          = google_secret_manager_secret.postgres_host.secret_id
     "API__YOUTUBE__KEY" = google_secret_manager_secret.youtube_api_key.secret_id
   }
   env_vars = {
-    "APP_ENV"             = "prod"
-    "DB__NAME"            = "analysis-database"
-    "CLOUD__PROJECT_ID"   = var.project_id
+    "APP_ENV"               = "prod"
+    "DB__NAME"              = "analysis-database"
+    "CLOUD__PROJECT_ID"     = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
-    "CLOUD__REGION"       = var.region
-    "CLOUD__DATASET_NAME" = var.bq_dataset_name
+    "CLOUD__REGION"         = var.region
+    "CLOUD__DATASET_NAME"   = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_vpc_access_connector.connector,
-                google_secret_manager_secret_version.postgres_username_version,
-                google_secret_manager_secret_version.postgres_password_version,
-                google_secret_manager_secret_version.postgres_host_version,
-                google_secret_manager_secret_version.youtube_api_key_version]
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.postgres_host_version,
+  google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "sp_reporting_api" {
-  source                  = "./modules/cloud_run_service"
-  project_id              = var.project_id
-  location                = var.region
-  service_name            = "sp-reporting-api"
-  image                   = local.report_api_image_name
+  source                = "./modules/cloud_run_service"
+  project_id            = var.project_id
+  location              = var.region
+  service_name          = "sp-reporting-api"
+  image                 = local.report_api_image_name
   service_account_email = google_service_account.social-pulse-sa.email
-  vpc_connector_id        = google_vpc_access_connector.connector.id
+  vpc_connector_id      = google_vpc_access_connector.connector.id
   secret_env_vars = {
-    "DB__USERNAME"    = google_secret_manager_secret.postgres_username.secret_id
-    "DB__PASSWORD"    = google_secret_manager_secret.postgres_password.secret_id
-    "DB__HOST"        = google_secret_manager_secret.postgres_host.secret_id
+    "DB__USERNAME"      = google_secret_manager_secret.postgres_username.secret_id
+    "DB__PASSWORD"      = google_secret_manager_secret.postgres_password.secret_id
+    "DB__HOST"          = google_secret_manager_secret.postgres_host.secret_id
     "API__YOUTUBE__KEY" = google_secret_manager_secret.youtube_api_key.secret_id
   }
   env_vars = {
-    "APP_ENV"             = "prod"
-    "DB__NAME"            = "reporting-database"
-    "CLOUD__PROJECT_ID"   = var.project_id
+    "APP_ENV"               = "prod"
+    "DB__NAME"              = "reporting-database"
+    "CLOUD__PROJECT_ID"     = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
-    "CLOUD__REGION"       = var.region
-    "CLOUD__DATASET_NAME" = var.bq_dataset_name
+    "CLOUD__REGION"         = var.region
+    "CLOUD__DATASET_NAME"   = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_vpc_access_connector.connector,
-                google_secret_manager_secret_version.postgres_username_version,
-                google_secret_manager_secret_version.postgres_password_version,
-                google_secret_manager_secret_version.postgres_host_version,
-                google_secret_manager_secret_version.youtube_api_key_version]
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.postgres_host_version,
+  google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "sp_analysis_poller" {
-  source                  = "./modules/cloud_run_service"
-  project_id              = var.project_id
-  location                = var.region
-  service_name            = "sp-analysis-poller"
-  image                   = local.poller_image_name
+  source                = "./modules/cloud_run_service"
+  project_id            = var.project_id
+  location              = var.region
+  service_name          = "sp-analysis-poller"
+  image                 = local.poller_image_name
   service_account_email = google_service_account.social-pulse-sa.email
-  vpc_connector_id        = google_vpc_access_connector.connector.id
+  vpc_connector_id      = google_vpc_access_connector.connector.id
   secret_env_vars = {
-    "DB__USERNAME"    = google_secret_manager_secret.postgres_username.secret_id
-    "DB__PASSWORD"    = google_secret_manager_secret.postgres_password.secret_id
-    "DB__HOST"        = google_secret_manager_secret.postgres_host.secret_id
+    "DB__USERNAME"      = google_secret_manager_secret.postgres_username.secret_id
+    "DB__PASSWORD"      = google_secret_manager_secret.postgres_password.secret_id
+    "DB__HOST"          = google_secret_manager_secret.postgres_host.secret_id
     "API__YOUTUBE__KEY" = google_secret_manager_secret.youtube_api_key.secret_id
   }
   env_vars = {
-    "APP_ENV"             = "prod"
-    "DB__NAME"            = "analysis-database"
-    "CLOUD__PROJECT_ID"   = var.project_id
+    "APP_ENV"               = "prod"
+    "DB__NAME"              = "analysis-database"
+    "CLOUD__PROJECT_ID"     = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
-    "CLOUD__REGION"       = var.region
-    "CLOUD__DATASET_NAME" = var.bq_dataset_name
+    "CLOUD__REGION"         = var.region
+    "CLOUD__DATASET_NAME"   = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_vpc_access_connector.connector,
-                google_secret_manager_secret_version.postgres_username_version,
-                google_secret_manager_secret_version.postgres_password_version,
-                google_secret_manager_secret_version.postgres_host_version,
-                google_secret_manager_secret_version.youtube_api_key_version]
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.postgres_host_version,
+  google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
@@ -118,13 +118,13 @@ resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
   member   = "serviceAccount:${google_service_account.social-pulse-sa.email}"
 
   depends_on = [google_service_account.social-pulse-sa,
-                module.sp_analysis_poller]
+  module.sp_analysis_poller]
 }
 
 resource "google_cloud_scheduler_job" "poller_scheduler" {
-  project = var.project_id
-  region  = var.region
-  name    = "poller-scheduler-cron"
+  project   = var.project_id
+  region    = var.region
+  name      = "poller-scheduler-cron"
   schedule  = "*/5 * * * *"
   time_zone = "UTC"
   http_target {
@@ -140,34 +140,34 @@ resource "google_cloud_scheduler_job" "poller_scheduler" {
     }
   }
   depends_on = [module.sp_analysis_poller,
-                google_cloud_run_service_iam_member.cloud_run_invoker_role,
-                google_service_account.social-pulse-sa]
+    google_cloud_run_service_iam_member.cloud_run_invoker_role,
+  google_service_account.social-pulse-sa]
 }
 
 module "sp_analysis_wfe" {
-  source                  = "./modules/cloud_run_job"
-  project_id              = var.project_id
-  location                = var.region
-  job_name                = "sp-analysis-wfe"
-  image                   = local.wfe_image_name
+  source                = "./modules/cloud_run_job"
+  project_id            = var.project_id
+  location              = var.region
+  job_name              = "sp-analysis-wfe"
+  image                 = local.wfe_image_name
   service_account_email = google_service_account.social-pulse-sa.email
-  vpc_connector_id        = google_vpc_access_connector.connector.id
-  command                 = ["python", "api/workflow_executor.py"]
-  args                    = ["$(EXECUTION_ID)"]
+  vpc_connector_id      = google_vpc_access_connector.connector.id
+  command               = ["python", "api/workflow_executor.py"]
+  args                  = ["$(EXECUTION_ID)"]
   secret_env_vars = {
-    "DB__USERNAME"    = google_secret_manager_secret.postgres_username.secret_id
-    "DB__PASSWORD"    = google_secret_manager_secret.postgres_password.secret_id
-    "DB__HOST"        = google_secret_manager_secret.postgres_host.secret_id
+    "DB__USERNAME"      = google_secret_manager_secret.postgres_username.secret_id
+    "DB__PASSWORD"      = google_secret_manager_secret.postgres_password.secret_id
+    "DB__HOST"          = google_secret_manager_secret.postgres_host.secret_id
     "API__YOUTUBE__KEY" = google_secret_manager_secret.youtube_api_key.secret_id
   }
   env_vars = {
-    "EXECUTION_ID"        = ""
-    "APP_ENV"             = "prod"
-    "DB__NAME"            = "analysis-database"
-    "CLOUD__PROJECT_ID"   = var.project_id
+    "EXECUTION_ID"          = ""
+    "APP_ENV"               = "prod"
+    "DB__NAME"              = "analysis-database"
+    "CLOUD__PROJECT_ID"     = var.project_id
     "CLOUD__PROJECT_NUMBER" = var.project_number
-    "CLOUD__REGION"       = var.region
-    "CLOUD__DATASET_NAME" = var.bq_dataset_name
+    "CLOUD__REGION"         = var.region
+    "CLOUD__DATASET_NAME"   = var.bq_dataset_name
   }
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
@@ -176,22 +176,22 @@ module "sp_analysis_wfe" {
   timeout     = "3600s"
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_vpc_access_connector.connector,
-                google_secret_manager_secret_version.postgres_username_version,
-                google_secret_manager_secret_version.postgres_password_version,
-                google_secret_manager_secret_version.postgres_host_version,
-                google_secret_manager_secret_version.youtube_api_key_version]
+    google_vpc_access_connector.connector,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.postgres_host_version,
+  google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "analysis_migration_job" {
-  source                  = "./modules/cloud_run_job"
-  project_id              = var.project_id
-  location                = var.region
-  job_name                = "sp-analysis-migration-job"
-  image                   = local.dbmigraion_image_name
+  source                = "./modules/cloud_run_job"
+  project_id            = var.project_id
+  location              = var.region
+  job_name              = "sp-analysis-migration-job"
+  image                 = local.dbmigraion_image_name
   service_account_email = google_service_account.social-pulse-sa.email
-  vpc_connector_id        = google_vpc_access_connector.connector.id
-  command                 = ["yoyo"]
+  vpc_connector_id      = google_vpc_access_connector.connector.id
+  command               = ["yoyo"]
   args = [
     "apply",
     "-vv",
@@ -205,23 +205,23 @@ module "analysis_migration_job" {
   }
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_vpc_access_connector.connector,
-                google_sql_database_instance.social_pulse_postgres_db_server,
-                google_secret_manager_secret_version.postgres_username_version,
-                google_secret_manager_secret_version.postgres_password_version,
-                google_secret_manager_secret_version.postgres_host_version,
-                google_secret_manager_secret_version.youtube_api_key_version]
+    google_vpc_access_connector.connector,
+    google_sql_database_instance.social_pulse_postgres_db_server,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.postgres_host_version,
+  google_secret_manager_secret_version.youtube_api_key_version]
 }
 
 module "report_migration_job" {
-  source                  = "./modules/cloud_run_job"
-  project_id              = var.project_id
-  location                = var.region
-  job_name                = "sp-report-migration-job"
-  image                   = local.report_dbmigration_image_name
+  source                = "./modules/cloud_run_job"
+  project_id            = var.project_id
+  location              = var.region
+  job_name              = "sp-report-migration-job"
+  image                 = local.report_dbmigration_image_name
   service_account_email = google_service_account.social-pulse-sa.email
-  vpc_connector_id        = google_vpc_access_connector.connector.id
-  command                 = ["yoyo"]
+  vpc_connector_id      = google_vpc_access_connector.connector.id
+  command               = ["yoyo"]
   args = [
     "apply",
     "-vv",
@@ -235,10 +235,10 @@ module "report_migration_job" {
   }
 
   depends_on = [google_service_account.social-pulse-sa,
-                google_vpc_access_connector.connector,
-                google_sql_database_instance.social_pulse_postgres_db_server,
-                google_secret_manager_secret_version.postgres_username_version,
-                google_secret_manager_secret_version.postgres_password_version,
-                google_secret_manager_secret_version.postgres_host_version,
-                google_secret_manager_secret_version.youtube_api_key_version]
+    google_vpc_access_connector.connector,
+    google_sql_database_instance.social_pulse_postgres_db_server,
+    google_secret_manager_secret_version.postgres_username_version,
+    google_secret_manager_secret_version.postgres_password_version,
+    google_secret_manager_secret_version.postgres_host_version,
+  google_secret_manager_secret_version.youtube_api_key_version]
 }

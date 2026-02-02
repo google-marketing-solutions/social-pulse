@@ -57,16 +57,58 @@ set +x
 
 # --- SHARED LIBRARY BUILD/DEPLOYMENT AND REQUIREMENTS UPDATE ---
 echo "Building shared library and updating dependent service requirements..."
+
+# --- TERRAFORM INITIALIZATION & REPO CREATION ---
+# We need the Artifact Registry repository to exist BEFORE we can upload the
+# shared library.
+echo "Initializing Terraform and ensuring Artifact Registry exists..."
+cd terraform
+terraform init
+# Apply only the python repo resource to bootstrap dependencies
+terraform apply \
+    -target=google_artifact_registry_repository.python_repo \
+    -auto-approve
+cd ..
+
+# --- SHARED LIBRARY BUILD/DEPLOYMENT AND REQUIREMENTS UPDATE ---
+echo "Building shared library and updating dependent service requirements..."
+PYTHON_REPO_NAME="sp-python-repo"
+PYTHON_REPO_URL="https://${LOCATION}-python.pkg.dev"
+PYTHON_REPO_URL="${PYTHON_REPO_URL}/${PROJECT_ID}/${PYTHON_REPO_NAME}/"
+
+echo "Setting up temporary virtual environment for publishing..."
+VENV_DIR=$(mktemp -d -t sp-deploy-venv-XXXXXXXXXX)
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
+
+# Install build and publish dependencies
+echo "Installing build dependencies..."
+pip install --upgrade pip
+# Force use of PyPI for build tools to avoid custom index issues
+pip install build twine keyrings.google-artifactregistry-auth \
+    --extra-index-url https://pypi.org/simple
+
+echo "Publishing to Artifact Registry: ${PYTHON_REPO_URL}"
 cd ../services/shared_lib
-./deploy_to_services.sh
+if ! ./publish_to_ar.sh "${PYTHON_REPO_URL}"; then
+    echo "Error: Failed to publish socialpulse-common to Artifact Registry."
+    # Cleanup before exit
+    deactivate
+    rm -rf "$VENV_DIR"
+    exit 1
+fi
 cd ../../deploy
 
-# --- TERRAFORM EXECUTION (Creates the job definition and new service revisions) ---
-echo "Initializing Terraform..."
-cd terraform/
-terraform init
+# Cleanup
+echo "Cleaning up temporary virtual environment..."
+deactivate
+rm -rf "$VENV_DIR"
 
-echo "Applying Terraform configuration..."
+# --- TERRAFORM EXECUTION ---
+# (Creates the job definition and new service revisions)
+echo "Applying full Terraform configuration..."
+cd terraform
+# Apply the rest of the configuration
 terraform apply -auto-approve
 
 # --- MIGRATION EXECUTION ---
@@ -80,7 +122,8 @@ if [ $? -ne 0 ]; then
    echo "Error: Database migration job failed. Halting deployment."
    exit 1
 fi
-echo "[Analysis] Database migration successful. Directing traffic to new revisions."
+echo "[Analysis] Database migration successful."
+echo "Directing traffic to new revisions."
 
 
 echo "Executing Cloud Run Job for Report Database Migrations..."
@@ -92,7 +135,8 @@ if [ $? -ne 0 ]; then
     echo "Error: Database migration job failed. Halting deployment."
     exit 1
 fi
-echo "[Analysis] Database migration successful. Directing traffic to new revisions."
+echo "[Analysis] Database migration successful."
+echo "Directing traffic to new revisions."
 
 
 echo "Deployment complete."

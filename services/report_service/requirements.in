@@ -2,6 +2,7 @@ cloud-sql-python-connector[psycopg2]
 db-dtypes
 fastapi
 google-cloud-logging
+google-cloud-bigquery
 parameterized
 protobuf
 psycopg2-binary

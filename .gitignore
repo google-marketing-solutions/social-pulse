@@ -5,6 +5,9 @@ dist/
 .coverage
 **/*.log
 build/
+.venv
+*.MINE
+packages/
 
 # Ignore protobuf generated Python files
 **/*_pb2.py
