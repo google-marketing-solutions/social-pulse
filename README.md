@@ -28,6 +28,10 @@
 > Please use this software at your own risk. The author(s) are not responsible
 > for any legal implications or consequences resulting from the use or misuse of
 > this software.
+>
+> This is not an officially supported Google product. This project is not
+> eligible for the [Google Open Source Software Vulnerability Rewards
+> Program](https://bughunters.google.com/open-source-security).
 
 ## Problem Statement
 
