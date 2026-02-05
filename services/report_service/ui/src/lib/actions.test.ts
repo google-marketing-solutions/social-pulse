@@ -16,18 +16,18 @@ import {createReport, getReports, getReportById} from './actions';
 import * as api from './api';
 import {revalidatePath} from 'next/cache';
 import {SentimentDataType, SocialMediaSource, Status} from './types';
-import fs from 'fs/promises';
+
 
 // Mock dependencies
 jest.mock('./api');
 jest.mock('next/cache');
-jest.mock('fs/promises');
+
 
 describe('Server Actions', () => {
   const mockReport = {
     reportId: '123',
     topic: 'Test Topic',
-    status: Status.PENDING,
+    status: Status.NEW,
     sources: [SocialMediaSource.X_POST],
     dataOutput: SentimentDataType.SENTIMENT_SCORE,
     datasets: [],
@@ -35,8 +35,6 @@ describe('Server Actions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (fs.readFile as jest.Mock).mockResolvedValue('[]');
-    (fs.writeFile as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe('createReport', () => {

@@ -29,13 +29,13 @@ describe('API Service', () => {
 
   beforeEach(() => {
     fetchMock.resetMocks();
-    process.env.NEXT_PUBLIC_REPORTING_API_URL = mockBaseUrl;
+    process.env.REPORTING_API_URL = mockBaseUrl;
   });
 
   const mockReport: SentimentReport = {
     reportId: '123',
     topic: 'Test Topic',
-    status: Status.PENDING,
+    status: Status.NEW,
     sources: [SocialMediaSource.X_POST],
     dataOutput: SentimentDataType.SENTIMENT_SCORE,
     reportArtifactType: ReportArtifactType.BQ_TABLE,

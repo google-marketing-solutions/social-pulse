@@ -57,3 +57,9 @@ variable "deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "min_instance_count" {
+  description = "The minimum number of instances to keep ready."
+  type        = number
+  default     = 0
+}

@@ -6,6 +6,7 @@ locals {
 
   report_api_image_name         = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-report-api:latest"
   report_dbmigration_image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-report-dbmigration:latest"
+  report_ui_image_name          = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.my_repo.repository_id}/sp-report-ui:latest"
 }
 
 module "sp_analysis_run" {
@@ -33,6 +34,7 @@ module "sp_analysis_run" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+  min_instance_count = 1
 
   depends_on = [google_service_account.social-pulse-sa,
     google_vpc_access_connector.connector,
@@ -68,6 +70,8 @@ module "sp_reporting_api" {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
 
+  min_instance_count = 1
+
   depends_on = [google_service_account.social-pulse-sa,
     google_vpc_access_connector.connector,
     google_secret_manager_secret_version.postgres_username_version,
@@ -75,6 +79,48 @@ module "sp_reporting_api" {
     google_secret_manager_secret_version.postgres_host_version,
   google_secret_manager_secret_version.youtube_api_key_version]
 }
+
+module "sp_reporting_ui" {
+  source                = "./modules/cloud_run_service"
+  project_id            = var.project_id
+  location              = var.region
+  service_name          = "sp-reporting-ui"
+  image                 = local.report_ui_image_name
+  service_account_email = google_service_account.social-pulse-sa.email
+  vpc_connector_id      = google_vpc_access_connector.connector.id
+  env_vars = {
+    "REPORTING_API_URL" = module.sp_reporting_api.uri
+  }
+  labels = {
+    "source-code-hash" = data.archive_file.source_zip.output_md5
+  }
+
+  depends_on = [google_service_account.social-pulse-sa,
+    google_vpc_access_connector.connector,
+  module.sp_reporting_api]
+  min_instance_count = 1
+}
+
+resource "google_cloud_run_service_iam_member" "api_public_access" {
+  project  = var.project_id
+  location = var.region
+  service  = module.sp_reporting_api.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+
+  depends_on = [module.sp_reporting_api]
+}
+
+resource "google_cloud_run_service_iam_member" "ui_public_access" {
+  project  = var.project_id
+  location = var.region
+  service  = module.sp_reporting_ui.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+
+  depends_on = [module.sp_reporting_ui]
+}
+
 
 module "sp_analysis_poller" {
   source                = "./modules/cloud_run_service"
@@ -101,6 +147,8 @@ module "sp_analysis_poller" {
   labels = {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
+
+  min_instance_count = 1
 
   depends_on = [google_service_account.social-pulse-sa,
     google_vpc_access_connector.connector,

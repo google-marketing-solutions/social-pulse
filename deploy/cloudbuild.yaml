@@ -35,7 +35,17 @@ steps:
   - --cache-ttl=24h
   waitFor: ['-']
 
-# 3. WFE Image
+# 3. Reporting UI Image
+- name: 'gcr.io/kaniko-project/executor:latest'
+  args:
+  - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-report-ui:latest
+  - --dockerfile=/workspace/deploy/containers/Dockerfile.report.ui
+  - --context=dir:///workspace/services/report_service/ui
+  - --cache=true
+  - --cache-ttl=24h
+  waitFor: ['-']
+
+# 4. WFE Image
 - name: 'gcr.io/kaniko-project/executor:latest'
   args:
   - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-wfe:latest
@@ -47,7 +57,7 @@ steps:
   - --cache-ttl=24h
   waitFor: ['-']
 
-# 4. Poller Image
+# 5. Poller Image
 - name: 'gcr.io/kaniko-project/executor:latest'
   args:
   - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-poller:latest
@@ -59,7 +69,7 @@ steps:
   - --cache-ttl=24h
   waitFor: ['-']
 
-# 5. Analysis DB Migrations
+# 6. Analysis DB Migrations
 - name: 'gcr.io/kaniko-project/executor:latest'
   args:
   - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-analysis-dbmigration:latest
@@ -71,7 +81,7 @@ steps:
   - --cache-ttl=24h
   waitFor: ['-']
 
-# 6. Report DB Migrations
+# 7. Report DB Migrations
 - name: 'gcr.io/kaniko-project/executor:latest'
   args:
   - --destination=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/sp-report-dbmigration:latest

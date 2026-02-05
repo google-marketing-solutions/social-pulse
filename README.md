@@ -105,89 +105,23 @@ up into 2 current micro-services, with 1 future service being planned:
 
 
 ### Sequence Diagram - Running Reports
-```mermaid
-sequenceDiagram
-    participant RS as Report Service
-    participant AS as Analysis Service
-    participant ADB as Analysis Database
-    participant PL as Poller
-
-    participant W1 as Workflow Exec Job 1
-    participant WN as Workflow Exec Job N
-
-    %% Add WFE's for the report
-    Note over RS: [Report status = NEW]
-    RS->>AS: /api/run_report
-    AS->>ADB: Insert WFE rows
-
-    %% Poller starts and monitor executions
-    PL->>ADB: Retrieve new WFEs
-
-    PL->>W1: run
-    W1->>ADB:Mark WFE as complete
-
-    PL->>WN: run
-    WN->>ADB: Mark WFE as complete
-
-    PL->>ADB: Retrieve completed WFEs
-    PL->>RS: /api/mark_as_completed
-    Note over RS: [Report Status = COMPLETED]
-```
+![Running Reports Sequence Diagram](./docs/social_pulse_report_secquence_diagram.png)
 
 ### GCP Architecture
-```mermaid
-flowchart LR
-    %% Styles - Enforcing black text for visibility
-    classDef db fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000;
-    classDef service fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000;
-    classDef job fill:#e0f7fa,stroke:#006064,stroke-width:2px,color:#000;
-    classDef trigger fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
-    classDef client fill:#ffffff,stroke:#333,stroke-width:2px,color:#000;
+![GCP Architecture](docs/social_pulse_gcp_architecture.png)
 
-    %% External Entry
-    Client(External Client):::client
+## Deployment Pre-requisites
+Whether you're deploying to Google Cloud or locally, you'll need to make sure
+you have the following pre-requisites set up:
 
-    subgraph AS [Analytic Service]
-        direction TB
-        ADB[(Analytics DB<br>PostgreSQL)]:::db
+1. Python 3.12 or higher installed
+2. Pip 24.3 or higher installed
+3. [Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk)
+   installed and __authenticated__
+4. [Create an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
+   for the GCP project you're either going to install Social Pulse into, or the
+   GCP project you'll use for local development.
 
-        %% Updated to Cloud Service (HTTP)
-        Runner[Runner<br>Cloud Service HTTP<br>runner_entry.py]:::service
-
-        %% Updated to Cloud Job
-        Executor([WFE Executor<br>Cloud Job<br>workflow_executor.py]):::job
-
-        %% Updated to Cloud Service (HTTP)
-        Poller[Poller<br>Cloud Service HTTP<br>poller.py]:::service
-
-        Scheduler(Cloud Scheduler):::trigger
-
-        %% Analytic Internal Flows
-        Runner -- Insert/Query WFEs --> ADB
-
-        %% Removed "PubSub Message" label
-        Scheduler -.->|/poller| Poller
-
-        Poller -.->|execute| Executor
-        Executor -- Retrieve Params/Update Status --> ADB
-    end
-
-    subgraph RS [Reporting Service]
-        direction TB
-
-        %% Updated to Cloud Service (HTTP)
-        RBackend[Report Backend<br>Cloud Service HTTP<br>app_entry.py]:::service
-        RDB[(Reporting DB<br>PostgreSQL)]:::db
-
-        %% Reporting Internal Flows
-        RBackend -- Read/Write --> RDB
-    end
-
-    %% Cross-Service Communication (HTTP)
-    Client -.->|/api/create_report| RBackend
-    RBackend -.->|/api/run_report| Runner
-    Runner -.->|/api/mark_data_collected| RBackend
-```
 
 ## Deploying to Google Cloud
 
@@ -199,13 +133,33 @@ flowchart LR
 
 3. Download the code from the repository.
 
-4. Update the `terraform.tfvars` file with the details for your project.
+4. Update the `deploy/terraform/terraform.tfvars` file with the details for your
+   project.
 
-5. Run `deploy.sh` with the project ID of the GCP project you're installing
-   Social Pulse onto.
+   a. Update the `yt_api_key` field with the API key you created in step 2.
 
-   **Note**: This script requires `python3` and `pip` to be available in your
-   environment. It will create a temporary virtual environment to install
+   b. Update the `project_id` field with the project ID of the GCP project
+      you're installing Social Pulse onto.
+
+   c. Update the `region` field with the region of the GCP project you're
+      installing Social Pulse onto (ie, "us-central1").
+
+   d. Update the `project_number` field with the project number of the GCP
+      project you're installing Social Pulse onto.
+
+   e. Update the `db_username` field with the username of the database you're
+      installing Social Pulse onto.
+
+   f. Update the `db_password` field with the password of the database you're
+      installing Social Pulse onto.
+
+   g. Update the `bq_dataset_name` field with the name of the BigQuery dataset
+      you're installing Social Pulse onto.
+
+5. Run `deploy/terraform/deploy.sh` with the project ID of the GCP project
+   you're installing Social Pulse onto.
+
+   **Note**: This script will create a temporary virtual environment to install
    necessary build dependencies (`twine`,
    `keyrings.google-artifactregistry-auth`) for publishing the shared library.
 
@@ -213,7 +167,6 @@ flowchart LR
    cd deploy
    ./deploy.sh <PROJECT_ID>
    ```
-
 
 ### Creating a Sentiment Analysis Report
 
@@ -353,57 +306,54 @@ create report endpoint by posting a JSON request to the `/api/report` URL.
 This section outlines the flow for developers working on Social Pulse,
 especially when modifying the shared library or services.
 
+
 ### Prerequisites
-
-**Tools**: Ensure you have `python3` and `pip` installed.
-
-### Setting up your local environment
 1. Choose or create a Google Cloud Platform (GCP) project to use to generate
 your sentiment analysis reports.  Make sure it has the following:
+
   a. It's associated with a billing account
+
   b. It has the YouTube Data API enabled
+
   c. It has the Vertex AI API enabled
+
   d. It has the BigQuery API enabled.
 
-2. If you are running the sentiment analysis code on a Linus/Unix system,
+  e. There's an API key created for the project.
+
+### Setting up your local environment
+
+1. If you are running the sentiment analysis code on a Linus/Unix system,
    make sure to authenticate yourself to access the Google Could resources
-   using the `gcloud auth init` command.
+   using the `gcloud auth login` command.
 
-3. Setup a PostgresDB server for storing reporting configuration data.
+2. Install and setup a PostgresDB **server** for storing reporting configuration
+   data.  *NOTE:* The README files for the other services will outline the
+   steps for setting up their respective databases.
 
-3. Open up the [Shared Services Library README](./services/shared_lib/README.md)
-file and follow the instructions there to set up the common library code used
-by the Analysis and Reporting micro-services.
+3. Open up the [Shared Library README](./services/shared_lib/README.md)
+   file and follow the instructions there to set up the common library code used
+   by the Analysis and Reporting micro-services.
 
 4. Open up the [Analysis Service README](./services/analysis_service/README.md)
-file and follow the instructions there to set up and run the reporting
-micro-service.
+   file and follow the instructions there to set up and run the analysis
+   micro-service.
 
 5. Open up the [Report Service README](./services/report_service/README.md)
-file and follow the instructions there to set up and run the reporting
-micro-service.
+   file and follow the instructions there to set up and run the reporting
+   micro-service.
+
+6. Open up the [Report UI README](./services/report_service/ui/README.md)
+   file and follow the instructions there to set up and run the reporting
+   UI.
 
 ### Running the workflow executor
 
 When developing locally, you can manually trigger the workflow execution:
 
 1.  **Create a Report**:
-    Issue a request to the Reporting Service to create the report and generate
-    the initial workflow records.
-
-    ```bash
-    curl -X POST http://localhost:8008/api/report \
-      -H "Content-Type: application/json" \
-      -d '{
-        "sources": ["YOUTUBE_VIDEO"],
-        "data_output": "SENTIMENT_SCORE",
-        "topic": "Manual Test",
-        "start_time": "2024-01-01T00:00:00Z",
-        "end_time": "2024-01-31T23:59:59Z",
-        "include_justifications": false
-      }'
-    ```
-    *Take note of the `id` returned in the response (e.g., `report_id`).*
+    Use the reporting UI to create a report (by default at
+    `http://localhost:9002`).
 
 2.  **Get the Execution ID**:
     Connect to the Analysis Database (`social_pulse_db`) and query the
@@ -411,8 +361,8 @@ When developing locally, you can manually trigger the workflow execution:
 
     ```sql
       SELECT
-        executionid,
-        reportid,
+        executionid, # You need this to run the executor
+        reportid,    # You need this to later mark the report as completed
         dataoutputs,
         topic,
         status,
@@ -446,8 +396,6 @@ When developing locally, you can manually trigger the workflow execution:
         "datasetUri": "bq://<PROJECT_ID>/<DATASET>/SentimentDataset_<EXECUTION ID>"
       }]'
     ```
-
-
 
 ## FAQ
 

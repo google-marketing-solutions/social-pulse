@@ -40,5 +40,9 @@ resource "google_cloud_run_v2_service" "default" {
       connector = var.vpc_connector_id
       egress    = "ALL_TRAFFIC"
     }
+
+    scaling {
+      min_instance_count = var.min_instance_count
+    }
   }
 }

@@ -21,7 +21,7 @@ import {SentimentReport as Report} from '@/lib/types';
  * @return A promise that resolves to the created report data from the backend.
  */
 export async function createReport(report: Report): Promise<Report> {
-  const baseUrl = process.env.NEXT_PUBLIC_REPORTING_API_URL;
+  const baseUrl = process.env.REPORTING_API_URL;
   console.log('Creating report with payload: ', JSON.stringify(report));
 
   const response = await fetch(`${baseUrl}/api/report`, {
@@ -46,7 +46,7 @@ export async function createReport(report: Report): Promise<Report> {
  * @return A promise that resolves to a list of reports.
  */
 export async function getReports(): Promise<Report[]> {
-  const baseUrl = process.env.NEXT_PUBLIC_REPORTING_API_URL;
+  const baseUrl = process.env.REPORTING_API_URL;
   const response = await fetch(`${baseUrl}/api/reports`, {
     cache: 'no-store',
   });
@@ -66,7 +66,7 @@ export async function getReports(): Promise<Report[]> {
  * @return A promise that resolves to the report.
  */
 export async function getReportById(id: string): Promise<Report> {
-  const baseUrl = process.env.NEXT_PUBLIC_REPORTING_API_URL;
+  const baseUrl = process.env.REPORTING_API_URL;
   const response = await fetch(`${baseUrl}/api/report/${id}`, {
     cache: 'no-store',
   });

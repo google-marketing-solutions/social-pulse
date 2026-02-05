@@ -55,6 +55,9 @@ gcloud services enable vpcaccess.googleapis.com
 gcloud services enable youtube.googleapis.com
 set +x
 
+echo "Waiting 60 seconds for Service Identity propagation to prevent race conditions..."
+sleep 60
+
 # --- SHARED LIBRARY BUILD/DEPLOYMENT AND REQUIREMENTS UPDATE ---
 echo "Building shared library and updating dependent service requirements..."
 

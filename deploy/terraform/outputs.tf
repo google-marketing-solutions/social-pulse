@@ -1,38 +1,19 @@
-# Output relevant information
-output "project_id" {
-  description = "The ID of the GCP project."
-  value       = var.project_id
+output "analysis_run_service_url" {
+  description = "The URL of the Analysis Run service."
+  value       = module.sp_analysis_run.uri
 }
 
-output "social_pulse_postgres_db_server_connection_name" {
-  description = "The connection name for the analysis PostgreSQL instance."
-  value       = google_sql_database_instance.social_pulse_postgres_db_server.connection_name
-
-  depends_on = [google_sql_database_instance.social_pulse_postgres_db_server]
+output "reporting_api_url" {
+  description = "The URL of the Reporting API service."
+  value       = module.sp_reporting_api.uri
 }
 
-output "social_pulse_postgres_db_server_host" {
-  description = "The host ip for the analysis PostgreSQL instance."
-  value       = google_sql_database_instance.social_pulse_postgres_db_server.private_ip_address
-
-  depends_on = [google_sql_database_instance.social_pulse_postgres_db_server]
+output "analysis_poller_url" {
+  description = "The URL of the Analysis Poller service."
+  value       = module.sp_analysis_poller.uri
 }
 
-output "bigquery_dataset_id" {
-  description = "The ID of the BigQuery dataset."
-  value       = google_bigquery_dataset.social_pulse_sentiment_dataset.dataset_id
-
-  depends_on = [google_bigquery_dataset.social_pulse_sentiment_dataset]
-}
-
-output "pubsub_topic_name" {
-  description = "The Pub/Sub topic name to publish to WFE Executor"
-  value       = google_pubsub_topic.workflow_executor_topic.name
-
-  depends_on = [google_pubsub_topic.workflow_executor_topic]
-}
-
-output "python_repository_url" {
-  description = "The URL of the Python Artifact Registry repository."
-  value       = "https://${var.region}-python.pkg.dev/${var.project_id}/${google_artifact_registry_repository.python_repo.repository_id}/simple/"
+output "reporting_ui_url" {
+  description = "The URL of the Reporting UI service."
+  value       = module.sp_reporting_ui.uri
 }

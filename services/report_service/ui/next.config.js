@@ -15,6 +15,7 @@
 /** @type {!import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   /* config options here */
   typescript: {
     ignoreBuildErrors: true,

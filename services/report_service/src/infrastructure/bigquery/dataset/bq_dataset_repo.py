@@ -38,7 +38,8 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       datasets: List of datasets to retrieve analysis results for.
 
     Returns:
-      AnalysisResults object containing the analysis results for the provided datasets.
+      AnalysisResults object containing the analysis results for the provided
+      datasets.
     """
     results = report_msg.AnalysisResults()
 
@@ -84,7 +85,8 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       data_output: Data output type.
 
     Returns:
-      SourceAnalysisResult object containing the analysis results for the provided dataset.
+      SourceAnalysisResult object containing the analysis results for the
+      provided dataset.
     """
     result = report_msg.SourceAnalysisResult()
 
