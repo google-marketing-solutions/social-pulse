@@ -14,7 +14,6 @@
 
 """Module providing concrete implementation for YoutubeApiClient using googleapiclient."""
 
-
 import logging
 from typing import Any
 
@@ -97,12 +96,10 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
     logger.info("Searching YouTube with criteria: %s", criteria)
 
     while num_videos_collected < criteria.max_results:
-      num_of_results = min(
-          [
-              _MAX_VIDEO_IDS_PER_SEARCH_RESPONSE,
-              criteria.max_results - num_videos_collected,
-          ]
-      )
+      num_of_results = min([
+          _MAX_VIDEO_IDS_PER_SEARCH_RESPONSE,
+          criteria.max_results - num_videos_collected,
+      ])
 
       try:
         # Prepare request parameters, excluding None values
@@ -112,15 +109,22 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
             "maxResults": num_of_results,
             "order": criteria.sort_by.value,
             "q": criteria.query,
-            "relevanceLanguage": criteria.language.value,
             "pageToken": next_page_token,
             "publishedAfter": criteria.published_after_as_str(),
             "publishedBefore": criteria.published_before_as_str(),
-            "regionCode": "US",
         }
+
+        if criteria.language:
+          request_params["relevanceLanguage"] = criteria.language.value
+
+        if criteria.region_code:
+          request_params["regionCode"] = criteria.region_code
+
         # Filter out None values before making the call
         request_params = {
-            k: v for k, v in request_params.items() if v is not None
+            k: v
+            for k, v in request_params.items()
+            if v is not None
         }
 
         request = self._client.search().list(**request_params)
@@ -183,8 +187,7 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
       )
 
       video_ids_slice = video_ids[
-          current_window_start_index:current_window_end_index
-      ]
+          current_window_start_index:current_window_end_index]
 
       logger.debug(
           "Getting details for videos index %d to %d",
@@ -231,9 +234,8 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
     )
     return video_stats_map
 
-  def get_comments_for_videos(
-      self, video_ids: list[str]
-  ) -> list[dict[str, Any]]:
+  def get_comments_for_videos(self,
+                              video_ids: list[str]) -> list[dict[str, Any]]:
     """Retrieves comments for multiple videos by iterating calls to a helper."""
     if not video_ids:
       return []
@@ -254,9 +256,8 @@ class YoutubeApiHttpClient(ports_apis.YoutubeApiClient):
     )
     return all_comments
 
-  def _get_comments_for_single_video(
-      self, video_id: str
-  ) -> list[dict[str, Any]]:
+  def _get_comments_for_single_video(self,
+                                     video_id: str) -> list[dict[str, Any]]:
     """Helper to retrieve all comment threads for a specific video.
 
     Args:

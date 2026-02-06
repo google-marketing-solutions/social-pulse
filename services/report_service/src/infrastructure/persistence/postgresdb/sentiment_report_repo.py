@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
 """Module for sentiment report repo implementations in PostgresDB."""
 import logging
 from typing import Any
@@ -20,7 +21,6 @@ from domain.ports import persistence
 from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import postgresdb_client as client
-
 
 # Column indices for the SentimentReports table
 REPORTID_COL_INDEX = 0
@@ -32,7 +32,6 @@ DATERANGEEND_COL_INDEX = 5
 STATUS_COL_INDEX = 6
 CREATEDON_COL_INDEX = 7
 LASTUPDATEDON_COL_INDEX = 8
-
 
 logger = logging.getLogger(__name__)
 
@@ -85,8 +84,10 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
       report: The sentiment report to persist.
     """
     if report.entity_id:
+      logger.debug("Updating report %s", report.entity_id)
       self._update_report(report)
     else:
+      logger.debug("Inserting report since no ID was found")
       self._insert_report(report)
 
   def _update_report(self, report: sentiment_report.SentimentReportEntity):
@@ -122,6 +123,10 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
     self._postgres_client.update_row(query, update_params)
 
     if report.datasets:
+      logger.debug(
+          "Persisting %d datasets for report %s", len(report.datasets),
+          report.entity_id
+      )
       self._persist_datasets(report.datasets, report.entity_id)
 
   def _insert_report(self, report: sentiment_report.SentimentReportEntity):
@@ -181,9 +186,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
     """
     for dataset in datasets:
       params = (
-          report_id,
-          dataset.source.name,
-          dataset.data_output.name,
+          report_id, dataset.source.name, dataset.data_output.name,
           dataset.dataset_uri
       )
       self._postgres_client.insert_row(insert_query, params)
@@ -258,35 +261,5 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             source=common_msg.SocialMediaSource[row[1]],
             data_output=common_msg.SentimentDataType[row[2]],
             dataset_uri=row[3],
-        )
-        for row in rows
+        ) for row in rows
     ]
-
-  # def _populate_report_with_dataoutputs(
-  #     self, report: report_msg.SentimentReport):
-  #   """Populates the given report with its associated data outputs."""
-  #   query = """
-  #     SELECT
-  #         dataoutputid,
-  #         reportid,
-  #         dataoutputtype,
-  #         dataoutputuri,
-  #         status
-  #     FROM
-  #         SentimentReportDataOutputs
-  #     WHERE
-  #         reportId = %s
-  #   """
-
-  #   rows = self._postgres_client.retrieve_rows(query, (report.report_id,))
-  #   if not rows:
-  #     return
-
-  #   report.data_outputs_details = [
-  #       report_msg.SentimentReportDataOutput(
-  #           data_output_id=row[0],
-  #           data_output_type=report_msg.ReportDataOutput[row[2]],
-  #           data_output_uri=row[3],
-  #           status=report_msg.DataOutputStatus[row[4]],)
-  #       for row in rows
-  #   ]

@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
 """Module for report service HTTP endpoint."""
 
 import logging
@@ -29,11 +30,10 @@ from socialpulse_common.persistence import postgresdb_client as client
 from socialpulse_common.persistence import bigquery_client
 from infrastructure.bigquery.dataset import bq_dataset_repo
 
-
 log_level = os.environ.get("LOG_LEVEL", "DEBUG").upper()
+logging.basicConfig(level=log_level)
 logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
-
 
 settings = config.Settings()
 
@@ -106,7 +106,8 @@ def list_reports(
   except Exception as e:
     logger.exception("Error listing reports:")
     raise fastapi.HTTPException(
-        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e)
     ) from e
 
 
@@ -154,7 +155,8 @@ def create_report(
     logger.exception("Error occurred, will return 500 error:")
 
     raise fastapi.HTTPException(
-        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e)
     ) from e
 
 
@@ -190,7 +192,7 @@ def _entity_to_message(
 @app.post("/api/{report_id}/mark_as_completed")
 def mark_as_completed(
     report_id: str, datasets: list[report_msg.SentimentReportDataset]
-):
+) -> report_msg.SentimentReport:
   """Marks a sentiment report as completed and associates datasets with it.
 
   Args:
@@ -199,17 +201,26 @@ def mark_as_completed(
       about the generated datasets.
   """
   try:
+    logger.info(
+        "Marking report %s as completed with %d datasets",
+        report_id,
+        len(datasets),
+    )
     report_entity = app_config.sentiment_report_repository.load_report(
         report_id
     )
+
     report_entity.mark_as_completed(datasets)
     app_config.sentiment_report_repository.persist_report(report_entity)
+
+    return _entity_to_message(report_entity)
 
   except Exception as e:  # pylint: disable=broad-except
     logger.exception("Error occurred, will return 500 error:")
 
     raise fastapi.HTTPException(
-        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e)
     ) from e
 
 
@@ -247,5 +258,6 @@ def get_report(report_id: str) -> report_msg.SentimentReport:
   except Exception as e:  # pylint: disable=broad-except
     logger.exception("Error occurred, will return 500 error:")
     raise fastapi.HTTPException(
-        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e)
     ) from e

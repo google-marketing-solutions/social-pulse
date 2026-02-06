@@ -11,13 +11,19 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+
 """Task to fetch YT data."""
+import datetime
 import logging
+
 from typing import Any
 import pandas as pd
 from socialpulse_common import service
 from tasks import core as tasks_core
 from tasks.ports import apis as ports_apis
+
+# Max results per month when we shard the search by month
+MAX_RESULTS_PER_MONTH_SHARD = 50
 
 
 class FindYoutubeVideos(tasks_core.SentimentTask):
@@ -29,26 +35,41 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
   using the configured SentimentDataRepo.
   """
 
-  def _build_search_criteria(self) -> ports_apis.YoutubeSearchCriteria:
-    """Builds the search criteria object from workflow params and defaults."""
+  def _generate_monthly_intervals(
+      self, start_date: datetime.date, end_date: datetime.date
+  ) -> list[tuple[datetime.date, datetime.date]]:
+    """Generates a list of start/end date tuples for monthly intervals."""
+    intervals = []
+    current_start = start_date
+    while current_start < end_date:
+      # Use pandas for easy month addition, preserving day or capping at month
+      # end
+      next_month = current_start + pd.DateOffset(months=1)
+      current_end = next_month.date()
 
+      # If the step goes past the global end_date, cap it
+      if current_end > end_date:
+        current_end = end_date
+
+      intervals.append((current_start, current_end))
+      current_start = current_end
+
+    return intervals
+
+  def _build_search_criteria(
+      self,
+      max_results: int = 500
+  ) -> ports_apis.YoutubeSearchCriteria:
+    """Builds the search criteria object from workflow params and defaults."""
     topic = self.workflow_exec.topic
-    language = ports_apis.Language.ENGLISH
     sort_by = ports_apis.VideoResultsSortBy.RELEVANCE
-    max_results = 1000
 
     criteria = ports_apis.YoutubeSearchCriteria(
-        query=topic, language=language, sort_by=sort_by, max_results=max_results
+        query=topic, sort_by=sort_by, max_results=max_results
     )
 
-    if self.workflow_exec.start_time:
-      criteria.published_after = self.workflow_exec.start_time.date()
-
-    if self.workflow_exec.end_time:
-      criteria.published_before = self.workflow_exec.end_time.date()
-
     logging.info(
-        "[%s] Constructed search criteria: %s", self.task_family, criteria
+        "[%s] Constructed base search criteria: %s", self.task_family, criteria
     )
     return criteria
 
@@ -71,17 +92,15 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
     videos_df = yt_data_api_response_items_df.assign(
         videoUrl="http://www.youtube.com/watch?v="
         + yt_data_api_response_items_df["id.videoId"]
-    )[
-        [
-            "id.videoId",
-            "videoUrl",
-            "snippet.title",
-            "snippet.description",
-            "snippet.channelId",
-            "snippet.channelTitle",
-            "snippet.publishedAt",
-        ]
-    ].rename(
+    )[[
+        "id.videoId",
+        "videoUrl",
+        "snippet.title",
+        "snippet.description",
+        "snippet.channelId",
+        "snippet.channelTitle",
+        "snippet.publishedAt",
+    ]].rename(
         columns={
             "id.videoId": "videoId",
             "snippet.title": "videoTitle",
@@ -131,9 +150,9 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
         "commentCount",
         "favoriteCount",
     ]
-    final_stats_df = stats_df[
-        [col for col in columns_to_keep if col in stats_df.columns]
-    ]
+    final_stats_df = stats_df[[
+        col for col in columns_to_keep if col in stats_df.columns
+    ]]
     merged_df = pd.merge(video_df, final_stats_df, on="videoId", how="left")
 
     numeric_cols = [
@@ -161,17 +180,47 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
           ports_apis.YoutubeApiClient
       )
 
-      criteria = self._build_search_criteria()
-      logging.info(
-          "[%s] Searching YouTube for videos (execution %s)...",
-          self.task_family,
-          self.execution_id,
-      )
+      videos_raw = []
 
-      videos_raw = youtube_client.search_for_videos(criteria)
+      # If no date range is specified, fallback to a single search
+      if not self.workflow_exec.start_time or not self.workflow_exec.end_time:
+        logging.warning(
+            "[%s] No date range specified. Using simple search.",
+            self.task_family
+        )
+        criteria = self._build_search_criteria()
+        videos_raw = youtube_client.search_for_videos(criteria)
+
+      else:
+        # Shard the search by month
+        intervals = self._generate_monthly_intervals(
+            self.workflow_exec.start_time.date(),
+            self.workflow_exec.end_time.date()
+        )
+        logging.info(
+            "[%s] Sharding search into %d intervals for execution %s.",
+            self.task_family,
+            len(intervals),
+            self.execution_id,
+        )
+
+        for start_date, end_date in intervals:
+          criteria = self._build_search_criteria(
+              max_results=MAX_RESULTS_PER_MONTH_SHARD
+          )
+          criteria.published_after = start_date
+          criteria.published_before = end_date
+
+          logging.info(
+              "[%s] Searching interval %s to %s...", self.task_family,
+              start_date, end_date
+          )
+
+          interval_videos = youtube_client.search_for_videos(criteria)
+          videos_raw.extend(interval_videos)
 
       logging.info(
-          "[%s] Found %s videos matching criteria for execution %s.",
+          "[%s] Found %s total videos matching criteria for execution %s.",
           self.task_family,
           len(videos_raw),
           self.execution_id,

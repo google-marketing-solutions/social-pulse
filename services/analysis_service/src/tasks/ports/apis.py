@@ -43,7 +43,8 @@ class Language(enum.Enum):
 class YoutubeSearchCriteria:
   """Represents the criteria for searching videos on YouTube."""
   query: str
-  language: Language = Language.ENGLISH
+  language: Language | None = None
+  region_code: str | None = None
   sort_by: VideoResultsSortBy = VideoResultsSortBy.RELEVANCE
   max_results: int = 1000
   published_after: datetime.date | None = None
@@ -86,9 +87,8 @@ class YoutubeApiClient(service.RegisterableService, abc.ABC):
     raise NotImplementedError
 
   @abc.abstractmethod
-  def get_video_details(
-      self, video_ids: list[str]
-  ) -> dict[str, dict[str, Any]]:
+  def get_video_details(self,
+                        video_ids: list[str]) -> dict[str, dict[str, Any]]:
     """Retrieves detailed information for video IDs.
 
     Args:
@@ -102,9 +102,8 @@ class YoutubeApiClient(service.RegisterableService, abc.ABC):
     raise NotImplementedError
 
   @abc.abstractmethod
-  def get_comments_for_videos(
-      self, video_ids: list[str]
-  ) -> list[dict[str, Any]]:
+  def get_comments_for_videos(self,
+                              video_ids: list[str]) -> list[dict[str, Any]]:
     """Retrieves comment threads for videos.
 
     Args:

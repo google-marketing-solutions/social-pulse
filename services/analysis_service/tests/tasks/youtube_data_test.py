@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
 import datetime
 import unittest
 from unittest import mock
@@ -79,8 +78,7 @@ class YoutubeDataTest(unittest.TestCase):
         mock_exec
     )
     task = youtube_data.FindYoutubeVideos(
-        execution_id=self.execution_id,
-        my_required_task=self.required_task_mock
+        execution_id=self.execution_id, my_required_task=self.required_task_mock
     )
     expected_table_name = f"{task.task_family}_{self.execution_id}"
 
@@ -108,7 +106,9 @@ class YoutubeDataTest(unittest.TestCase):
     # Sample API Response
     raw_video_data = [
         {
-            "id": {"videoId": "vid1"},
+            "id": {
+                "videoId": "vid1"
+            },
             "snippet": {
                 "title": "Title 1",
                 "description": "Desc 1",
@@ -118,7 +118,9 @@ class YoutubeDataTest(unittest.TestCase):
             },
         },
         {
-            "id": {"videoId": "vid2"},
+            "id": {
+                "videoId": "vid2"
+            },
             "snippet": {
                 "title": "Title 2",
                 "description": "Desc 2",
@@ -154,32 +156,37 @@ class YoutubeDataTest(unittest.TestCase):
     self.mock_api_client.get_video_details.return_value = video_stats_data
 
     # Define expected results
-    expected_criteria = ports_apis.YoutubeSearchCriteria(
+    expected_criteria_call_1 = ports_apis.YoutubeSearchCriteria(
         query="Test Topic",
-        language=ports_apis.Language.ENGLISH,
         sort_by=ports_apis.VideoResultsSortBy.RELEVANCE,
-        max_results=1000,
+        max_results=youtube_data.MAX_RESULTS_PER_MONTH_SHARD,
         published_after=datetime.date(2025, 4, 1),
+        published_before=datetime.date(2025, 5, 1),
+    )
+    expected_criteria_call_2 = ports_apis.YoutubeSearchCriteria(
+        query="Test Topic",
+        sort_by=ports_apis.VideoResultsSortBy.RELEVANCE,
+        max_results=youtube_data.MAX_RESULTS_PER_MONTH_SHARD,
+        published_after=datetime.date(2025, 5, 1),
         published_before=datetime.date(2025, 5, 30),
     )
-    expected_df = pd.DataFrame(
-        {
-            "videoId": ["vid1", "vid2"],
-            "videoUrl": [
-                "http://www.youtube.com/watch?v=vid1",
-                "http://www.youtube.com/watch?v=vid2",
-            ],
-            "videoTitle": ["Title 1", "Title 2"],
-            "videoDescription": ["Desc 1", "Desc 2"],
-            "channelId": ["c1", "c2"],
-            "channelTitle": ["Chan 1", "Chan 2"],
-            "publishedAt": ["2025-04-01T00:00:00Z", "2025-05-30T00:00:00Z"],
-            "viewCount": ["100", "200"],
-            "likeCount": ["10", "20"],
-            "commentCount": ["5", "15"],
-            "favoriteCount": ["2", "12"],
-        }
-    )
+
+    expected_df = pd.DataFrame({
+        "videoId": ["vid1", "vid2"],
+        "videoUrl": [
+            "http://www.youtube.com/watch?v=vid1",
+            "http://www.youtube.com/watch?v=vid2",
+        ],
+        "videoTitle": ["Title 1", "Title 2"],
+        "videoDescription": ["Desc 1", "Desc 2"],
+        "channelId": ["c1", "c2"],
+        "channelTitle": ["Chan 1", "Chan 2"],
+        "publishedAt": ["2025-04-01T00:00:00Z", "2025-05-30T00:00:00Z"],
+        "viewCount": ["100", "200"],
+        "likeCount": ["10", "20"],
+        "commentCount": ["5", "15"],
+        "favoriteCount": ["2", "12"],
+    })
     numeric_cols = [
         "viewCount",
         "likeCount",
@@ -191,18 +198,21 @@ class YoutubeDataTest(unittest.TestCase):
     )
 
     task = youtube_data.FindYoutubeVideos(
-        execution_id=self.execution_id,
-        my_required_task=self.required_task_mock
+        execution_id=self.execution_id, my_required_task=self.required_task_mock
     )
     expected_table_name = task.output().table_name
 
     # Execute the task
     task.run()
 
-    # Verify mocks were called as expected
-    self.mock_api_client.search_for_videos.assert_called_once_with(
-        expected_criteria
-    )
+    # Verify mocks were called as expected (two calls for two months)
+    self.assertEqual(self.mock_api_client.search_for_videos.call_count, 2)
+    # Check calls in order
+    self.mock_api_client.search_for_videos.assert_has_calls([
+        mock.call(expected_criteria_call_1),
+        mock.call(expected_criteria_call_2)
+    ])
+
     self.mock_data_repo.write_sentiment_data.assert_called_once()
 
     # Compare DataFrame passed to write_sentiment_data
@@ -247,23 +257,22 @@ class YoutubeDataTest(unittest.TestCase):
     self.mocked_wfe_params_loader_service.load_execution.return_value = (
         mock_exec
     )
-    self.mock_api_client.search_for_videos.return_value = [
-        {
-            "id": {"videoId": "vid1"},
-            "snippet": {
-                "title": "Title 1",
-                "description": "Desc 1",
-                "channelId": "c1",
-                "channelTitle": "Chan 1",
-                "publishedAt": "2025-04-01T00:00:00Z",
-            },
-        }
-    ]
+    self.mock_api_client.search_for_videos.return_value = [{
+        "id": {
+            "videoId": "vid1"
+        },
+        "snippet": {
+            "title": "Title 1",
+            "description": "Desc 1",
+            "channelId": "c1",
+            "channelTitle": "Chan 1",
+            "publishedAt": "2025-04-01T00:00:00Z",
+        },
+    }]
     self.mock_api_client.get_video_details.return_value = {}  # No stats
 
     task = youtube_data.FindYoutubeVideos(
-        execution_id=self.execution_id,
-        my_required_task=self.required_task_mock
+        execution_id=self.execution_id, my_required_task=self.required_task_mock
     )
 
     # Need to run the whole task to call _attach_video_stats_to_video_data
@@ -276,6 +285,84 @@ class YoutubeDataTest(unittest.TestCase):
     # The dataframe should be the normalized videos_df without stats
     self.assertEqual(call_args[1].shape[0], 1)
     self.assertNotIn("viewCount", call_args[1].columns)
+
+
+  def test_run_successful_workflow_no_date_range(self):
+    """Tests that run uses default max_results when no date range is provided.
+
+    Given a FindYoutubeVideos task with a mocked API client and a workflow
+    execution with no date range.
+    When the run method is invoked.
+    Then the API client's search method is called once with default max_results.
+    """
+    # Use unique execution ID to avoid luigi task memoization/caching interference
+    # from previous tests (which might have cached workflow_exec with dates)
+    no_date_execution_id = "exec_id_no_date"
+
+    # Create simple mock instead of full WorkflowExecutionParams to control fields
+    mock_exec = mock.Mock(spec=wfe.WorkflowExecutionParams)
+    mock_exec.topic = "Test Topic"
+    mock_exec.start_time = None
+    mock_exec.end_time = None
+    
+    # We need to mock the loader for this specific ID if the service uses args
+    # But usually it just calls load_execution(id), so return_value is enough
+    # if the mock is fresh.
+    self.mocked_wfe_params_loader_service.load_execution.return_value = (
+        mock_exec
+    )
+
+    # Sample API Response
+    raw_video_data = [
+        {
+            "id": {
+                "videoId": "vid1"
+            },
+            "snippet": {
+                "title": "Title 1",
+                "description": "Desc 1",
+                "channelId": "c1",
+                "channelTitle": "Chan 1",
+                "publishedAt": "2025-04-01T00:00:00Z",
+            },
+        },
+    ]
+    self.mock_api_client.search_for_videos.return_value = raw_video_data
+
+    # Sample video statistics response
+    video_stats_data = {
+        "vid1": {
+            "id": "vid1",
+            "statistics": {
+                "viewCount": "100",
+                "likeCount": "10",
+                "commentCount": "5",
+                "favoriteCount": "2",
+            },
+        },
+    }
+    self.mock_api_client.get_video_details.return_value = video_stats_data
+
+    # Expected criteria with default max_results (500)
+    expected_criteria_call = ports_apis.YoutubeSearchCriteria(
+        query="Test Topic",
+        sort_by=ports_apis.VideoResultsSortBy.RELEVANCE,
+        max_results=500,
+    )
+
+    # Execute the task
+    # Execute the task
+    task = youtube_data.FindYoutubeVideos(
+        execution_id=no_date_execution_id, my_required_task=self.required_task_mock
+    )
+    task.run()
+
+    # Verify mocks were called as expected (one call)
+    self.assertEqual(self.mock_api_client.search_for_videos.call_count, 1)
+    self.mock_api_client.search_for_videos.assert_called_with(
+        expected_criteria_call
+    )
+    self.mock_data_repo.write_sentiment_data.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -81,6 +81,4 @@ If you need to add or update a dependency:
 ## Cloud Deployment
 
 For production deployment, the library is published to Google Cloud Artifact
-Registry. This is typically handled by the CI/CD pipeline, but can be done
-manually if needed using specific deployment scripts (see `publish_to_ar.sh` if
-available).
+Registry.

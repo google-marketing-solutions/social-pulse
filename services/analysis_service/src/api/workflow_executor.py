@@ -27,7 +27,6 @@ import logging
 import os
 import sys
 
-
 import google.cloud.logging
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
@@ -42,14 +41,12 @@ from tasks import execution
 from tasks.ports import apis
 from tasks.ports import persistence
 
-
 logging_client = google.cloud.logging.Client()
 logging_client.setup_logging()
 
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.getLogger().setLevel(log_level)
 logger = logging.getLogger(__name__)
-
 
 settings = None
 service_registry = None
@@ -76,9 +73,8 @@ def _bootstrap_services():
       password=settings.db.password,
   )
   workflow_repo = (
-      workflow_data_repo.PostgresDbWorkflowExecutionPersistenceService(
-          postgres_client
-      )
+      workflow_data_repo.
+          PostgresDbWorkflowExecutionPersistenceService(postgres_client)
   )
   service_registry.register(
       persistence.WorkflowExecutionPersistenceService,
@@ -90,9 +86,7 @@ def _bootstrap_services():
       gcp_project_id=settings.cloud.project_id,
       bq_dataset_name=settings.cloud.dataset_name,
   )
-  service.registry.register(
-      persistence.SentimentDataRepo, bq_repo
-  )
+  service.registry.register(persistence.SentimentDataRepo, bq_repo)
 
   # Bootstrap the YT and Vertext AI API client
   yt_api = youtube.YoutubeApiHttpClient(api_key=settings.api.youtube.key)
@@ -114,11 +108,9 @@ class PipelineRunner:
     """Configures the environment and executes the Luigi pipeline."""
 
     logger.info("Invoking luigi.build for execution_id: %s", execution_id)
-    run_result = luigi.build(
-        [execution.WorkflowExecution(execution_id=execution_id)],
-        detailed_summary=True,
-        local_scheduler=True
-    )
+    run_result = luigi.build([
+        execution.WorkflowExecution(execution_id=execution_id)
+    ], detailed_summary=True, local_scheduler=True)
     return run_result
 
   def mark_as_failed(self, execution_id: str):
@@ -153,8 +145,7 @@ def main():
         luigi.LuigiStatusCode.SUCCESS_WITH_RETRY,
     ):
       logger.error(
-          "Luigi pipeline FAILED for execution_id: %s.\n%s",
-          execution_id,
+          "Luigi pipeline FAILED for execution_id: %s.\n%s", execution_id,
           run_result.summary_text
       )
       runner.mark_as_failed(execution_id)
