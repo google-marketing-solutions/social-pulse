@@ -12,31 +12,34 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-"""Module providing concrete implementation for a generative ai client using vertexai."""
+"""Module providing concrete implementation for a generative ai client using google-genai."""
 
 import logging
-import google.generativeai as genai
-import vertexai
+from google import genai
+from google.genai import types
+from tasks.ports import apis
 
 
 # Initialize logging
 logger = logging.getLogger(__name__)
 
+GEMINI_MODEL_NAME = "gemini-3-pro-preview"
+GEMINI_MODEL_LOCATION = "global"
 
-class GeminiSentimentAnalyzer:
-  """Analyzes content using Vertex AI's Generative Model."""
 
-  def __init__(self, api_key: str, project_id: str, project_location: str):
-    """Initializes the GeminiSentimentAnalyzer with a Vertex AI API client and a Vertex AI model.
+class GeminiSentimentAnalyzer(apis.LlmApiClient):
+  """Analyzes content using Google's GenAI SDK."""
+
+  def __init__(self, api_key: str, project_id: str):
+    """Initializes the GeminiSentimentAnalyzer with a GenAI client.
 
     Args:
-        api_key (str): Your Vertex AI API key.
-        project_id (str): Your GCP project ID
-        project_location (str): Your GCP project location
+        api_key (str): Your GenAI API key.
+        project_id (str): Your GCP project ID.
     """
     if not api_key:
-      logger.error("Vertex AI API key is required.")
-      raise ValueError("Vertex AI API key is required.")
+      logger.error("API key is required.")
+      raise ValueError("API key is required.")
     self._api_key = api_key
 
     if not project_id:
@@ -44,20 +47,16 @@ class GeminiSentimentAnalyzer:
       raise ValueError("GCP project ID is required.")
     self._project_id = project_id
 
-    if not project_location:
-      logger.error("GCP project location is required.")
-      raise ValueError("GCP project location is required.")
-    self._project_location = project_location
-
     try:
-      vertexai.init(project=project_id, location=project_location)
-      genai.configure(api_key=api_key)
-      gemini_model = "models/gemini-2.5-flash-preview-04-17"
-      self._model = genai.GenerativeModel(model_name=gemini_model)
-
+      self._client = genai.Client(
+          vertexai=True,
+          project=project_id,
+          location=GEMINI_MODEL_LOCATION,
+      )
       logger.info("GeminiSentimentAnalyzer initialized.")
-    except Exception as e:  # pylint: disable=broad-exception-caught
-      logger.exception("Failed to initialize genai model: %s", e)
+
+    except Exception as e:
+      logger.error("Failed to initialize GenAI client: %s", e)
       raise
 
   def analyze_content_with_gemini(self, prompt: str) -> dict[str]:
@@ -73,9 +72,17 @@ class GeminiSentimentAnalyzer:
     """
 
     try:
-      response = self._model.generate_content(prompt)
+      response = self._client.models.generate_content(
+          model=GEMINI_MODEL_NAME, contents=prompt,
+          config=types.GenerateContentConfig(
+              temperature=0.1,
+              thinking_config=types.ThinkingConfig(
+                  thinking_level=types.ThinkingLevel.HIGH
+              ),
+          )
+      )
       return response.text
 
-    except Exception as e:  # pylint: disable=broad-exception-caught
-      logger.error("Error calling Vertex AI generate_content API: %s", e)
-      return {"error": f"Failed to get analysis from Vertex AI: {e}"}
+    except Exception as e:
+      logger.error("GenAI analysis failed: %s", e)
+      raise

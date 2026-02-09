@@ -28,6 +28,7 @@ import os
 import sys
 
 import google.cloud.logging
+from infrastructure.apis import gemini
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
 from infrastructure.persistence.bigquery import sentiment_data_repo
@@ -41,8 +42,9 @@ from tasks import execution
 from tasks.ports import apis
 from tasks.ports import persistence
 
-logging_client = google.cloud.logging.Client()
-logging_client.setup_logging()
+if not config.is_development():
+  logging_client = google.cloud.logging.Client()
+  logging_client.setup_logging()
 
 log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logging.getLogger().setLevel(log_level)
@@ -88,15 +90,21 @@ def _bootstrap_services():
   )
   service.registry.register(persistence.SentimentDataRepo, bq_repo)
 
-  # Bootstrap the YT and Vertext AI API client
+  # Bootstrap the YT and LLM API clients
   yt_api = youtube.YoutubeApiHttpClient(api_key=settings.api.youtube.key)
   vertex_api = vertexai.VertexAiLlmBatchJobApiClient(
       project_id=settings.cloud.project_id,
       region=settings.cloud.region,
       bq_dataset_name=settings.cloud.dataset_name,
   )
+  gemini_api = gemini.GeminiSentimentAnalyzer(
+      api_key=settings.api.youtube.key,
+      project_id=settings.cloud.project_id,
+  )
+
   service.registry.register(apis.YoutubeApiClient, yt_api)
   service.registry.register(apis.LlmBatchJobApiClient, vertex_api)
+  service.registry.register(apis.LlmApiClient, gemini_api)
 
   is_initialized = True
 

@@ -57,9 +57,10 @@ local package index:
 cd ../analysis_service
 source .venv/bin/activate  # Ensure you are in the service's venv
 
-pip install -r requirements.txt \
-    --extra-index-url http://localhost:3322/simple \
-    --trusted-host localhost
+pip install \
+    --force-reinstall \
+    --no-deps \
+    -r requirements.txt
 ```
 
 ## Dependency Management

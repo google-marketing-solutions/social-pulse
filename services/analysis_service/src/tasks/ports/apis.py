@@ -137,3 +137,14 @@ class LlmBatchJobApiClient(abc.ABC):
         written to.
     """
     raise NotImplementedError
+
+
+class LlmApiClient(abc.ABC):
+  """Abstract interface for interacting with the LLM API."""
+
+  @abc.abstractmethod
+  def analyze_content_with_gemini(
+      self, prompt: str
+  ) -> str:
+    """Analyzes content with Gemini."""
+    raise NotImplementedError

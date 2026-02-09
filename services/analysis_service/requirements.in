@@ -16,6 +16,7 @@ pytest
 pytest-cov
 vertexai
 yoyo-migrations
+google-genai
 
 # Shared social pulse library
 socialpulse-common==0.1.0

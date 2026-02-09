@@ -51,12 +51,12 @@ class ConfigTest(unittest.TestCase):
     super().tearDown()
     self.env_patcher.stop()
 
-  @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
+  @mock.patch("socialpulse_common.config.is_development", return_value=False)
   @mock.patch("dotenv.find_dotenv", side_effect=IOError)
   def test_dynamic_api_url_is_generated_correctly(
       self,
       mocked_find_dotenv,
-      mocked_secrets_loader
+      mock_is_dev
   ):
     """Verifies the dynamic API URL is built correctly from other settings.
 
@@ -66,23 +66,27 @@ class ConfigTest(unittest.TestCase):
 
     Args:
       mocked_find_dotenv: Mocked find_dotenv to prevent loading a .env file.
-      mocked_secrets_loader: Mocked secrets loader to isolate URL logic.
+      mock_is_dev: Mocked is_development to return False.
     """
     del mocked_find_dotenv
+    del mock_is_dev
+
+    # We need to ensure project_number is available for the dynamic URL
+    # generation
+    self.mock_os_envs["CLOUD__PROJECT_NUMBER"] = "123456789"
+    self.setup_os_environment()
+
     settings = config.Settings()
 
     expected_url = (
-        "https://sp-analysis-runner-123456789.us-central1.run.app"
+        "https://sp-analysis-run-123456789.us-central1.run.app"
     )
     self.assertEqual(settings.cloud.workflow_runner_api_url, expected_url)
-    mocked_secrets_loader.assert_called_once_with("123456789")
 
-  @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv", side_effect=IOError)
   def test_dynamic_api_url_is_overridden_by_env_var(
       self,
-      mocked_find_dotenv,
-      mocked_secrets_loader
+      mocked_find_dotenv
   ):
     """Ensures an explicit environment variable overrides the dynamic API URL.
 
@@ -92,10 +96,8 @@ class ConfigTest(unittest.TestCase):
 
     Args:
       mocked_find_dotenv: Mocked find_dotenv to prevent loading a .env file.
-      mocked_secrets_loader: Mocked secrets loader, not used in this test.
     """
     del mocked_find_dotenv
-    del mocked_secrets_loader
 
     self.mock_os_envs["CLOUD__WORKFLOW_RUNNER_API_URL"] = (
         "http://my-override-url.com"
@@ -109,56 +111,12 @@ class ConfigTest(unittest.TestCase):
         "http://my-override-url.com"
     )
 
-  @mock.patch(
-      "socialpulse_common.config.secretmanager.SecretManagerServiceClient"
-  )
-  @mock.patch("dotenv.find_dotenv", side_effect=IOError)
-  def test_secrets_are_loaded_and_used_as_config(
-      self,
-      mocked_find_dotenv,
-      mock_sm_client
-  ):
-    """Tests that secrets from GCP are loaded and used by the settings model.
-
-    Given the Secret Manager has a value for the database password
-    And the secret ID is store under the DB-PASSWORD ID
-    When the Settings object is initialized
-    Then the value of the mocked secret is correctly populated in the settings
-
-    Args:
-      mocked_find_dotenv: Mocked find_dotenv to prevent loading a .env file.
-      mock_sm_client: Mocked SecretManagerServiceClient to simulate API calls.
-    """
-    del mocked_find_dotenv
-
-    mock_client_instance = mock.Mock()
-    mock_sm_client.return_value = mock_client_instance
-
-    mock_secret = mock.Mock()
-    mock_secret.name = "projects/gcp-project/secrets/DB-PASSWORD"
-    mock_client_instance.list_secrets.return_value = [mock_secret]
-
-    mock_version_response = mock.Mock()
-    mock_version_response.payload.data = b"password-from-secret"
-    mock_client_instance.access_secret_version.return_value = (
-        mock_version_response
-    )
-
-    with mock.patch.dict(os.environ, {"API__YOUTUBE.KEY": "dummy"}):
-      settings = config.Settings()
-
-      self.assertEqual(settings.db.password, "password-from-secret")
-      mock_client_instance.list_secrets.assert_called_once()
-      mock_client_instance.access_secret_version.assert_called_once()
-
-  @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")
   @mock.patch("dotenv.load_dotenv")
   def test_fatal_error_if_required_bootstrap_params_not_set(
       self,
       mocked_load_dotenv,
-      mocked_find_dotenv,
-      mocked_secrets_loader
+      mocked_find_dotenv
   ):
     """Fatal error is raised if required bootstrap params are not set.
 
@@ -169,11 +127,9 @@ class ConfigTest(unittest.TestCase):
     Args:
       mocked_load_dotenv: mocked load_dotenv function, not used.
       mocked_find_dotenv: mocked find_dotenv function, not used.
-      mocked_secrets_loader: mocked secrets_loader function, not used.
     """
     del mocked_find_dotenv
     del mocked_load_dotenv
-    del mocked_secrets_loader
 
     self.mock_os_envs.pop("CLOUD__PROJECT_ID")
     self.setup_os_environment()
@@ -181,14 +137,12 @@ class ConfigTest(unittest.TestCase):
     with self.assertRaises(pydantic.ValidationError):
       settings = config.Settings()  # pylint: disable=unused-variable
 
-  @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")
   @mock.patch("dotenv.load_dotenv")
   def test_development_mode_is_true_if_app_env_set_to_dev(
       self,
       mocked_load_dotenv,
-      mocked_find_dotenv,
-      mocked_secrets_loader
+      mocked_find_dotenv
   ):
     """Development mode flag is true if app env is set to development.
 
@@ -199,23 +153,19 @@ class ConfigTest(unittest.TestCase):
     Args:
       mocked_load_dotenv: mocked load_dotenv function, not used.
       mocked_find_dotenv: mocked find_dotenv function, not used.
-      mocked_secrets_loader: mocked secrets_loader function, not used.
     """
     del mocked_find_dotenv
     del mocked_load_dotenv
-    del mocked_secrets_loader
 
     with mock.patch.dict(os.environ, {"APP_ENV": "dev"}):
       self.assertTrue(config.is_development())
 
-  @mock.patch("socialpulse_common.config._load_all_gcp_secrets_to_env")
   @mock.patch("dotenv.find_dotenv")
   @mock.patch("dotenv.load_dotenv")
   def test_env_vars_override_default_values(
       self,
       mocked_load_dotenv,
-      mocked_find_dotenv,
-      mocked_secrets_loader
+      mocked_find_dotenv
   ):
     """Environment variables override default values.
 
@@ -226,11 +176,9 @@ class ConfigTest(unittest.TestCase):
     Args:
       mocked_load_dotenv: mocked load_dotenv function, not used.
       mocked_find_dotenv: mocked find_dotenv function, not used.
-      mocked_secrets_loader: mocked secrets_loader function, not used.
     """
     del mocked_find_dotenv
     del mocked_load_dotenv
-    del mocked_secrets_loader
 
     with mock.patch.dict(os.environ, {"DB__USERNAME": "fizz"}):
       settings = config.Settings()

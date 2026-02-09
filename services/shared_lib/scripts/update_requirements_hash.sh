@@ -40,7 +40,7 @@ echo "Updating requirements file: $REQ_FILE"
 # We create a temp file then move it back
 awk -v new_hash="$NEW_HASH" '
     BEGIN { in_spc_block = 0 }
-    /socialpulse-common/ {
+    /^socialpulse-common/ {
         print
         printf "    --hash=sha256:%s\n", new_hash
         in_spc_block = 1

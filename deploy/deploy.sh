@@ -44,6 +44,7 @@ gcloud services enable cloudresourcemanager.googleapis.com
 gcloud services enable cloudscheduler.googleapis.com
 gcloud services enable compute.googleapis.com
 gcloud services enable eventarc.googleapis.com
+gcloud services enable generativelanguage.googleapis.com
 gcloud services enable iam.googleapis.com
 gcloud services enable pubsub.googleapis.com
 gcloud services enable run.googleapis.com
@@ -53,6 +54,7 @@ gcloud services enable sqladmin.googleapis.com
 gcloud services enable storage.googleapis.com
 gcloud services enable vpcaccess.googleapis.com
 gcloud services enable youtube.googleapis.com
+
 set +x
 
 echo "Waiting 60 seconds for Service Identity propagation to prevent race conditions..."

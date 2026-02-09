@@ -41,6 +41,23 @@ class SetupMockSentimentTaskDepependenciesMixin():
     self.setup_mock_workflow_params()
     self.setup_mock_setniment_data_repo()
     self.setup_mock_required_task()
+    self.setup_mock_config()
+
+  def setup_mock_config(self):
+    """Sets up a mock Settings object."""
+    self.mock_settings_patcher = mock.patch(
+        "socialpulse_common.config.Settings"
+    )
+    self.mock_settings_cls = self.mock_settings_patcher.start()
+    self.addCleanup(self.mock_settings_patcher.stop)
+
+    self.mock_settings = mock.Mock()
+    self.mock_settings_cls.return_value = self.mock_settings
+
+    # Set up default values for settings
+    self.mock_settings.cloud.project_id = "test_project_id"
+    self.mock_settings.cloud.region = "us-central1"
+    self.mock_settings.api.youtube.key = "test_api_key"
 
   def setup_mock_workflow_params(self):
     """Sets up a mock WorkflowExecutionLoaderService."""

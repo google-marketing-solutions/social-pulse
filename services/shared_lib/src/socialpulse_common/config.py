@@ -11,18 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Module for configuration parameters access."""
 import logging
 import os
-import re
 from typing import Any
 
 import dotenv
-from google.api_core import exceptions
-from google.cloud import secretmanager
+from google.cloud import logging as cloud_logging
 import pydantic
 import pydantic_settings
-
 
 ENV_DEVELOPMENT = "dev"
 ENV_PRODUCTION = "prod"
@@ -34,58 +32,29 @@ WORKFLOW_EXECUTOR_DEPLOY_NAME = "sp-analysis-executor"
 REPORT_BACKEND_DEPLOY_NAME = "sp-reporting-api"
 
 
-def _load_all_gcp_secrets_to_env(project_id: str):
-  """Loads the latest version of all secrets into an environment variable.
+def is_development() -> bool:
+  """Flag idicating if the application is running in development mode.
 
-  Args:
-    project_id: GCP Project ID.
+  Returns:
+    True if the application is running in development mode, False otherwise.
   """
-  if not project_id:
-    logging.warning("GCP Project ID not provided. Skipping secret loading.")
-    return
+  app_env = os.getenv("APP_ENV", ENV_PRODUCTION)
+  return app_env == ENV_DEVELOPMENT
 
-  logging.info("Starting to load secrets from GCP project: %s", project_id)
-  client = secretmanager.SecretManagerServiceClient()
-  parent = f"projects/{project_id}"
-
-  try:
-    secrets_list = client.list_secrets(request={"parent": parent})
-  except exceptions.PermissionDenied:
-    logging.error(
-        "Permission Denied: Ensure the principal has "
-        "'secretmanager.secrets.list' permission on the project."
-    )
-    return
-  except Exception:  # pylint: disable=broad-except
-    logging.exception("An unexpected error occurred while listing secrets:  ")
-    return
-
-  loaded_count = 0
-  for secret in secrets_list:
-    secret_id = secret.name.split("/")[-1]
-
-    # Unfortunately, some cloud secret managers don't allow dot notation ('.')
-    # in secret ID names. In the secrets manager we use a dash ('-') to
-    # separate property levels, but convert them to '__' when adding to the
-    # env.
-    env_var_name = re.sub(
-        r"-", NESTED_CONFIG_SETTING_DELIMITER, secret_id.upper()
-    )
-
-    try:
-      version_name = f"{secret.name}/versions/latest"
-      response = client.access_secret_version(request={"name": version_name})
-      payload = response.payload.data.decode("UTF-8")
-
-      os.environ[env_var_name] = payload
-      logging.debug("Loaded '%s' into env var '%s'", secret_id, env_var_name)
-      loaded_count += 1
-    except exceptions.NotFound:
-      logging.warning("Skipping '%s': No versions found.", secret_id)
-    except Exception:  # pylint: disable=broad-except
-      logging.exception("An error occurred with secret '%s': ", secret_id)
-
-  logging.info("Finished. Loaded a total of %s secrets.", loaded_count)
+# Configure logging.  Given that this file is imported by all end points, we
+# configure logging here:
+#
+# 1. Determine log level from environment variable LOG_LEVEL.  Default to INFO
+#    if not set
+# 2. Turn on cloud logging if in production environment
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+if not is_development():
+  logging_client = cloud_logging.Client()
+  logging_client.setup_logging()
 
 
 class _DbSettings(pydantic.BaseModel):
@@ -170,8 +139,7 @@ class _AppSettings(pydantic_settings.BaseSettings):
   cloud: _CloudSettings
 
   model_config = pydantic_settings.SettingsConfigDict(
-      env_nested_delimiter=NESTED_CONFIG_SETTING_DELIMITER,
-      extra="ignore"
+      env_nested_delimiter=NESTED_CONFIG_SETTING_DELIMITER, extra="ignore"
   )
 
 
@@ -206,22 +174,16 @@ class Settings:
     if is_development():
       try:
         dotenv_file_location = dotenv.find_dotenv(
-            usecwd=True,
-            raise_error_if_not_found=True
+            usecwd=True, raise_error_if_not_found=True
         )
         logging.info(
-            "Loading configuration from .env file: %s", dotenv_file_location)
+            "Loading configuration from .env file: %s", dotenv_file_location
+        )
         dotenv.load_dotenv(dotenv_path=dotenv_file_location)
       except IOError:
         logging.info(
             "No .env file found, proceeding with environment variables."
         )
-
-    # if not is_development():
-    #   gcp_project_id = os.getenv(
-    #       f"CLOUD{NESTED_CONFIG_SETTING_DELIMITER}PROJECT_ID"
-    #   )
-    #   _load_all_gcp_secrets_to_env(gcp_project_id)
 
     self._internal_settings = _AppSettings()
     self._initialized = True
@@ -232,14 +194,3 @@ class Settings:
     except AttributeError:
       logging.error("Unknown configuration setting requested: %s", name)
       raise
-
-
-def is_development() -> bool:
-  """Flag idicating if the application is running in development mode.
-
-  Returns:
-    True if the application is running in development mode, False otherwise.
-  """
-  app_env = os.getenv("APP_ENV", ENV_PRODUCTION)
-  logging.debug("Application environment: %s", app_env)
-  return app_env == ENV_DEVELOPMENT

@@ -7,8 +7,7 @@ authors = [
 ]
 dependencies = [
     "google_api_python_client",
-    "google-cloud-secret-manager",
-    "protobuf",
+    "google-cloud-logging",
     "psycopg2-binary",
     "pydantic-settings",
     "pytest",

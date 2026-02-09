@@ -24,6 +24,7 @@ from tasks import core as task_core
 from tasks import generate_prompt
 from tasks import llm_response_processing
 from tasks import load_parent_data
+from tasks import process_justifications
 from tasks import run_sentiment_job
 from tasks import youtube_comments
 from tasks import youtube_data
@@ -274,6 +275,16 @@ class WorkflowExecution(
         )
     )
     task_chain.append(process_response_task)
+
+    # Add justification processing task if justifications were requested
+    if self.workflow_exec.include_justifications:
+      justification_processing_task = (
+          process_justifications.ProcessJustificationsTask(
+              execution_id=self.execution_id,
+              my_required_task=process_response_task
+          )
+      )
+      task_chain.append(justification_processing_task)
 
   def _attach_load_parent_workflow_dataset(self, task_chain: list[luigi.Task]):
     """Attaches loading the parent workflow dataset task to the task chain.
