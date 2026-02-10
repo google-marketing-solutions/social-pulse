@@ -15,44 +15,115 @@
 'use client';
 
 import {useRouter} from 'next/navigation';
-import {format} from 'date-fns';
-import {
-  SentimentReport,
-  ReportForList,
-  Status,
-  SocialMediaSource,
-} from '@/lib/types';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import {ReportForList, Status, SocialMediaSource} from '@/lib/types';
+import {DataTable} from '@/components/ui/data-table';
+import {columns} from '@/components/reports/columns';
 import {Card, CardContent} from '@/components/ui/card';
-import {Badge} from '@/components/ui/badge';
 import {FileWarning} from 'lucide-react';
-import {cn} from '@/lib/utils';
-import {sourceConfiguration} from '@/lib/sources';
-import {SourceIcon} from './source-icon';
-
-const statusColors: {[key in Status]: 'default' | 'secondary' | 'destructive'} =
-  {
-    NEW: 'secondary',
-    COLLECTING_DATA: 'secondary',
-    DATA_COLLECTED: 'secondary',
-    GENERATING_REPORT: 'secondary',
-    COMPLETED: 'default',
-    FAILED: 'destructive',
-  };
 
 /**
  * Renders a list of reports.
  * @param reports The reports to render.
  * @return The reports list component.
  */
-export function ReportsList({reports}: {reports: ReportForList[]}) {
+import {
+  CheckCircle2,
+  Circle,
+  Timer,
+  XCircle,
+  Video,
+  MessageSquare,
+  BarChart,
+  PieChart,
+} from 'lucide-react';
+import {SentimentDataType} from '@/lib/types';
+
+const statusOptions = [
+  {
+    value: Status.NEW,
+    label: 'New',
+    icon: Circle,
+  },
+  {
+    value: Status.COLLECTING_DATA,
+    label: 'Collecting Data',
+    icon: Timer,
+  },
+  {
+    value: Status.DATA_COLLECTED,
+    label: 'Data Collected',
+    icon: CheckCircle2,
+  },
+  {
+    value: Status.GENERATING_REPORT,
+    label: 'Generating Report',
+    icon: Timer,
+  },
+  {
+    value: Status.COMPLETED,
+    label: 'Completed',
+    icon: CheckCircle2,
+  },
+  {
+    value: Status.FAILED,
+    label: 'Failed',
+    icon: XCircle,
+  },
+];
+
+const analysisOptions = [
+  {
+    value: SentimentDataType.SENTIMENT_SCORE,
+    label: 'Sentiment Score',
+    icon: BarChart,
+  },
+  {
+    value: SentimentDataType.SHARE_OF_VOICE,
+    label: 'Share of Voice',
+    icon: PieChart,
+  },
+];
+
+const sourceOptions = [
+  {
+    value: SocialMediaSource.YOUTUBE_VIDEO,
+    label: 'YouTube Videos',
+    icon: Video,
+  },
+  {
+    value: SocialMediaSource.YOUTUBE_COMMENT,
+    label: 'YouTube Comments',
+    icon: MessageSquare,
+  },
+  // {
+  //   value: SocialMediaSource.REDDIT_POST,
+  //   label: 'Reddit Posts',
+  //   icon: MessageSquare,
+  // },
+  // {
+  //   value: SocialMediaSource.X_POST,
+  //   label: 'X Posts',
+  //   icon: Twitter,
+  // },
+  // {
+  //   value: SocialMediaSource.APP_STORE_REVIEW,
+  //   label: 'App Store Reviews',
+  //   icon: AppWindow,
+  // },
+];
+
+interface ReportsListProps {
+  /** Array of report objects to display. */
+  reports: ReportForList[];
+}
+
+/**
+ * Renders a list of reports with filtering and sorting capabilities.
+ * Displays a "No reports found" message if the reports array is empty.
+ *
+ * @return The reports list component.
+ */
+export function ReportsList({reports}: ReportsListProps) {
   const router = useRouter();
 
   if (reports.length === 0) {
@@ -67,7 +138,7 @@ export function ReportsList({reports}: {reports: ReportForList[]}) {
     );
   }
 
-  const handleRowClick = (report: SentimentReport) => {
+  const handleRowClick = (report: ReportForList) => {
     if (
       report.status === 'COMPLETED' ||
       report.status === 'NEW' ||
@@ -79,92 +150,34 @@ export function ReportsList({reports}: {reports: ReportForList[]}) {
     }
   };
 
+  const facetedFilters = [
+    {
+      columnId: 'status',
+      title: 'Status',
+      options: statusOptions,
+    },
+    {
+      columnId: 'Analysis',
+      title: 'Analysis',
+      options: analysisOptions,
+    },
+    {
+      columnId: 'sources',
+      title: 'Sources',
+      options: sourceOptions,
+    },
+  ];
+
   return (
     <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {/* <TableHead className="w-[150px]">Report ID</TableHead> */}
-              <TableHead className="w-[200px]">Topic</TableHead>
-              <TableHead>Analysis</TableHead>
-              <TableHead>Sources</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date Range</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {reports.map(report => (
-              <TableRow
-                key={report.reportId}
-                onClick={() => handleRowClick(report)}
-                className={cn(
-                  report.status === 'FAILED'
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'cursor-pointer',
-                )}
-                title={
-                  report.status === 'COMPLETED'
-                    ? 'View report'
-                    : report.status === 'FAILED'
-                      ? 'Report failed'
-                      : 'View pending report'
-                }
-              >
-                {/* <TableCell className="font-mono text-xs text-muted-foreground">
-                  {report.reportId}
-                </TableCell> */}
-                <TableCell className="font-medium">{report.topic}</TableCell>
-                <TableCell className="capitalize text-muted-foreground">
-                  {report.dataOutput?.replace(/_/g, ' ')}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {report.sources.map((source, index) => {
-                      const config =
-                        sourceConfiguration[source as SocialMediaSource];
-                      if (!config) return null;
-                      return (
-                        <Badge
-                          variant="outline"
-                          key={`${source}-${index}`}
-                          className="flex items-center gap-1.5 py-0.5 px-2"
-                        >
-                          <SourceIcon source={source as SocialMediaSource} />
-                          <span className="capitalize text-xs">
-                            {config.label}
-                          </span>
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={statusColors[report.status || 'NEW']}
-                    className="capitalize"
-                  >
-                    {report.status?.replace(/_/g, ' ')}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {report.startTime && report.endTime && (
-                    <>
-                      {format(new Date(report.startTime), 'MMM d')}
-                      {' - '}
-                      {format(new Date(report.endTime), 'MMM d, yyyy')}
-                    </>
-                  )}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {report.createdOn &&
-                    format(new Date(report.createdOn), 'MMM d, yyyy, h:mm a')}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <CardContent className="p-6">
+        <DataTable
+          columns={columns}
+          data={reports}
+          onRowClick={handleRowClick}
+          facetedFilters={facetedFilters}
+          defaultSorting={[{id: 'createdOn', desc: true}]}
+        />
       </CardContent>
     </Card>
   );

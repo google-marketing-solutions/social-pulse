@@ -13,7 +13,7 @@
 //  limitations under the License.
 
 import {SocialMediaSource} from './types';
-import {Video, MessageSquare, Twitter, AppWindow} from 'lucide-react';
+import {Video, MessageSquare} from 'lucide-react';
 
 /**
  * The type of metric to use for a source.
@@ -34,7 +34,9 @@ export interface SourceConfig {
 /**
  * The configuration for each social source.
  */
-export const sourceConfiguration: Record<SocialMediaSource, SourceConfig> = {
+export const sourceConfiguration: Partial<
+  Record<SocialMediaSource, SourceConfig>
+> = {
   [SocialMediaSource.YOUTUBE_VIDEO]: {
     id: SocialMediaSource.YOUTUBE_VIDEO,
     label: 'YouTube Videos',
@@ -49,27 +51,29 @@ export const sourceConfiguration: Record<SocialMediaSource, SourceConfig> = {
     metricLabel: 'Comments',
     icon: <MessageSquare className="h-4 w-4" />,
   },
-  [SocialMediaSource.REDDIT_POST]: {
-    id: SocialMediaSource.REDDIT_POST,
-    label: 'Reddit Posts',
-    metric: 'UPVOTES',
-    metricLabel: 'Upvotes',
-    icon: <MessageSquare className="h-4 w-4" />, // Using MessageSquare as a placeholder for Reddit
-  },
-  [SocialMediaSource.X_POST]: {
-    id: SocialMediaSource.X_POST,
-    label: 'X Posts',
-    metric: 'VIEWS', // Assuming views for X posts
-    metricLabel: 'Views',
-    icon: <Twitter className="h-4 w-4" />,
-  },
-  [SocialMediaSource.APP_STORE_REVIEW]: {
-    id: SocialMediaSource.APP_STORE_REVIEW,
-    label: 'App Store Reviews',
-    metric: 'NUM_PUBLISHED', // Assuming number of reviews
-    metricLabel: 'Reviews',
-    icon: <AppWindow className="h-4 w-4" />,
-  },
+  // TODO (b/483840712): Add the remaining sources when we can support them.
+
+  // [SocialMediaSource.REDDIT_POST]: {
+  //   id: SocialMediaSource.REDDIT_POST,
+  //   label: 'Reddit Posts',
+  //   metric: 'UPVOTES',
+  //   metricLabel: 'Upvotes',
+  //   icon: <MessageSquare className="h-4 w-4" />, // Using MessageSquare as a placeholder for Reddit
+  // },
+  // [SocialMediaSource.X_POST]: {
+  //   id: SocialMediaSource.X_POST,
+  //   label: 'X Posts',
+  //   metric: 'VIEWS', // Assuming views for X posts
+  //   metricLabel: 'Views',
+  //   icon: <Twitter className="h-4 w-4" />,
+  // },
+  // [SocialMediaSource.APP_STORE_REVIEW]: {
+  //   id: SocialMediaSource.APP_STORE_REVIEW,
+  //   label: 'App Store Reviews',
+  //   metric: 'NUM_PUBLISHED', // Assuming number of reviews
+  //   metricLabel: 'Reviews',
+  //   icon: <AppWindow className="h-4 w-4" />,
+  // },
 };
 
 /**

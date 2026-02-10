@@ -14,7 +14,6 @@
 
 'use server';
 
-
 import {revalidatePath} from 'next/cache';
 import {z} from 'zod';
 
@@ -32,7 +31,6 @@ import {
   getReports as apiGetReports,
   getReportById as apiGetReportsById,
 } from './api';
-
 
 /**
  * Fetches all reports.
@@ -117,5 +115,3 @@ export async function createReport(
     return {success: false, message: 'Network error creating report.'};
   }
 }
-
-

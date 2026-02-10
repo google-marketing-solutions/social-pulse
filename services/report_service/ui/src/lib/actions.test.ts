@@ -17,11 +17,9 @@ import * as api from './api';
 import {revalidatePath} from 'next/cache';
 import {SentimentDataType, SocialMediaSource, Status} from './types';
 
-
 // Mock dependencies
 jest.mock('./api');
 jest.mock('next/cache');
-
 
 describe('Server Actions', () => {
   const mockReport = {

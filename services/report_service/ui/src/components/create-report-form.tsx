@@ -27,7 +27,7 @@ import {useToast} from '@/hooks/use-toast';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardFooter} from '@/components/ui/card';
 import {Checkbox} from '@/components/ui/checkbox';
-import {DateRangePicker} from './date-range-picker';
+import {DatePicker} from '@/components/ui/date-picker';
 import {
   Form,
   FormControl,
@@ -40,7 +40,6 @@ import {
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
-import {DateRange} from 'react-day-picker';
 import {SentimentDataType, SocialMediaSource} from '@/lib/types';
 
 type FormValues = z.infer<typeof createReportSchema>;
@@ -184,22 +183,42 @@ export function CreateReportForm() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="dateRange"
-              render={({field: dateField}) => (
-                <FormItem>
-                  <FormLabel>Date Range</FormLabel>
-                  <DateRangePicker
-                    date={dateField.value as DateRange | undefined}
-                    onDateChange={(date: DateRange | undefined) =>
-                      dateField.onChange(date)
-                    }
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <FormField
+                control={form.control}
+                name="dateRange.from"
+                render={({field}) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        date={field.value}
+                        onDateChange={field.onChange}
+                        placeholder="Pick a start date"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="dateRange.to"
+                render={({field}) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>End Date</FormLabel>
+                    <FormControl>
+                      <DatePicker
+                        date={field.value}
+                        onDateChange={field.onChange}
+                        placeholder="Pick an end date"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

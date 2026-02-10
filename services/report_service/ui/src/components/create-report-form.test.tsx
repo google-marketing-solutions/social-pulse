@@ -59,6 +59,8 @@ describe('CreateReportForm', () => {
     expect(screen.getByLabelText(/Sentiment Analysis/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Share of Voice/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/YouTube Video/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Start Date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/End Date/i)).toBeInTheDocument();
     expect(screen.getByText(/Create Report/i)).toBeInTheDocument();
   });
 
