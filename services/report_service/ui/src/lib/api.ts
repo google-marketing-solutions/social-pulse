@@ -63,11 +63,37 @@ export async function getReports(): Promise<Report[]> {
  * Fetches a single report by ID.
  *
  * @param id The ID of the report to fetch.
+ * @param filters Optional filters to apply to the report analysis results.
  * @return A promise that resolves to the report.
  */
-export async function getReportById(id: string): Promise<Report> {
+export async function getReportById(
+  id: string,
+  filters?: {
+    channelTitle?: string;
+    startDate?: string;
+    endDate?: string;
+    excludedChannels?: string[];
+  },
+): Promise<Report> {
   const baseUrl = process.env.REPORTING_API_URL;
-  const response = await fetch(`${baseUrl}/api/report/${id}`, {
+  const url = new URL(`${baseUrl}/api/report/${id}`);
+
+  if (filters?.channelTitle) {
+    url.searchParams.append('channel_title', filters.channelTitle);
+  }
+  if (filters?.startDate) {
+    url.searchParams.append('start_date', filters.startDate);
+  }
+  if (filters?.endDate) {
+    url.searchParams.append('end_date', filters.endDate);
+  }
+  if (filters?.excludedChannels?.length) {
+    filters.excludedChannels.forEach(channel =>
+      url.searchParams.append('excluded_channels', channel),
+    );
+  }
+
+  const response = await fetch(url.toString(), {
     cache: 'no-store',
   });
 
@@ -80,4 +106,35 @@ export async function getReportById(id: string): Promise<Report> {
 
   const data = await response.json();
   return data;
+}
+
+/**
+ * Fetches the list of channels available for a report.
+ * @param id The ID of the report.
+ * @return A list of channel names.
+ */
+export async function getReportChannels(
+  id: string,
+  query?: string,
+): Promise<string[]> {
+  const baseUrl = process.env.REPORTING_API_URL;
+  const url = new URL(`${baseUrl}/api/report/${id}/channels`);
+
+  if (query) {
+    url.searchParams.append('query', query);
+  }
+
+  const response = await fetch(url.toString(), {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    console.error(
+      `Failed to fetch channels for report ${id}:`,
+      response.statusText,
+    );
+    return [];
+  }
+
+  return response.json();
 }

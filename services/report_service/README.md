@@ -20,6 +20,7 @@ pip install -r base-tooling-requirements.txt
 # Note: Ensure the local PyPI server is running (see shared_lib/README.md)
 pip install \
     -r requirements.txt \
+    --force-reinstall \
     --extra-index-url http://localhost:3322/simple \
     --trusted-host localhost
 ```

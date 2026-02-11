@@ -10,6 +10,7 @@ import {
 import {Badge} from '@/components/ui/badge';
 import {format} from 'date-fns';
 import {BarChart, PieChart, Clock, CalendarDays} from 'lucide-react';
+import {ReportFilters} from '@/components/report-filters';
 import {ReportSentimentCharts} from '@/components/report-sentiment-charts';
 import {ReportShareOfVoiceCharts} from '@/components/report-share-of-voice-charts';
 import {
@@ -46,14 +47,51 @@ const PendingState = ({status}: {status?: Status}) => (
   </div>
 );
 
+
+/**
+ * Renders the Report Detail Page.
+ *
+ * This component fetches and displays the details of a specific report.
+ * It uses the report ID from the URL parameters to fetch the data.
+ * It also supports optional filtering via search parameters.
+ *
+ * @param params - Promise resolving to an object containing the route
+ *  parameters (e.g., `id`).
+ * @param searchParams - Promise resolving to an object containing query
+ *  parameters for filtering (e.g., `startDate`, `endDate`).
+ * @returns A Promise that resolves to the rendered Report Detail Page
+ *  component.
+ */
 export default async function ReportDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{id: string}>;
+  searchParams: Promise<{
+    channelTitle?: string;
+    startDate?: string;
+    endDate?: string;
+    excludedChannels?: string | string[];
+  }>;
 }) {
   const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const reportId = resolvedParams.id;
-  const report: SentimentReport | undefined = await getReportById(reportId);
+
+  const filters = {
+    channelTitle: resolvedSearchParams.channelTitle,
+    startDate: resolvedSearchParams.startDate,
+    endDate: resolvedSearchParams.endDate,
+    excludedChannels:
+      typeof resolvedSearchParams.excludedChannels === 'string'
+        ? [resolvedSearchParams.excludedChannels]
+        : resolvedSearchParams.excludedChannels,
+  };
+
+  const report: SentimentReport | undefined = await getReportById(
+    reportId,
+    filters,
+  );
 
   if (!report) {
     notFound();
@@ -64,7 +102,10 @@ export default async function ReportDetailPage({
     return (
       <div className="flex flex-col gap-8">
         <h2 className="font-headline text-2xl font-bold tracking-tight">
-          Analysis Results by Source
+          Analysis Results by Source{' '}
+          {filters.excludedChannels?.length
+            ? `(Excluding ${filters.excludedChannels.length} channels)`
+            : ''}
         </h2>
         <Separator />
         {report.sources.map(source => {
@@ -191,7 +232,17 @@ export default async function ReportDetailPage({
             <PendingState status={report.status} />
           )}
 
-        {report.status === Status.COMPLETED && renderCharts()}
+        {report.status === Status.COMPLETED && (
+          <>
+            <ReportFilters
+              reportId={reportId}
+              excludedChannels={filters.excludedChannels || []}
+              defaultStartDate={report.startTime}
+              defaultEndDate={report.endTime}
+            />
+            {renderCharts()}
+          </>
+        )}
       </div>
     </div>
   );

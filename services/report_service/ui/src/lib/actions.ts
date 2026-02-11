@@ -43,13 +43,20 @@ export async function getReports(): Promise<SentimentReport[]> {
 /**
  * Fetches a report by its ID.
  * @param id The ID of the report to fetch.
+ * @param filters Optional filters to apply to the report analysis results.
  * @return A promise that resolves to the report, or undefined if not found.
  */
 export async function getReportById(
   id: string,
+  filters?: {
+    channelTitle?: string;
+    startDate?: string;
+    endDate?: string;
+    excludedChannels?: string[];
+  },
 ): Promise<SentimentReport | undefined> {
   try {
-    const report = await apiGetReportsById(id);
+    const report = await apiGetReportsById(id, filters);
     return report;
   } catch (error) {
     console.error(`Failed to fetch report with id ${id}:`, error);
@@ -113,5 +120,23 @@ export async function createReport(
   } catch (error) {
     console.error('API Error:', error);
     return {success: false, message: 'Network error creating report.'};
+  }
+}
+
+/**
+ * Fetches the list of channels available for a report.
+ * @param id The ID of the report.
+ * @return A promise that resolves to a list of channel names.
+ */
+export async function getReportChannels(
+  id: string,
+  query?: string,
+): Promise<string[]> {
+  const {getReportChannels: apiGetReportChannels} = await import('./api');
+  try {
+    return await apiGetReportChannels(id, query);
+  } catch (error) {
+    console.error(`Failed to fetch channels for report ${id}:`, error);
+    return [];
   }
 }

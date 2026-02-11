@@ -33,17 +33,26 @@ jest.mock('@/components/report-share-of-voice-charts', () => ({
   ),
 }));
 
+jest.mock('@/components/report-filters', () => ({
+  ReportFilters: ({reportId}: {reportId: string}) => (
+    <div data-testid="report-filters" data-report-id={reportId}>
+      Report Filters
+    </div>
+  ),
+}));
+
 describe('ReportDetailPage', () => {
   const mockParams = Promise.resolve({id: '123'});
+  const mockSearchParams = Promise.resolve({});
 
   const mockReport: SentimentReport = {
     reportId: '123',
     topic: 'Test Topic',
     status: Status.COMPLETED,
-    sources: [SocialMediaSource.X_POST],
+    sources: [SocialMediaSource.YOUTUBE_VIDEO],
     dataOutput: SentimentDataType.SENTIMENT_SCORE,
     analysisResults: {
-      [SocialMediaSource.X_POST]: {
+      [SocialMediaSource.YOUTUBE_VIDEO]: {
         sentimentOverTime: [],
         overallSentiment: {positive: 0, negative: 0, neutral: 0, average: 0},
       },
@@ -62,7 +71,10 @@ describe('ReportDetailPage', () => {
   it('calls notFound when report is missing', async () => {
     (getReportById as jest.Mock).mockResolvedValue(undefined);
 
-    await ReportDetailPage({params: mockParams});
+    await ReportDetailPage({
+      params: mockParams,
+      searchParams: mockSearchParams,
+    });
 
     expect(notFound).toHaveBeenCalled();
   });
@@ -75,7 +87,10 @@ describe('ReportDetailPage', () => {
       }),
     );
 
-    const jsx = await ReportDetailPage({params: mockParams});
+    const jsx = await ReportDetailPage({
+      params: mockParams,
+      searchParams: mockSearchParams,
+    });
     render(jsx);
 
     expect(
@@ -92,7 +107,10 @@ describe('ReportDetailPage', () => {
       }),
     );
 
-    const jsx = await ReportDetailPage({params: mockParams});
+    const jsx = await ReportDetailPage({
+      params: mockParams,
+      searchParams: mockSearchParams,
+    });
     render(jsx);
 
     expect(screen.getByTestId('sentiment-charts')).toBeInTheDocument();
@@ -107,7 +125,10 @@ describe('ReportDetailPage', () => {
       }),
     );
 
-    const jsx = await ReportDetailPage({params: mockParams});
+    const jsx = await ReportDetailPage({
+      params: mockParams,
+      searchParams: mockSearchParams,
+    });
     render(jsx);
 
     expect(screen.getByTestId('sov-charts')).toBeInTheDocument();
@@ -117,11 +138,27 @@ describe('ReportDetailPage', () => {
   it('renders correct data in cards', async () => {
     (getReportById as jest.Mock).mockResolvedValue(mockReport);
 
-    const jsx = await ReportDetailPage({params: mockParams});
+    const jsx = await ReportDetailPage({
+      params: mockParams,
+      searchParams: mockSearchParams,
+    });
     render(jsx);
 
     expect(screen.getByText('Test Topic')).toBeInTheDocument();
     expect(screen.getByText(/sentiment score/i)).toBeInTheDocument(); // data output
-    expect(screen.getAllByText(/X Post/i).length).toBeGreaterThan(0); // source appears multiple times
+    expect(screen.getAllByText(/YouTube Videos/i).length).toBeGreaterThan(0); // source appears multiple times
+  });
+
+  it('passes reportId to ReportFilters', async () => {
+    (getReportById as jest.Mock).mockResolvedValue(mockReport);
+
+    const jsx = await ReportDetailPage({
+      params: mockParams,
+      searchParams: mockSearchParams,
+    });
+    render(jsx);
+
+    const filters = screen.getByTestId('report-filters');
+    expect(filters).toHaveAttribute('data-report-id', '123');
   });
 });

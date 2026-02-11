@@ -26,7 +26,6 @@ const statusColors: {[key in Status]: 'default' | 'secondary' | 'destructive'} =
  * data, render the header and cells, and handle sorting and filtering.
  */
 export const columns: Array<ColumnDef<ReportForList>> = [
-
   {
     accessorKey: 'topic',
     header: ({column}) => {

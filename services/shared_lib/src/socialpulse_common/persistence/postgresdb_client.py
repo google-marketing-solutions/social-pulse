@@ -57,14 +57,6 @@ class PostgresDbClient:
     self.database = database
     self.password = password
 
-    logger.debug(
-        "Initializing PostgresDB connection pool with the following "
-        "parameters: %s, %s, %s, %s",
-        self.host,
-        self.port,
-        self.user,
-        self.database,
-    )
     self._connection_pool = self._init_connection_pool()
     self._is_initialized = True
 
