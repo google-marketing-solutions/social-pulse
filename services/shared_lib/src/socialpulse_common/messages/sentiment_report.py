@@ -146,6 +146,29 @@ class ShareOfVoiceItem(pydantic.BaseModel):
   neutral: int
 
 
+class JustificationItem(pydantic.BaseModel):
+  """Represents a single justification category count."""
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
+  category: str
+  count: int
+
+
+class JustificationBreakdown(pydantic.BaseModel):
+  """Represents a breakdown of justifications by sentiment."""
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
+  positive: list[JustificationItem] = pydantic.Field(default_factory=list)
+  negative: list[JustificationItem] = pydantic.Field(default_factory=list)
+  neutral: list[JustificationItem] = pydantic.Field(default_factory=list)
+
+
 class SourceAnalysisResult(pydantic.BaseModel):
   """Analysis results for a specific source."""
   model_config = pydantic.ConfigDict(
@@ -158,6 +181,8 @@ class SourceAnalysisResult(pydantic.BaseModel):
   overall_sentiment: typing.Optional[OverallSentiment] = None
   # For SHARE_OF_VOICE
   share_of_voice: typing.Optional[list[ShareOfVoiceItem]] = None
+  # For Justification Breakdown
+  justification_breakdown: typing.Optional[JustificationBreakdown] = None
 
 
 class AnalysisResults(pydantic.BaseModel):

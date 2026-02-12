@@ -49,19 +49,9 @@ start it if necessary.
 Once you have deployed the changes locally, you need to reinstall the
 dependencies in the consuming services (Analysis Service or Report Service).
 
-Navigate to the service directory and install the updated requirements using the
-local package index:
-
-```bash
-# Example for Analysis Service
-cd ../analysis_service
-source .venv/bin/activate  # Ensure you are in the service's venv
-
-pip install \
-    --force-reinstall \
-    --no-deps \
-    -r requirements.txt
-```
+See the [Analysis Service README - Environment Setup](../analysis_service/README.md)
+and the [Report Service README - Environment Setup](../report_service/README.md)
+for the pip commands to install the updated dependencies.
 
 ## Dependency Management
 

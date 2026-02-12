@@ -61,6 +61,9 @@ export interface SentimentReportDataset {
   datasetUri?: string;
 }
 
+/**
+ * Represents a single data point in a sentiment analysis.
+ */
 export interface SentimentDataPoint {
   date: string;
   positive: number;
@@ -68,6 +71,9 @@ export interface SentimentDataPoint {
   neutral: number;
 }
 
+/**
+ * Represents the analysis results for a single source.
+ */
 export interface SourceAnalysisResult {
   sentimentOverTime?: SentimentDataPoint[];
   overallSentiment?: {
@@ -76,8 +82,12 @@ export interface SourceAnalysisResult {
     neutral: number;
     average: number;
   };
+  justificationBreakdown?: JustificationBreakdown;
 }
 
+/**
+ * Represents a single data point in a share of voice analysis.
+ */
 export interface ShareOfVoiceDataPoint {
   name: string;
   positive: number;
@@ -85,11 +95,37 @@ export interface ShareOfVoiceDataPoint {
   negative: number;
 }
 
+/**
+ * Represents the share of voice results for a sentiment analysis.
+ */
 export interface ShareOfVoiceResult {
   shareOfVoice?: ShareOfVoiceDataPoint[];
 }
 
-export type AnalysisResult = SourceAnalysisResult | ShareOfVoiceResult;
+/**
+ * Represents a single item in a justification breakdown.
+ */
+export interface JustificationItem {
+  category: string;
+  count: number;
+}
+
+/**
+ * Represents the breakdown of justifications for a sentiment analysis.
+ */
+export interface JustificationBreakdown {
+  positive: JustificationItem[];
+  negative: JustificationItem[];
+  neutral: JustificationItem[];
+}
+
+/**
+ * Represents the analysis results for a single source.
+ */
+export type AnalysisResult =
+  | SourceAnalysisResult
+  | ShareOfVoiceResult
+  | JustificationBreakdown;
 
 /**
  * A report.

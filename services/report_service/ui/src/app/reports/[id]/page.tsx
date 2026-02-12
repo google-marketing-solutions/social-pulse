@@ -13,6 +13,7 @@ import {BarChart, PieChart, Clock, CalendarDays} from 'lucide-react';
 import {ReportFilters} from '@/components/report-filters';
 import {ReportSentimentCharts} from '@/components/report-sentiment-charts';
 import {ReportShareOfVoiceCharts} from '@/components/report-share-of-voice-charts';
+import {ReportJustificationCharts} from '@/components/report-justification-charts';
 import {
   SentimentReport,
   SocialMediaSource,
@@ -128,6 +129,16 @@ export default async function ReportDetailPage({
                   metricLabel="Count"
                 />
               )}
+              {report.dataOutput === SentimentDataType.SENTIMENT_SCORE &&
+                (sourceResult as SourceAnalysisResult)
+                  ?.justificationBreakdown && (
+                  <ReportJustificationCharts
+                    breakdown={
+                      (sourceResult as SourceAnalysisResult)
+                        .justificationBreakdown!
+                    }
+                  />
+                )}
               {report.dataOutput === SentimentDataType.SHARE_OF_VOICE && (
                 <ReportShareOfVoiceCharts
                   result={sourceResult as ShareOfVoiceResult}

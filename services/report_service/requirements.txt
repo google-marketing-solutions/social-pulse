@@ -1662,7 +1662,7 @@ six==1.17.0 \
     --hash=sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81
     # via python-dateutil
 socialpulse-common==0.1.0 \
-    --hash=sha256:7bbdc5c6937a94ff18fbaed8ef299fb56882dcf46792f62f7c8dabc937712ec2
+    --hash=sha256:1a8f10670555bbaae755f9d0ca6b383355f5703594bd7be9501cd3e4aba3b2ec
     # via -r requirements.in
 sqlparse==0.5.5 \
     --hash=sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba \

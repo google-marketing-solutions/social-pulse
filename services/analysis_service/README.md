@@ -10,6 +10,7 @@ First, create a virtual environment and install the dependencies.
 
 ```bash
 # Create and activate virtual environment
+cd services/analysis_service
 python3 -m venv .venv --prompt "social_pulse_analysis"
 source .venv/bin/activate
 
