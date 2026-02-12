@@ -41,7 +41,8 @@ module "sp_analysis_run" {
     google_secret_manager_secret_version.postgres_username_version,
     google_secret_manager_secret_version.postgres_password_version,
     google_secret_manager_secret_version.postgres_host_version,
-  google_secret_manager_secret_version.youtube_api_key_version]
+    google_secret_manager_secret_version.youtube_api_key_version,
+    null_resource.cloud_build_trigger]
 }
 
 module "sp_reporting_api" {
@@ -77,7 +78,8 @@ module "sp_reporting_api" {
     google_secret_manager_secret_version.postgres_username_version,
     google_secret_manager_secret_version.postgres_password_version,
     google_secret_manager_secret_version.postgres_host_version,
-  google_secret_manager_secret_version.youtube_api_key_version]
+    google_secret_manager_secret_version.youtube_api_key_version,
+    null_resource.cloud_build_trigger]
 }
 
 module "sp_reporting_ui" {
@@ -97,7 +99,8 @@ module "sp_reporting_ui" {
 
   depends_on = [google_service_account.social-pulse-sa,
     google_vpc_access_connector.connector,
-  module.sp_reporting_api]
+    module.sp_reporting_api,
+    null_resource.cloud_build_trigger]
   min_instance_count = 1
 }
 
@@ -155,7 +158,8 @@ module "sp_analysis_poller" {
     google_secret_manager_secret_version.postgres_username_version,
     google_secret_manager_secret_version.postgres_password_version,
     google_secret_manager_secret_version.postgres_host_version,
-  google_secret_manager_secret_version.youtube_api_key_version]
+    google_secret_manager_secret_version.youtube_api_key_version,
+    null_resource.cloud_build_trigger]
 }
 
 resource "google_cloud_run_service_iam_member" "cloud_run_invoker_role" {
@@ -228,7 +232,8 @@ module "sp_analysis_wfe" {
     google_secret_manager_secret_version.postgres_username_version,
     google_secret_manager_secret_version.postgres_password_version,
     google_secret_manager_secret_version.postgres_host_version,
-  google_secret_manager_secret_version.youtube_api_key_version]
+    google_secret_manager_secret_version.youtube_api_key_version,
+    null_resource.cloud_build_trigger]
 }
 
 module "analysis_migration_job" {
@@ -258,7 +263,8 @@ module "analysis_migration_job" {
     google_secret_manager_secret_version.postgres_username_version,
     google_secret_manager_secret_version.postgres_password_version,
     google_secret_manager_secret_version.postgres_host_version,
-  google_secret_manager_secret_version.youtube_api_key_version]
+    google_secret_manager_secret_version.youtube_api_key_version,
+    null_resource.cloud_build_trigger]
 }
 
 module "report_migration_job" {
@@ -288,5 +294,6 @@ module "report_migration_job" {
     google_secret_manager_secret_version.postgres_username_version,
     google_secret_manager_secret_version.postgres_password_version,
     google_secret_manager_secret_version.postgres_host_version,
-  google_secret_manager_secret_version.youtube_api_key_version]
+    google_secret_manager_secret_version.youtube_api_key_version,
+    null_resource.cloud_build_trigger]
 }
