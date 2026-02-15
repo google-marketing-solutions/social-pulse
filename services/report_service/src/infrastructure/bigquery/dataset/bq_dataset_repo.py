@@ -36,6 +36,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      include_justifications: bool = True,
   ) -> report_msg.AnalysisResults:
     """Retrieves analysis results for the provided datasets.
 
@@ -45,6 +46,8 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter (ISO format).
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      include_justifications: Whether to include justifications in the
+        results.
 
     Returns:
       AnalysisResults object containing the analysis results for the
@@ -62,7 +65,9 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
           ds.data_output,
           start_date=start_date,
           end_date=end_date,
+
           channel_title=channel_title,
+          include_justifications=include_justifications,
       )
 
       # Mapping Source Enum to Field Name
@@ -96,19 +101,6 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         continue
 
       table_id = self._convert_uri_to_table_id(ds.dataset_uri)
-      # Only process tables that have channel information (videos)
-      # We assume if it's SENTIMENT_SCORE or SHARE_OF_VOICE it might have
-      # channel info.
-      # But strictly speaking, channel info is usually on the 'videos'
-      # table which maps to SENTIMENT_SCORE analysis.
-      # For SHARE_OF_VOICE, the source might match but the table structure
-      # might be different?
-      # Actually, both use the same source table usually, just different
-      # aggregation.
-      # Let's assume we can query channelTitle from the table if it exists.
-      # To be safe, we can try/except or check schema, but for now let's
-      # query.
-
       try:
         ds_channels = self._query_channels(table_id, query)
         channels.update(ds_channels)
@@ -139,6 +131,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      include_justifications: bool = True,
   ) -> report_msg.SourceAnalysisResult:
     """Fetches and parses result from BigQuery for a single dataset.
 
@@ -149,6 +142,8 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      include_justifications: Whether to include justifications in the
+        results.
 
     Returns:
       SourceAnalysisResult object containing the analysis results for the
@@ -193,7 +188,9 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
           start_date=start_date,
           end_date=end_date,
           channel_title=channel_title,
+
           excluded_channels=excluded_channels,
+          include_justifications=include_justifications,
       )
 
     return result
@@ -229,8 +226,6 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     total = overall_pos + overall_neg + overall_neu
     average = 0.0
     if total > 0:
-      # Simple weighted average: (Pos - Neg) / Total? Or Just (Pos count)/Total?
-      # Providing a simple (Pos - Neg) / Total for now (-1 to 1 scale)
       average = (overall_pos - overall_neg) / total
 
     return report_msg.OverallSentiment(
@@ -247,8 +242,12 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      include_justifications: bool = True,
   ) -> report_msg.JustificationBreakdown:
     """Builds justification breakdown from BigQuery rows."""
+    if not include_justifications:
+      return report_msg.JustificationBreakdown()
+
     logger.info("Building justification breakdown")
     justification_breakdown = report_msg.JustificationBreakdown()
 
