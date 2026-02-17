@@ -110,6 +110,30 @@ up into 2 current micro-services, with 1 future service being planned:
 ### GCP Architecture
 ![GCP Architecture](docs/social_pulse_gcp_architecture.png)
 
+## Project Guidelines & Style Guides
+
+This project enforces strict coding standards and style guidelines to ensure
+high code quality and consistency across all services and frontend applications.
+
+The style guides are located in the `docs/style_guides/` directory:
+- `docs/style_guides/general.md`: General styling and formatting rules for the
+  entire project.
+- `docs/style_guides/python.md`: Python-specific rules, including Google Python
+  Style Guide, linting with pylint, and unit testing standards.
+- `docs/style_guides/typescript.md`: TypeScript and UI standards, covering
+  strict typing, Next.js paradigms, and dynamic styling rules.
+
+To assist AI coding assistants in adhering to these standards, we have included
+specific dot rules files at the project root:
+- `.cursorrules`: Provides project-specific instructions and rules for the
+  Cursor IDE.
+- `.geminirules`: Provides equivalent project-specific instructions and rules
+  for Antigravity (Gemini).
+
+Both files instruct the AI assistants to prioritize and strictly follow the
+project's style guides located in the `docs/style_guides/` directory before
+writing or modifying any code.
+
 ## Deployment Pre-requisites
 Whether you're deploying to Google Cloud or locally, you'll need to make sure
 you have the following pre-requisites set up:
