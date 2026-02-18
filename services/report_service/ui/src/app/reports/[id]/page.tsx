@@ -48,7 +48,6 @@ const PendingState = ({status}: {status?: Status}) => (
   </div>
 );
 
-
 /**
  * Renders the Report Detail Page.
  *
@@ -96,7 +95,6 @@ export default async function ReportDetailPage({
 
   if (!report) {
     notFound();
-    return;
   }
 
   const renderCharts = () => {

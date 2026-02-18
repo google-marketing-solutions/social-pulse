@@ -72,16 +72,22 @@ export interface SentimentDataPoint {
 }
 
 /**
+ * Overall sentiment statistics.
+ */
+export interface OverallSentiment {
+  positive: number;
+  negative: number;
+  neutral: number;
+  average: number;
+  itemCount?: number;
+}
+
+/**
  * Represents the analysis results for a single source.
  */
 export interface SourceAnalysisResult {
   sentimentOverTime?: SentimentDataPoint[];
-  overallSentiment?: {
-    positive: number;
-    negative: number;
-    neutral: number;
-    average: number;
-  };
+  overallSentiment?: OverallSentiment;
   justificationBreakdown?: JustificationBreakdown;
 }
 
