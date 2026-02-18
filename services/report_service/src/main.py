@@ -145,8 +145,8 @@ def create_report(
     report.report_id = new_report_entity.entity_id
     report.created_on = new_report_entity.created
     report.last_updated_on = new_report_entity.last_updated
-    # Ensure status is populated for response
     report.status = new_report_entity.status
+    report.end_time = new_report_entity.end_time
 
     app_config.wfe_service.trigger_run_report(report)
     return report
@@ -248,33 +248,32 @@ def get_report(
         report_entity.status == report_msg.Status.COMPLETED
         and report_entity.datasets
     ):
-      try:
-        report_entity.analysis_results = (
-            app_config.dataset_repository.get_analysis_results(
-                report_entity.datasets,
-                start_date=start_date,
-                end_date=end_date,
-                channel_title=channel_title,
-                excluded_channels=excluded_channels,
-                include_justifications=(
-                    report_entity.include_justifications
-                )
-            )
-        )
-      except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.warning(
-            "Failed to fetch analysis results for report %s: %s",
-            report_id,
-            e,
-        )
-        # Fail gracefully? Or partial result?
-        # Proceeding with valid report entity but potentially missing
-        # results.
+      report_entity.analysis_results = (
+          app_config.dataset_repository.get_analysis_results(
+              report_entity.datasets,
+              start_date=start_date,
+              end_date=end_date,
+              channel_title=channel_title,
+              excluded_channels=excluded_channels,
+              include_justifications=(
+                  report_entity.include_justifications
+              )
+          )
+      )
 
     return _entity_to_message(report_entity)
+
   except ValueError as e:
+    logger.warning("Report %s not found: %s", report_id, e)
     raise fastapi.HTTPException(
         status_code=fastapi.status.HTTP_404_NOT_FOUND, detail=str(e)
+    ) from e
+  except Exception as e:
+    logger.exception(
+        "Failed to fetch analysis results for report %s", report_id
+    )
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
     ) from e
 
 
