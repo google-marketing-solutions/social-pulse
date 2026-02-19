@@ -106,6 +106,13 @@ export interface ShareOfVoiceDataPoint {
  */
 export interface ShareOfVoiceResult {
   shareOfVoice?: ShareOfVoiceDataPoint[];
+  overallSentiment?: {
+    positive: number;
+    negative: number;
+    neutral: number;
+    average: number;
+    itemCount: number;
+  };
 }
 
 /**

@@ -87,4 +87,8 @@ done
 
 echo "=== Local Deployment Complete ==="
 echo "You can now install using:"
-echo "pip install -r services/analysis_service/requirements.txt --extra-index-url http://localhost:$PORT/simple --trusted-host localhost"
+echo "pip install \\"
+echo " --force-reinstall \\"
+echo " --no-deps socialpulse-common \\"
+echo " --extra-index-url http://localhost:3322/simple \\"
+echo "  --trusted-host localhost"
