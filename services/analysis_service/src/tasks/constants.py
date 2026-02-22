@@ -19,6 +19,11 @@ LLM_REQUEST_COL_NAME = "request"
 
 SENTIMENT_RESULTS_DATASET_PREFIX = "SentimentDataset"
 
+# Minimum threshold of relevance score for sentiment to be generated.  If a
+# pience of social content has a relevance score below this threshold, it will
+# NOT have sentiment generated.
+MIN_RELEVANCE_THRESHOLD_FOR_SENTIMENT_TO_BE_GENERATED = 50
+
 
 BASE_SENTIMENT_RESPONSE_SCHEMA: dict[str, str] = {
     "type": "array",

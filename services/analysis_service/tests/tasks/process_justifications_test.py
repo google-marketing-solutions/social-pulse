@@ -187,7 +187,8 @@ class ProcessJustificationsTaskTest(
             "justifications": [{"quote": "awesome stuff"}],
             "sentimentScore": 0.9
         }],
-        "summary": "Everything is awesome"
+        "summary": "Everything is awesome",
+        "relevanceScore": 100
     }])
     self.mock_input_target.load_sentiment_data.return_value = input_df
 
@@ -243,11 +244,13 @@ class ProcessJustificationsTaskTest(
     input_df = pd.DataFrame([
         {
             "sentiments": [{"justifications": [{"quote": "q1"}]}],
-            "summary": "s1"
+            "summary": "s1",
+            "relevanceScore": 100
         },
         {
             "sentiments": [{"justifications": [{"quote": "q2"}]}],
-            "summary": "s2"
+            "summary": "s2",
+            "relevanceScore": 100
         }
     ])
     self.mock_input_target.load_sentiment_data.return_value = input_df
@@ -289,7 +292,8 @@ class ProcessJustificationsTaskTest(
     """
     input_df = pd.DataFrame([{
         "sentiments": [],
-        "summary": "Nothing here"
+        "summary": "Nothing here",
+        "relevanceScore": 100
     }])
     self.mock_input_target.load_sentiment_data.return_value = input_df
 
