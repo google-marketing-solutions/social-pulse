@@ -18,17 +18,19 @@ import logging
 import os
 
 from domain import sentiment_report
+from domain.analysis_results import builder
+from domain.ports import dataset
 from domain.ports import persistence
 import fastapi
-
 from infrastructure.api.http import workflow_execution_service as wfe_service_lib
 from infrastructure.bigquery.dataset import bq_dataset_repo
 from infrastructure.persistence.postgresdb import sentiment_report_repo
 from infrastructure.persistence.postgresdb import sentiment_report_search_repo
 from socialpulse_common import config
+from socialpulse_common import service
 from socialpulse_common.messages import sentiment_report as report_msg
-from socialpulse_common.persistence import postgresdb_client as client
 from socialpulse_common.persistence import bigquery_client
+from socialpulse_common.persistence import postgresdb_client as client
 
 
 log_level = os.environ.get("LOG_LEVEL", "DEBUG").upper()
@@ -72,6 +74,9 @@ class AppConfig:
     self.dataset_repository = bq_dataset_repo.BigQueryDatasetRepo(
         self.bq_client
     )
+    service.registry.register(dataset.DatasetRepo, self.dataset_repository)
+
+    self.results_builder = builder.CompositeAnalysisResultsBuilder()
 
 
 FastAPI = fastapi.FastAPI
@@ -103,9 +108,7 @@ def list_reports(
         status=status, topic_contains=topic
     )
 
-    return app_config.sentiment_report_search_repository.get_reports(
-        criteria
-    )
+    return app_config.sentiment_report_search_repository.get_reports(criteria)
   except Exception as e:
     logger.exception("Error listing reports:")
     raise fastapi.HTTPException(
@@ -154,9 +157,7 @@ def create_report(
   except Exception as e:  # pylint: disable=broad-except
     if "new_report_entity" in locals():
       new_report_entity.mark_as_failed(str(e))
-      app_config.sentiment_report_repository.persist_report(
-          new_report_entity
-      )
+      app_config.sentiment_report_repository.persist_report(new_report_entity)
     logger.exception("Error occurred, will return 500 error:")
 
     raise fastapi.HTTPException(
@@ -248,17 +249,12 @@ def get_report(
         report_entity.status == report_msg.Status.COMPLETED
         and report_entity.datasets
     ):
-      report_entity.analysis_results = (
-          app_config.dataset_repository.get_analysis_results(
-              report_entity.datasets,
-              start_date=start_date,
-              end_date=end_date,
-              channel_title=channel_title,
-              excluded_channels=excluded_channels,
-              include_justifications=(
-                  report_entity.include_justifications
-              )
-          )
+      report_entity.analysis_results = app_config.results_builder.build_results(
+          report_entity,
+          start_date=start_date,
+          end_date=end_date,
+          channel_title=channel_title,
+          excluded_channels=excluded_channels,
       )
 
     return _entity_to_message(report_entity)

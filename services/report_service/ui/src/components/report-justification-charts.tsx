@@ -29,11 +29,13 @@ function JustificationList({
   title,
   description,
   colorClass,
+  metricLabel,
 }: {
   data: JustificationItem[];
   title: string;
   description?: string;
   colorClass: string;
+  metricLabel: string;
 }) {
   if (!data?.length) {
     return (
@@ -52,8 +54,15 @@ function JustificationList({
   return (
     <Card className="flex flex-col">
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            {description && <CardDescription>{description}</CardDescription>}
+          </div>
+          <div className="text-sm text-muted-foreground mr-2 font-medium">
+            {metricLabel} (% of total)
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="flex-1">
         <div className="space-y-4">
@@ -92,8 +101,10 @@ function JustificationList({
  */
 export function ReportJustificationCharts({
   breakdown,
+  metricLabel = 'Views',
 }: {
   breakdown: JustificationBreakdown;
+  metricLabel?: string;
 }) {
   if (
     !breakdown.positive?.length &&
@@ -110,12 +121,14 @@ export function ReportJustificationCharts({
         title="Positive Justifications"
         description="Categories driving positive sentiment"
         colorClass="bg-[hsl(var(--chart-2))]"
+        metricLabel={metricLabel}
       />
       <JustificationList
         data={breakdown.negative}
         title="Negative Justifications"
         description="Categories driving negative sentiment"
         colorClass="bg-[hsl(var(--chart-5))]"
+        metricLabel={metricLabel}
       />
     </div>
   );

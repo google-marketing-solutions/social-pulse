@@ -31,24 +31,32 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+interface SentimentStatsCardsProps {
+  /** The overall sentiment data used to populate the stats. */
+  overallSentiment: OverallSentiment;
+  /** The label for the item count (e.g., 'Videos', 'Comments'). */
+  itemLabel?: string;
+  /** The label for the metrics (e.g., 'Views', 'Comments'). */
+  metricLabel?: string;
+}
+
 /**
  * Displays statistical cards summarizing the overall sentiment of a report.
  *
  * This component renders two main cards:
  * 1. "Analysis Stats": Shows the total number of items and the total number
- *    of views.
- * 2. "Sentiment Distribution": Shows a percentage breakdown of views across
+ *    of metrics.
+ * 2. "Sentiment Distribution": Shows a percentage breakdown of metrics across
  *    positive, neutral, and negative sentiments.
  *
- * @param overallSentiment - The overall sentiment data used to populate the
- *   stats.
+ * @param props - The component props.
  * @returns The rendered sentiment stats cards.
  */
 export function SentimentStatsCards({
   overallSentiment,
-}: {
-  overallSentiment: OverallSentiment;
-}) {
+  itemLabel = 'Items',
+  metricLabel = 'Views',
+}: SentimentStatsCardsProps) {
   const totalViews =
     overallSentiment.positive +
     overallSentiment.neutral +
@@ -81,20 +89,22 @@ export function SentimentStatsCards({
         <CardContent className="space-y-6">
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium text-muted-foreground">
-              Total of Relevant Videos Found
+              Total {itemLabel}
             </span>
             <span className="text-2xl font-bold">
               {overallSentiment.itemCount?.toLocaleString() ?? 'N/A'}
             </span>
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-muted-foreground">
-              Total Views
-            </span>
-            <span className="text-2xl font-bold">
-              {totalViews.toLocaleString()}
-            </span>
-          </div>
+          {itemLabel !== metricLabel && (
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-muted-foreground">
+                Total {metricLabel}
+              </span>
+              <span className="text-2xl font-bold">
+                {totalViews.toLocaleString()}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -105,7 +115,7 @@ export function SentimentStatsCards({
         <CardContent>
           <div className="space-y-4">
             <span className="text-sm font-medium text-muted-foreground">
-              View Count Breakdown
+              {metricLabel} Breakdown
             </span>
             <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-2 text-sm">
               {items.map(item => {

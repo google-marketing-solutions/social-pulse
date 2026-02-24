@@ -16,36 +16,102 @@
 import abc
 import typing
 
+from socialpulse_common import service
 from socialpulse_common.messages import sentiment_report as report_msg
 
 
-class DatasetRepo(abc.ABC):
+class DatasetRepo(service.RegisterableService):
   """Interface for retrieving dataset analysis results."""
 
   @abc.abstractmethod
-  def get_analysis_results(
+  def query_share_of_voice(
       self,
-      datasets: typing.List[report_msg.SentimentReportDataset],
+      table_id: str,
       start_date: typing.Optional[str] = None,
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
-      excluded_channels: typing.List[str] = None,
-      include_justifications: bool = True,
-  ) -> report_msg.AnalysisResults:
-    """Retrieves analysis results for the provided datasets.
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Executes query for SHARE_OF_VOICE."""
 
-    Args:
-      datasets: List of datasets to retrieve results for.
-      start_date: Optional start date filter (ISO format).
-      end_date: Optional end date filter (ISO format).
-      channel_title: Optional channel title filter.
-      excluded_channels: Optional list of channels to exclude.
-      include_justifications: Whether to include justifications in the
-        results.
+  @abc.abstractmethod
+  def query_share_of_voice_totals(
+      self,
+      table_id: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.Dict[str, int]:
+    """Queries total item count and views for Share of Voice context."""
 
-    Returns:
-      AnalysisResults populated with data from the datasets.
-    """
+  @abc.abstractmethod
+  def query_sentiment_breakdown_for_videos(
+      self,
+      table_id: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Queries for timeseries breakdown of sentiment scores for videos."""
+
+  @abc.abstractmethod
+  def query_sentiment_breakdown_for_comments(
+      self,
+      table_id: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Queries for timeseries breakdown of sentiment scores for comments."""
+
+  @abc.abstractmethod
+  def query_sentiment_score_summary_for_videos(
+      self,
+      table_id: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Queries for summary stats of sentiment scores for videos."""
+
+  @abc.abstractmethod
+  def query_sentiment_score_summary_for_comments(
+      self,
+      table_id: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Queries for summary stats of sentiment scores for comments."""
+
+  @abc.abstractmethod
+  def query_justification_breakdown_for_videos(
+      self,
+      table_id: str,
+      sentiment_filter: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Executes query for Justification Breakdown."""
+
+  @abc.abstractmethod
+  def query_justification_breakdown_for_comments(
+      self,
+      table_id: str,
+      sentiment_filter: str,
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.Optional[typing.List[str]] = None,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Executes query for Justification Breakdown for comments."""
 
   @abc.abstractmethod
   def get_channels(

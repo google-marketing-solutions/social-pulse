@@ -18,6 +18,8 @@ Style Guide.
 - **True/False Evaluations:** Use implicit false (e.g., `if not my_list:`).
   Use `if foo is None:` to check for `None`.
 - **Type Annotations:** Strongly encouraged for all public APIs.
+- **Use Latest Typing Hints:** Use the latest typing hints available in Python.
+  For example, use `list[int]` instead of `typing.List[int]`.
 
 ## 2. Python Style Rules
 - **Line Length:** Maximum 80 characters.
@@ -25,11 +27,11 @@ Style Guide.
 - **Blank Lines:** Two blank lines between top-level definitions (classes,
   functions). One blank line between method definitions.
 - **Whitespace:** Avoid extraneous whitespace. Surround binary operators
-  with single spaces.
-- **Docstrings:** Use `"""triple double quotes"""`. Every public module,
-  function, class, and method must have a docstring.
-- **Format:** Start with a one-line summary. Include `Args:`, `Returns:`,
-  and `Raises:` sections.
+  with single spaces.  Finally, remove all trailing whitespace.
+- **Module Docstrings:** Use `"""triple double quotes"""` and every public
+  module must have a docstring.
+- **Function Docstrings:** Start with a one-line summary. Include `Args:`,
+  `Returns:`, and `Raises:` sections.
 - **Strings:** Use f-strings for formatting. Use only double (`"`) quotes
 - **`TODO` Comments:** Use `TODO(username): Fix this.` format.
 - **Imports Formatting:** Imports should be on separate lines and grouped:
