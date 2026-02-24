@@ -59,7 +59,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
           daterangeend,
           status,
           createdon,
-          lastupdatedon
+          lastupdatedon,
+          includeJustifications
       FROM
           public.SentimentReports
       WHERE
@@ -67,7 +68,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
     """
     rows = self._postgres_client.retrieve_row(query, (report_id,))
     if not rows:
-      raise ValueError("Report with ID %s not found." % report_id)
+      raise ValueError(f"Report with ID {report_id} not found.")
 
     report = self._create_sentiment_report_from_row(rows)
 
@@ -101,7 +102,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             dateRangeEnd = %s,
             status = %s,
             createdOn = %s,
-            lastUpdatedOn = %s
+            lastUpdatedOn = %s,
+            includeJustifications = %s
         WHERE
             reportId = %s
     """
@@ -118,6 +120,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         report.status,
         report.created,
         report.last_updated,
+        report.include_justifications,
         report.entity_id,
     )
     self._postgres_client.update_row(query, update_params)
@@ -130,15 +133,16 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
       self._persist_datasets(report.datasets, report.entity_id)
 
   def _insert_report(self, report: sentiment_report.SentimentReportEntity):
-    """"""
+    """Inserts a new report into the database."""
     query: str = """
         INSERT INTO SentimentReports (
             sources,
             dataOutputs,
             topic,
             dateRangeStart,
-            dateRangeEnd
-        ) VALUES (%s, %s, %s, %s, %s)
+            dateRangeEnd,
+            includeJustifications
+        ) VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING reportId;
     """
     sources_as_names = [source.name for source in report.sources]
@@ -150,6 +154,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         report.topic,
         report.start_time,
         report.end_time,
+        report.include_justifications,
     )
 
     new_id = self._postgres_client.insert_row(query, params)
@@ -223,6 +228,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         end_time=row[DATERANGEEND_COL_INDEX],
         created=row[CREATEDON_COL_INDEX],
         last_updated=row[LASTUPDATEDON_COL_INDEX],
+        include_justifications=row[9],
         datasets=datasets,
     )
 

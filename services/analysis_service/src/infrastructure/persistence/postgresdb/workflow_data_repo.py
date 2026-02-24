@@ -329,7 +329,11 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params.last_completed_task_id = row[LASTCOMPLETEDTASK_COL_INDEX] or ""
     wfe_params.parent_execution_id = row[PARENT_EXECUTION_ID_COL_INDEX] or ""
     wfe_params.report_id = row[REPORT_ID_COL_INDEX] or ""
-    wfe_params.include_justifications = row[INCLUDE_JUSTIFICATIONS] or True
+    wfe_params.include_justifications = (
+        row[INCLUDE_JUSTIFICATIONS]
+        if row[INCLUDE_JUSTIFICATIONS] is not None
+        else True
+    )
 
     return wfe_params
 

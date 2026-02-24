@@ -36,6 +36,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      include_justifications: bool = True,
   ) -> report_msg.AnalysisResults:
     """Retrieves analysis results for the provided datasets.
 
@@ -45,6 +46,8 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter (ISO format).
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      include_justifications: Whether to include justifications in the
+        results.
 
     Returns:
       AnalysisResults object containing the analysis results for the
@@ -62,7 +65,9 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
           ds.data_output,
           start_date=start_date,
           end_date=end_date,
+
           channel_title=channel_title,
+          include_justifications=include_justifications,
       )
 
       # Mapping Source Enum to Field Name
@@ -96,19 +101,6 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         continue
 
       table_id = self._convert_uri_to_table_id(ds.dataset_uri)
-      # Only process tables that have channel information (videos)
-      # We assume if it's SENTIMENT_SCORE or SHARE_OF_VOICE it might have
-      # channel info.
-      # But strictly speaking, channel info is usually on the 'videos'
-      # table which maps to SENTIMENT_SCORE analysis.
-      # For SHARE_OF_VOICE, the source might match but the table structure
-      # might be different?
-      # Actually, both use the same source table usually, just different
-      # aggregation.
-      # Let's assume we can query channelTitle from the table if it exists.
-      # To be safe, we can try/except or check schema, but for now let's
-      # query.
-
       try:
         ds_channels = self._query_channels(table_id, query)
         channels.update(ds_channels)
@@ -139,6 +131,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      include_justifications: bool = True,
   ) -> report_msg.SourceAnalysisResult:
     """Fetches and parses result from BigQuery for a single dataset.
 
@@ -149,6 +142,8 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      include_justifications: Whether to include justifications in the
+        results.
 
     Returns:
       SourceAnalysisResult object containing the analysis results for the
@@ -171,9 +166,24 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
               positive=int(row.get("Positive_Views", 0)),
               negative=int(row.get("Negative_Views", 0)),
               neutral=int(row.get("Neutral_Views", 0)),
-          )
-          for row in rows
+          ) for row in rows
       ]
+
+      # Also fetch overall stats for the Analysis Stats card
+      totals = self._query_share_of_voice_totals(
+          table_id,
+          start_date=start_date,
+          end_date=end_date,
+          channel_title=channel_title,
+          excluded_channels=excluded_channels,
+      )
+      result.overall_sentiment = report_msg.OverallSentiment(
+          positive=totals.get("positive", 0),
+          negative=totals.get("negative", 0),
+          neutral=totals.get("neutral", 0),
+          average=0.0,
+          item_count=totals.get("item_count", 0),
+      )
 
     elif data_output == msg_common.SentimentDataType.SENTIMENT_SCORE:
       logger.info("Fetching SENTIMENT_SCORE for %s", table_id)
@@ -188,12 +198,15 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
 
       result.sentiment_over_time = self._build_sentiment_timeline(rows)
       result.overall_sentiment = self._build_overall_sentiment(rows)
+
       result.justification_breakdown = self._build_justification_breakdown(
           table_id,
           start_date=start_date,
           end_date=end_date,
           channel_title=channel_title,
+
           excluded_channels=excluded_channels,
+          include_justifications=include_justifications,
       )
 
     return result
@@ -229,15 +242,16 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     total = overall_pos + overall_neg + overall_neu
     average = 0.0
     if total > 0:
-      # Simple weighted average: (Pos - Neg) / Total? Or Just (Pos count)/Total?
-      # Providing a simple (Pos - Neg) / Total for now (-1 to 1 scale)
       average = (overall_pos - overall_neg) / total
+
+    item_count = sum(int(row.get("TOTAL_ITEMS", 0)) for row in rows)
 
     return report_msg.OverallSentiment(
         positive=overall_pos,
         negative=overall_neg,
         neutral=overall_neu,
         average=average,
+        item_count=item_count,
     )
 
   def _build_justification_breakdown(
@@ -247,8 +261,12 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      include_justifications: bool = True,
   ) -> report_msg.JustificationBreakdown:
     """Builds justification breakdown from BigQuery rows."""
+    if not include_justifications:
+      return report_msg.JustificationBreakdown()
+
     logger.info("Building justification breakdown")
     justification_breakdown = report_msg.JustificationBreakdown()
 
@@ -292,8 +310,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
           table_id,
           e,
       )
-      # Ensure we return empty breakdown rather than partial/undefined
-      justification_breakdown = report_msg.JustificationBreakdown()
+      raise
 
     return justification_breakdown
 
@@ -379,7 +396,6 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     if end_date:
       where_clauses.append(f"publishedAt <= '{end_date}'")
     if channel_title:
-      # Assuming channelTitle is a field in the table
       where_clauses.append(f"channelTitle = '{channel_title}'")
     if excluded_channels:
       # Simple optimization: escape single quotes in channel names to
@@ -421,6 +437,74 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         LIMIT 15
     """
     return self._bq_client.query(query)
+
+  def _query_share_of_voice_totals(
+      self,
+      table_id: str,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+  ) -> dict[str, int]:
+    """Queries total item count and views for Share of Voice context.
+
+    Args:
+      table_id: Table ID.
+      start_date: Start date filter.
+      end_date: End date filter.
+      channel_title: Channel title filter.
+      excluded_channels: Excluded channels.
+
+    Returns:
+      Dictionary with positive, negative, neutral views and item_count.
+    """
+    where_clauses = ["s.productOrBrand IS NOT NULL", "relevanceScore >= 90"]
+
+    if start_date:
+      where_clauses.append(f"publishedAt >= '{start_date}'")
+    if end_date:
+      where_clauses.append(f"publishedAt <= '{end_date}'")
+    if channel_title:
+      where_clauses.append(f"channelTitle = '{channel_title}'")
+    if excluded_channels:
+      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
+      channels_str = "', '".join(sanitized)
+      where_clauses.append(f"channelTitle NOT IN ('{channels_str}')")
+
+    where_clause = " AND ".join(where_clauses)
+
+    query = f"""
+        SELECT
+          COUNT(DISTINCT t.videoId) AS item_count,
+          SUM(CASE
+              WHEN s.sentimentScore IN ( 'EXTREME_POSITIVE', 'POSITIVE', 'PARTIAL_POSITIVE' ) THEN COALESCE(t.viewCount, 0)
+              ELSE 0
+          END) AS positive,
+          SUM(CASE
+              WHEN s.sentimentScore IN ('NEUTRAL') OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
+              ELSE 0
+          END) AS neutral,
+          SUM(CASE
+              WHEN s.sentimentScore IN ( 'EXTREME_NEGATIVE', 'NEGATIVE', 'PARTIAL_NEGATIVE' ) THEN COALESCE(t.viewCount, 0)
+              ELSE 0
+          END) AS negative
+        FROM
+          `{table_id}` AS t,
+          UNNEST(t.sentiments) AS s
+        WHERE
+          {where_clause}
+    """
+    rows = list(self._bq_client.query(query))
+    if not rows:
+      return {"item_count": 0, "positive": 0, "negative": 0, "neutral": 0}
+
+    row = rows[0]
+    return {
+        "item_count": int(row.get("item_count", 0)),
+        "positive": int(row.get("positive", 0)),
+        "negative": int(row.get("negative", 0)),
+        "neutral": int(row.get("neutral", 0)),
+    }
 
   def _query_sentiment_score(
       self,
@@ -490,7 +574,10 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
           END) AS NEUTRAL_VIEWS,
 
           -- Total sum for verification
-          SUM(COALESCE(videos.viewCount, 0)) AS TOTAL_VIEWS
+          SUM(COALESCE(videos.viewCount, 0)) AS TOTAL_VIEWS,
+
+          -- Total items count
+          COUNT(*) AS TOTAL_ITEMS
 
         FROM
           `{table_id}` AS videos,
@@ -518,14 +605,6 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     """
     where_clause = "videos.channelTitle IS NOT NULL"
     if query:
-      # Sanitize query to prevent basic injection if not parametrized
-      # BQ client parametrizes usually, but here we are constructing
-      # string.
-      # Actually client.query() takes string.
-      # Ideally we should use parameters but for now simple escaping or
-      # simple logic.
-      # Let's just use simple LIKE with lower case for case-insensitive
-      # search.
       safe_query = query.replace("'", "\\'")
       where_clause += (
           f" AND LOWER(videos.channelTitle) LIKE LOWER('%{safe_query}%')"

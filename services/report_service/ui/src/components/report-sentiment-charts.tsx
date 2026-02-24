@@ -18,28 +18,20 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Label,
-  Pie,
-  PieChart as RechartsPieChart,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import {format} from 'date-fns';
+import {SentimentStatsCards} from '@/components/sentiment-stats-cards';
 import {SourceAnalysisResult} from '@/lib/types';
 
 const chartConfig: ChartConfig = {
@@ -48,78 +40,37 @@ const chartConfig: ChartConfig = {
   negative: {label: 'Negative', color: 'hsl(var(--chart-5))'},
 };
 
-const RADIAN = Math.PI / 180;
-function renderCustomizedLabel({
-  cx,
-  cy,
-  midAngle,
-  innerRadius,
-  outerRadius,
-  percent,
-  payload,
-}: {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  innerRadius: number;
-  outerRadius: number;
-  percent: number;
-  index: number;
-  payload: {color: string};
-}) {
-  const radius = innerRadius + (outerRadius - innerRadius) * 1.6;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-  return (
-    <text
-      x={x}
-      y={y}
-      fill={payload.color}
-      textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central"
-      className="font-bold"
-    >
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
+function formatYAxisTick(value: number) {
+  if (value === 0) return '0';
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (value >= 99000) {
+    return `${(value / 1000).toFixed(0)}K`;
+  }
+  return value.toLocaleString();
 }
 
 export function ReportSentimentCharts({
   result,
-  metricLabel,
 }: {
   result: SourceAnalysisResult;
-  metricLabel: string;
+  metricLabel?: string;
 }) {
   if (!result?.sentimentOverTime || !result.overallSentiment) return null;
 
-  const overallData = [
-    {
-      name: 'Positive',
-      value: result.overallSentiment.positive,
-      color: 'hsl(var(--chart-2))',
-    },
-    {
-      name: 'Neutral',
-      value: result.overallSentiment.neutral,
-      color: 'hsl(var(--chart-4))',
-    },
-    {
-      name: 'Negative',
-      value: result.overallSentiment.negative,
-      color: 'hsl(var(--chart-5))',
-    },
-  ];
-
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      <Card className="lg:col-span-4">
+    <div className="grid gap-4 lg:grid-cols-4">
+      <div className="flex flex-col gap-4 lg:col-span-1">
+        <SentimentStatsCards overallSentiment={result.overallSentiment} />
+      </div>
+
+      <Card className="lg:col-span-3">
         <CardHeader>
           <CardTitle>Sentiment Over Time</CardTitle>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[250px] w-full">
+          <ChartContainer config={chartConfig} className="h-[500px] w-full">
             <BarChart
               data={result.sentimentOverTime}
               margin={{left: 20, right: 20, top: 5, bottom: 20}}
@@ -130,9 +81,10 @@ export function ReportSentimentCharts({
                 axisLine={false}
                 tickMargin={8}
                 allowDecimals={false}
+                tickFormatter={formatYAxisTick}
               >
                 <Label
-                  value={metricLabel}
+                  value="Views"
                   angle={-90}
                   position="insideLeft"
                   style={{textAnchor: 'middle'}}
@@ -166,36 +118,6 @@ export function ReportSentimentCharts({
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-      <Card className="lg:col-span-3">
-        <CardHeader>
-          <CardTitle>Overall Sentiment</CardTitle>
-          <CardDescription>Total distribution of sentiment.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center">
-          <ChartContainer
-            config={chartConfig}
-            className="mx-auto aspect-square h-[250px]"
-          >
-            <RechartsPieChart>
-              <Tooltip content={<ChartTooltipContent hideLabel />} />
-              <Pie
-                data={overallData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={60}
-                outerRadius={80}
-                strokeWidth={5}
-                labelLine={false}
-                label={renderCustomizedLabel}
-              >
-                {overallData.map(entry => (
-                  <Cell key={`cell-${entry.name}`} fill={entry.color} />
-                ))}
-              </Pie>
-            </RechartsPieChart>
           </ChartContainer>
         </CardContent>
       </Card>

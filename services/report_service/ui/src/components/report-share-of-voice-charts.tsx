@@ -36,6 +36,7 @@ import {
   ResponsiveContainer,
   Label,
 } from 'recharts';
+import {SentimentStatsCards} from '@/components/sentiment-stats-cards';
 import {ShareOfVoiceResult} from '@/lib/types';
 
 const chartConfig = {
@@ -54,17 +55,27 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat('en-US').format(value);
+  if (value === 0) return '0';
+  if (value >= 1000000) {
+    return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+  }
+  if (value >= 99000) {
+    return `${(value / 1000).toFixed(0)}K`;
+  }
+  return value.toLocaleString();
 }
 
 export function ReportShareOfVoiceCharts({
   result,
-  metricLabel,
 }: {
   result: ShareOfVoiceResult;
-  metricLabel: string;
+  metricLabel?: string;
 }) {
-  if (!result?.shareOfVoice) return null;
+  console.log('ReportShareOfVoiceCharts result:', result);
+  if (!result?.shareOfVoice) {
+    console.log('ReportShareOfVoiceCharts: No shareOfVoice data found');
+    return null;
+  }
 
   const sortedData = [...result.shareOfVoice]
     .sort((a, b) => {
@@ -75,54 +86,64 @@ export function ReportShareOfVoiceCharts({
     .slice(0, 15);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Share of Voice</CardTitle>
-        <CardDescription>
-          Top 15 topics by total engagement, with sentiment breakdown.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[500px] w-full">
-          <ResponsiveContainer>
-            <BarChart
-              data={sortedData}
-              layout="vertical"
-              margin={{top: 5, right: 30, left: 30, bottom: 20}}
-            >
-              <CartesianGrid horizontal={false} />
-              <YAxis
-                dataKey="name"
-                type="category"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={10}
-                width={120}
-              />
-              <XAxis type="number" tickFormatter={formatNumber}>
-                <Label value={metricLabel} position="bottom" offset={5} />
-              </XAxis>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="dot" />}
-              />
-              <Bar
-                dataKey="positive"
-                stackId="a"
-                fill="var(--color-positive)"
-                radius={[0, 4, 4, 0]}
-              />
-              <Bar dataKey="neutral" stackId="a" fill="var(--color-neutral)" />
-              <Bar
-                dataKey="negative"
-                stackId="a"
-                fill="var(--color-negative)"
-                radius={[4, 0, 0, 4]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+    <div className="grid gap-4 lg:grid-cols-4">
+      <div className="flex flex-col gap-4 lg:col-span-1">
+        {result.overallSentiment && (
+          <SentimentStatsCards overallSentiment={result.overallSentiment} />
+        )}
+      </div>
+
+      <Card className="lg:col-span-3">
+        <CardHeader>
+          <CardTitle>Share of Voice</CardTitle>
+          <CardDescription>
+            Top 15 topics by total engagement, with sentiment breakdown.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[500px] w-full">
+            <ResponsiveContainer>
+              <BarChart
+                data={sortedData}
+                layout="vertical"
+                margin={{top: 5, right: 30, left: 30, bottom: 20}}
+              >
+                <CartesianGrid horizontal={false} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={10}
+                  width={120}
+                />
+                <XAxis type="number" tickFormatter={formatNumber}>
+                  <Label value="Views" position="bottom" offset={0} />
+                </XAxis>
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent indicator="dot" />}
+                />
+                <Bar
+                  dataKey="positive"
+                  stackId="a"
+                  fill="var(--color-positive)"
+                />
+                <Bar
+                  dataKey="neutral"
+                  stackId="a"
+                  fill="var(--color-neutral)"
+                />
+                <Bar
+                  dataKey="negative"
+                  stackId="a"
+                  fill="var(--color-negative)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

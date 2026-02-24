@@ -20,43 +20,46 @@ from socialpulse_common.messages import sentiment_report as report_msg
 
 
 class DatasetRepo(abc.ABC):
-    """Interface for retrieving dataset analysis results."""
+  """Interface for retrieving dataset analysis results."""
 
-    @abc.abstractmethod
-    def get_analysis_results(
-        self,
-        datasets: typing.List[report_msg.SentimentReportDataset],
-        start_date: typing.Optional[str] = None,
-        end_date: typing.Optional[str] = None,
-        channel_title: typing.Optional[str] = None,
-        excluded_channels: typing.List[str] = None,
-    ) -> report_msg.AnalysisResults:
-        """Retrieves analysis results for the provided datasets.
+  @abc.abstractmethod
+  def get_analysis_results(
+      self,
+      datasets: typing.List[report_msg.SentimentReportDataset],
+      start_date: typing.Optional[str] = None,
+      end_date: typing.Optional[str] = None,
+      channel_title: typing.Optional[str] = None,
+      excluded_channels: typing.List[str] = None,
+      include_justifications: bool = True,
+  ) -> report_msg.AnalysisResults:
+    """Retrieves analysis results for the provided datasets.
 
-        Args:
-          datasets: List of datasets to retrieve results for.
-          start_date: Optional start date filter (ISO format).
-          end_date: Optional end date filter (ISO format).
-          channel_title: Optional channel title filter.
-          excluded_channels: Optional list of channels to exclude.
+    Args:
+      datasets: List of datasets to retrieve results for.
+      start_date: Optional start date filter (ISO format).
+      end_date: Optional end date filter (ISO format).
+      channel_title: Optional channel title filter.
+      excluded_channels: Optional list of channels to exclude.
+      include_justifications: Whether to include justifications in the
+        results.
 
-        Returns:
-          AnalysisResults populated with data from the datasets.
-        """
+    Returns:
+      AnalysisResults populated with data from the datasets.
+    """
 
-    @abc.abstractmethod
-    def get_channels(
-        self,
-        datasets: typing.List[report_msg.SentimentReportDataset],
-        query: typing.Optional[str] = None,
-    ) -> typing.List[str]:
-        """Retrieves a list of unique channels for the provided datasets.
+  @abc.abstractmethod
+  def get_channels(
+      self,
+      datasets: typing.List[report_msg.SentimentReportDataset],
+      query: typing.Optional[str] = None,
+  ) -> typing.List[str]:
+    """Retrieves a list of unique channels for the provided datasets.
 
-        Args:
-          datasets: List of datasets to retrieve channels for.
-          query: Optional query to filter channels by.
+    Args:
+      datasets: List of datasets to retrieve channels for.
+      query: Optional query to filter channels by.
 
-        Returns:
-          List of unique channel names.
-        """
-        raise NotImplementedError
+    Returns:
+      List of unique channel names.
+    """
+    raise NotImplementedError

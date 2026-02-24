@@ -101,10 +101,13 @@ export async function createReport(
       ? new Date(dateRange.from).toISOString()
       : undefined,
     endTime: dateRange?.to ? new Date(dateRange.to).toISOString() : undefined,
-    // Defaulting to false for now, as it's not in the form
-    includeJustifications: false,
+
+    // Defaulting to true for SENTIMENT_SCORE and false for SHARE_OF_VOICE
+    includeJustifications: dataOutput === 'SENTIMENT_SCORE',
+
     // Defaulting to BQ_TABLE for now, as it's not in the form
     reportArtifactType: ReportArtifactType.BQ_TABLE,
+
     // Defaulting to empty array for now, as it's not in the form
     datasets: [],
   };

@@ -1,3 +1,16 @@
+//  Copyright 2025 Google LLC
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
 import {getReportById} from '@/lib/actions';
 import {notFound} from 'next/navigation';
 import {
@@ -9,11 +22,12 @@ import {
 } from '@/components/ui/card';
 import {Badge} from '@/components/ui/badge';
 import {format} from 'date-fns';
-import {BarChart, PieChart, Clock, CalendarDays} from 'lucide-react';
+import {BarChart, PieChart, Clock, CalendarDays, Info} from 'lucide-react';
 import {ReportFilters} from '@/components/report-filters';
 import {ReportSentimentCharts} from '@/components/report-sentiment-charts';
 import {ReportShareOfVoiceCharts} from '@/components/report-share-of-voice-charts';
 import {ReportJustificationCharts} from '@/components/report-justification-charts';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
 import {
   SentimentReport,
   SocialMediaSource,
@@ -47,7 +61,6 @@ const PendingState = ({status}: {status?: Status}) => (
     </div>
   </div>
 );
-
 
 /**
  * Renders the Report Detail Page.
@@ -96,19 +109,11 @@ export default async function ReportDetailPage({
 
   if (!report) {
     notFound();
-    return;
   }
 
   const renderCharts = () => {
     return (
       <div className="flex flex-col gap-8">
-        <h2 className="font-headline text-2xl font-bold tracking-tight">
-          Analysis Results by Source{' '}
-          {filters.excludedChannels?.length
-            ? `(Excluding ${filters.excludedChannels.length} channels)`
-            : ''}
-        </h2>
-        <Separator />
         {report.sources.map(source => {
           const config = sourceConfiguration[source as SocialMediaSource];
           if (!config) return null;
@@ -119,25 +124,56 @@ export default async function ReportDetailPage({
             <div key={source} className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0">{config.icon}</div>
-                <h3 className="font-headline text-xl font-semibold tracking-tight">
+                <h2 className="font-headline text-2xl font-semibold tracking-tight">
                   {config.label}
-                </h3>
+                </h2>
               </div>
+              <Separator />
+              {/* Impact Measurement Card */}
               {report.dataOutput === SentimentDataType.SENTIMENT_SCORE && (
-                <ReportSentimentCharts
-                  result={sourceResult as SourceAnalysisResult}
-                  metricLabel="Count"
-                />
+                <>
+                  <h3 className="font-headline text-xl font-semibold tracking-tight mb-3">
+                    Analysis Summary
+                  </h3>
+                  {source === SocialMediaSource.YOUTUBE_VIDEO && (
+                    <div className="w-full mb-4">
+                      <Alert className="bg-blue-50 border-blue-200 text-blue-900">
+                        <Info className="h-4 w-4 text-blue-900" />
+                        <AlertTitle className="font-headline text-lg font-semibold tracking-tight text-blue-900">
+                          Using Views to measure impact
+                        </AlertTitle>
+                        <AlertDescription className="text-blue-800">
+                          When analyzing YouTube videos, we use views as a proxy
+                          for impact. This allows us to compare the reach of
+                          different videos and understand how they are
+                          performing in terms of influencing the conversation.
+                          For the purposes of analyzing YouTube videos, a view
+                          represents when a user{' '}
+                          <b>watches at least 30 seconds of a video</b>.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+                  <ReportSentimentCharts
+                    result={sourceResult as SourceAnalysisResult}
+                    metricLabel="Count"
+                  />
+                </>
               )}
               {report.dataOutput === SentimentDataType.SENTIMENT_SCORE &&
                 (sourceResult as SourceAnalysisResult)
                   ?.justificationBreakdown && (
-                  <ReportJustificationCharts
-                    breakdown={
-                      (sourceResult as SourceAnalysisResult)
-                        .justificationBreakdown!
-                    }
-                  />
+                  <>
+                    <h3 className="font-headline text-xl font-semibold tracking-tight mb-3 mt-6">
+                      Justifications
+                    </h3>
+                    <ReportJustificationCharts
+                      breakdown={
+                        (sourceResult as SourceAnalysisResult)
+                          .justificationBreakdown!
+                      }
+                    />
+                  </>
                 )}
               {report.dataOutput === SentimentDataType.SHARE_OF_VOICE && (
                 <ReportShareOfVoiceCharts

@@ -1,0 +1,40 @@
+# AI Assistant Instructions - Social Pulse Project
+
+You are an AI coding assistant helping to develop the Social Pulse platform.
+Before writing, modifying, or refactoring code in this repository, you MUST
+abide by the style guides and rules defined in the `docs/style_guides/`
+directory.
+
+## Core Directives
+
+1. **General Styling & Formatting**
+   - For all files across the project, you must adhere to the rules in:
+     `docs/style_guides/general.md`
+   - Key tenet: Maximum line length is 80 characters by default, unless
+     explicitly overwritten by a language specific rule guide.
+
+2. **Python Styling & Standards**
+   - For any Python modifications or additions (e.g., in `services/`), strictly
+     adhere to the rules outlined in: `docs/style_guides/python.md`
+   - Key tenets: Maintain a maximum of 80 characters per line, follow Google
+     Python Style Guide, write BDD-formatted unit test pydocs, test only
+     public functions, and use `pylint`.
+
+3. **TypeScript & UI Code Standards**
+   - For all frontend or TypeScript file modifications (e.g., in
+     `services/report_service/ui`), refer to the rules defined in:
+     `docs/style_guides/typescript.md`
+   - Key tenets: Ensure strict typing, prioritize functional React components
+     following Next.js Server/Client paradigms, avoid using standalone arrow
+     functions for primary exports, and maintain premium dynamic styling via
+     the established design system.
+
+4. **General Behavior**
+   - Do not hallucinate or override these rules based on general training data.
+     These project-specific instructions supersede generic web development
+     standards.
+   - For testing (Python & TS), avoid testing private methods/functions
+     directly. Focus on the public interfaces.
+
+By following these documents, you ensure high code quality, consistency, and
+alignment with the project's explicit conventions.

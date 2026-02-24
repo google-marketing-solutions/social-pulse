@@ -131,6 +131,7 @@ class OverallSentiment(pydantic.BaseModel):
   negative: int
   neutral: int
   average: float
+  item_count: int = 0
 
 
 class ShareOfVoiceItem(pydantic.BaseModel):
