@@ -17,18 +17,24 @@
 import logging
 import os
 
+from domain import insights_generator
 from domain import sentiment_report
+from domain.ports import insights
 from domain.ports import persistence
 import fastapi
 
-from infrastructure.api.http import workflow_execution_service as wfe_service_lib
+from infrastructure.api.http import (
+    workflow_execution_service as wfe_service_lib
+)
 from infrastructure.bigquery.dataset import bq_dataset_repo
+from infrastructure.insights import gemini
+from infrastructure.persistence.postgresdb import report_insights_repo
 from infrastructure.persistence.postgresdb import sentiment_report_repo
 from infrastructure.persistence.postgresdb import sentiment_report_search_repo
 from socialpulse_common import config
 from socialpulse_common.messages import sentiment_report as report_msg
-from socialpulse_common.persistence import postgresdb_client as client
 from socialpulse_common.persistence import bigquery_client
+from socialpulse_common.persistence import postgresdb_client as client
 
 
 log_level = os.environ.get("LOG_LEVEL", "DEBUG").upper()
@@ -58,6 +64,16 @@ class AppConfig:
         persistence.SentimentReportSearchRepo
     ) = sentiment_report_search_repo.PostgresDbSentimentReportSearchRepo(
         postgres_client
+    )
+    self.report_insights_repository: persistence.ReportInsightsRepo = (
+        report_insights_repo.PostgresDbReportInsightsRepo(postgres_client)
+    )
+
+    self.gemini_insights_provider: insights.InsightsProvider = (
+        gemini.GeminiInsightsProvider(
+            api_key=settings.api.youtube.key,
+            project_id=settings.cloud.project_id,
+        )
     )
 
     logger.info(
@@ -196,7 +212,9 @@ def _entity_to_message(
 
 @app.post("/api/{report_id}/mark_as_completed")
 def mark_as_completed(
-    report_id: str, datasets: list[report_msg.SentimentReportDataset]
+    report_id: str,
+    datasets: list[report_msg.SentimentReportDataset],
+    background_tasks: fastapi.BackgroundTasks,
 ) -> report_msg.SentimentReport:
   """Marks a sentiment report as completed and associates datasets with it.
 
@@ -204,6 +222,7 @@ def mark_as_completed(
     report_id: The ID of the report to mark as completed.
     datasets: A list of SentimentReportDataset messages containing information
       about the generated datasets.
+    background_tasks: FastAPI background tasks for asynchronous handling.
   """
   try:
     logger.info(
@@ -217,6 +236,14 @@ def mark_as_completed(
 
     report_entity.mark_as_completed(datasets)
     app_config.sentiment_report_repository.persist_report(report_entity)
+
+    # Schedule background generation of insights
+    background_tasks.add_task(
+        insights_generator.generate_and_store_insights,
+        report_id=report_id,
+        datasets=datasets,
+        app_config=app_config,
+    )
 
     return _entity_to_message(report_entity)
 

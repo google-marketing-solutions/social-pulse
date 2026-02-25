@@ -5,3 +5,4 @@ pydantic-settings
 pytest
 python-dotenv
 google-cloud-bigquery
+google-genai

@@ -16,7 +16,7 @@
 import json
 import unittest
 from unittest import mock
-from services.report_service.src.infrastructure.insights.gemini import (
+from infrastructure.insights.gemini import (
     GeminiInsightsProvider,
 )
 
@@ -31,7 +31,7 @@ class TestGeminiInsightsProvider(unittest.TestCase):
         self.report_context = "Sample report context"
 
     @mock.patch(
-        "services.report_service.src.infrastructure.insights.gemini"
+        "infrastructure.insights.gemini"
         ".GeminiPromptClient"
     )
     def test_initialization_success(self, mock_client_class):
@@ -46,7 +46,7 @@ class TestGeminiInsightsProvider(unittest.TestCase):
         self.assertIsNotNone(provider._client)
 
     @mock.patch(
-        "services.report_service.src.infrastructure.insights.gemini"
+        "infrastructure.insights.gemini"
         ".GeminiPromptClient"
     )
     def test_generate_base_insights_success(self, mock_client_class):
@@ -79,7 +79,7 @@ class TestGeminiInsightsProvider(unittest.TestCase):
         self.assertTrue(kwargs.get("use_thinking"))
 
     @mock.patch(
-        "services.report_service.src.infrastructure.insights.gemini"
+        "infrastructure.insights.gemini"
         ".GeminiPromptClient"
     )
     def test_generate_spike_analysis_success(self, mock_client_class):
@@ -111,7 +111,7 @@ class TestGeminiInsightsProvider(unittest.TestCase):
         self.assertEqual(result_raw, mock_response.text)
 
     @mock.patch(
-        "services.report_service.src.infrastructure.insights.gemini"
+        "infrastructure.insights.gemini"
         ".GeminiPromptClient"
     )
     def test_answer_chat_query_success(self, mock_client_class):
@@ -132,7 +132,7 @@ class TestGeminiInsightsProvider(unittest.TestCase):
         self.assertEqual(result, expected_response_text)
 
     @mock.patch(
-        "services.report_service.src.infrastructure.insights.gemini"
+        "infrastructure.insights.gemini"
         ".GeminiPromptClient"
     )
     def test_api_failure_handling(self, mock_client_class):
@@ -146,6 +146,31 @@ class TestGeminiInsightsProvider(unittest.TestCase):
 
         with self.assertRaises(Exception):
             provider.generate_base_insights(self.report_context)
+
+    @mock.patch(
+        "infrastructure.insights.gemini"
+        ".GeminiPromptClient"
+    )
+    def test_invalid_json_handling(self, mock_client_class):
+        """Test handling of invalid JSON response from Gemini."""
+        mock_client_instance = mock_client_class.return_value
+
+        # Mock Gemini returning a string that is not valid JSON
+        mock_response = mock.MagicMock()
+        mock_response.text = (
+            "This is not valid JSON, "
+            "like a generic markdown response"
+        )
+        mock_client_instance.generate_content.return_value = mock_response
+
+        provider = GeminiInsightsProvider(self.api_key, self.project_id)
+
+        # The json.loads() call in _generate_json_content should fail,
+        # throwing an exception that gets caught and re-raised.
+        with self.assertRaises(json.JSONDecodeError) as context:
+            provider.generate_base_insights(self.report_context)
+
+        self.assertIsNotNone(context.exception)
 
 if __name__ == "__main__":
     unittest.main()

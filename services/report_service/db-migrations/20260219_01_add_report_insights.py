@@ -43,6 +43,7 @@ steps = [
             CONSTRAINT fk_report_insights_report_id
                 FOREIGN KEY (reportId)
                 REFERENCES SentimentReports (reportId)
+                ON DELETE CASCADE
         );
         """,
         """

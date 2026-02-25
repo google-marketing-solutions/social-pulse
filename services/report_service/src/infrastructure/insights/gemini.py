@@ -18,7 +18,9 @@ import json
 import logging
 from typing import Any
 
+from domain.ports.insights import InsightsProvider
 from socialpulse_common.gemini import GeminiPromptClient
+
 
 # Initialize logging
 logger = logging.getLogger(__name__)
@@ -27,7 +29,7 @@ GEMINI_MODEL_NAME = "gemini-3-pro-preview"
 GEMINI_MODEL_LOCATION = "global"
 
 
-class GeminiInsightsProvider:
+class GeminiInsightsProvider(InsightsProvider):
     """Implementation of InsightsProvider using Google's Gemini."""
 
     def __init__(self, api_key: str, project_id: str):
@@ -62,15 +64,20 @@ class GeminiInsightsProvider:
         """
         system_instruction = (
             "You are an expert Social Analyst specializing in "
-            "identifying key trends from social listening reports."
+            "identifying key trending topics from social listening reports."
         )
         prompt = f"""
           Task: Analyze the provided social listening report data and
-          identify 2-3 of the most significant trends.
+          identify 2-3 of the most significant topics discussed in the
+          report justifications. Ensure these topics are distinct and
+          represent different aspects of the report data. They should be
+          more about topics and discussed and less about the metrics and
+          spikes themselves. Justifications should be speicific video or
+          comment quote examples from the report context.
 
           Rules:
           - Base your analysis strictly on the specific justifications and
-            data provided in the report context.
+            quote data provided in the report context.
           - Format your response exactly as valid JSON matching the schema
             below. Do not include markdown code blocks.
 
@@ -109,6 +116,8 @@ class GeminiInsightsProvider:
         prompt = f"""
           Task: Analyze the provided social listening report data to identify
           up to 2 significant spikes in activity or sentiment (if they exist).
+          The primary metric is views, but you should also consider likes,
+          comments, etc. as well as the total number of videos posted.
 
           Rules:
           - When determining the root cause of a spike, you must weigh specific
@@ -116,7 +125,10 @@ class GeminiInsightsProvider:
             than general macroeconomic events around the same time.
           - If no significant spikes exist in the data, return an empty array.
           - Format your response exactly as valid JSON matching the schema
-            below. Do not include markdown code blocks.
+            below. Do not include markdown code blocks. Ensure
+            primary_video_evidence contains quote data from the report context.
+            Reference specific videos titles and channels that contibuted to
+            the spike in views.
 
           Output Format:
           {{
@@ -175,6 +187,12 @@ class GeminiInsightsProvider:
           - If the answer cannot be found in the Report Context, politely
             state that you do not have that information based on the report.
           - Reference specific data points from the report when answering.
+          - If the user asks for a video, provide the video title and channel.
+          - If the user asks for a channel, provide the channel name and link.
+          - If the user asks for a trend, provide the trend title and
+            description.
+          - If the user asks for a spike, provide the spike topic and cause.
+          - Ground justifications in quote data from the Report Context.
 
           Report Context:
           {report_context}
@@ -193,6 +211,7 @@ class GeminiInsightsProvider:
                 contents=prompt,
                 system_instruction=system_instruction,
                 temperature=0.7,  # Slightly higher for conversation
+                tools=[{"code_execution": {}}],
             )
             return response.text
         except Exception as e:
@@ -211,6 +230,7 @@ class GeminiInsightsProvider:
                 temperature=0.1,
                 response_mime_type="application/json",
                 use_thinking=True,
+                tools=[{"code_execution": {}}],
             )
             return json.loads(response.text), response.text
         except Exception as e:

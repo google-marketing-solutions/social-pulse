@@ -67,6 +67,7 @@ class GeminiPromptClient:
         temperature: float | None = None,
         response_mime_type: str | None = None,
         use_thinking: bool = False,
+        tools: list[Any] | None = None,
     ) -> Any:
         """Generates content from the Gemini model.
 
@@ -79,6 +80,8 @@ class GeminiPromptClient:
             response_mime_type (str | None): Optional MIME type for
                 the expected response (e.g. 'application/json').
             use_thinking (bool): Whether to enable high-level thinking.
+            tools (list[Any] | None): Optional tools to provide to the model
+                (e.g., [{"code_execution": {}}]).
 
         Returns:
             Any: The response object from the GenAI client.
@@ -90,6 +93,8 @@ class GeminiPromptClient:
             kwargs["temperature"] = temperature
         if response_mime_type is not None:
             kwargs["response_mime_type"] = response_mime_type
+        if tools is not None:
+            kwargs["tools"] = tools
         if use_thinking:
             kwargs["thinking_config"] = types.ThinkingConfig(
                 thinking_level=types.ThinkingLevel.HIGH
