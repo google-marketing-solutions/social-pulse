@@ -95,7 +95,6 @@ class CompositeAnalysisResultsBuilderTest(unittest.TestCase):
                 "positive": 50,
                 "negative": 0,
                 "neutral": 0,
-                "average": 1.0,
                 "itemCount": 100,
             },
         }
@@ -153,7 +152,6 @@ class CompositeAnalysisResultsBuilderTest(unittest.TestCase):
                     "positive": 1,
                     "negative": 0,
                     "neutral": 0,
-                    "average": 1.0,
                     "itemCount": 1,
                 }
             }
@@ -200,7 +198,6 @@ class CompositeAnalysisResultsBuilderTest(unittest.TestCase):
                     "positive": 1,
                     "negative": 0,
                     "neutral": 0,
-                    "average": 1.0,
                     "itemCount": 1,
                 }
             }
@@ -290,7 +287,6 @@ class CompositeAnalysisResultsBuilderTest(unittest.TestCase):
                     "positive": 2,
                     "negative": 0,
                     "neutral": 0,
-                    "average": 1.0,
                     "itemCount": 2,
                 }
             }
