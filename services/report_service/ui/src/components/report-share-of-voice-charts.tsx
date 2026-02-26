@@ -15,31 +15,24 @@
 'use client';
 
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
-import {
   Bar,
   BarChart,
   CartesianGrid,
+  Label,
+  Tooltip,
   XAxis,
   YAxis,
-  ResponsiveContainer,
-  Label,
 } from 'recharts';
-import {SentimentStatsCards} from '@/components/sentiment-stats-cards';
+
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
 import {ShareOfVoiceResult} from '@/lib/types';
 
-const chartConfig = {
+const chartConfig: ChartConfig = {
   positive: {
     label: 'Positive',
     color: 'hsl(var(--chart-2))',
@@ -52,9 +45,9 @@ const chartConfig = {
     label: 'Negative',
     color: 'hsl(var(--chart-5))',
   },
-} satisfies ChartConfig;
+};
 
-function formatNumber(value: number) {
+function formatYAxisTick(value: number) {
   if (value === 0) return '0';
   if (value >= 1000000) {
     return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -67,83 +60,60 @@ function formatNumber(value: number) {
 
 export function ReportShareOfVoiceCharts({
   result,
+  metricLabel = 'Views',
 }: {
   result: ShareOfVoiceResult;
   metricLabel?: string;
 }) {
-  console.log('ReportShareOfVoiceCharts result:', result);
-  if (!result?.shareOfVoice) {
-    console.log('ReportShareOfVoiceCharts: No shareOfVoice data found');
-    return null;
-  }
-
-  const sortedData = [...result.shareOfVoice]
-    .sort((a, b) => {
-      const totalA = a.positive + a.neutral + a.negative;
-      const totalB = b.positive + b.neutral + b.negative;
-      return totalB - totalA;
-    })
-    .slice(0, 15);
+  if (!result?.shareOfVoice || result.shareOfVoice.length === 0) return null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-4">
-      <div className="flex flex-col gap-4 lg:col-span-1">
-        {result.overallSentiment && (
-          <SentimentStatsCards overallSentiment={result.overallSentiment} />
-        )}
-      </div>
-
-      <Card className="lg:col-span-3">
-        <CardHeader>
-          <CardTitle>Share of Voice</CardTitle>
-          <CardDescription>
-            Top 15 topics by total engagement, with sentiment breakdown.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={chartConfig} className="h-[500px] w-full">
-            <ResponsiveContainer>
-              <BarChart
-                data={sortedData}
-                layout="vertical"
-                margin={{top: 5, right: 30, left: 30, bottom: 20}}
-              >
-                <CartesianGrid horizontal={false} />
-                <YAxis
-                  dataKey="name"
-                  type="category"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                  width={120}
-                />
-                <XAxis type="number" tickFormatter={formatNumber}>
-                  <Label value="Views" position="bottom" offset={0} />
-                </XAxis>
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Bar
-                  dataKey="positive"
-                  stackId="a"
-                  fill="var(--color-positive)"
-                />
-                <Bar
-                  dataKey="neutral"
-                  stackId="a"
-                  fill="var(--color-neutral)"
-                />
-                <Bar
-                  dataKey="negative"
-                  stackId="a"
-                  fill="var(--color-negative)"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        </CardContent>
-      </Card>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Share of Voice</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig} className="h-[400px] w-full">
+          <BarChart
+            data={result.shareOfVoice}
+            layout="vertical"
+            margin={{left: 20, right: 20, top: 20, bottom: 20}}
+          >
+            <CartesianGrid horizontal={false} />
+            <XAxis
+              type="number"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={formatYAxisTick}
+            >
+              <Label value={metricLabel} position="bottom" offset={10} />
+            </XAxis>
+            <YAxis
+              dataKey="name"
+              type="category"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={10}
+              width={150}
+            />
+            <Tooltip content={<ChartTooltipContent indicator="dot" />} />
+            <Bar
+              dataKey="positive"
+              stackId="a"
+              fill="var(--color-positive)"
+              radius={0}
+            />
+            <Bar dataKey="neutral" stackId="a" fill="var(--color-neutral)" />
+            <Bar
+              dataKey="negative"
+              stackId="a"
+              fill="var(--color-negative)"
+              radius={[0, 4, 4, 0]}
+            />
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
   );
 }

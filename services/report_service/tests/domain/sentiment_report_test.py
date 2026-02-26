@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Unit tests for the SentimentReportEntity domain class."""
 
 import datetime
 import unittest
@@ -41,9 +42,11 @@ class SentimentReportEntityTest(unittest.TestCase):
     """Set up the mock for datetime.datetime.now()."""
     self.mock_now_ts = datetime.datetime(2025, 8, 7, 12, 0, 0)
     self.mock_datetime_patcher = mock.patch(
-        "domain.sentiment_report.datetime.datetime")
+        "domain.sentiment_report.datetime.datetime"
+    )
 
     self.mock_datetime = self.mock_datetime_patcher.start()
+    self.addCleanup(self.mock_datetime_patcher.stop)
     self.mock_datetime.now.return_value = self.mock_now_ts
 
   def test_mark_as_completed_succeeds_with_all_sources(self):
@@ -235,12 +238,13 @@ class SentimentReportEntityTest(unittest.TestCase):
                   dataset_uri="gs://bucket/x_post_data",
               )
           ],
-          r"Missing datasets for the following sources:" +
-          r".*SocialMediaSource\.YOUTUBE_VIDEO",
+          r"Missing datasets for the following sources:"
+          + r".*SocialMediaSource\.YOUTUBE_VIDEO",
       ),
   ])
   def test_mark_as_completed_fails_with_invalid_datasets(
-      self, name, datasets, expected_message):
+      self, name, datasets, expected_message
+  ):
     """Fails when any dataset validation rule is violated.
 
     Given a set of invalid datasets

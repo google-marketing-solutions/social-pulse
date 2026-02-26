@@ -53,8 +53,11 @@ function formatYAxisTick(value: number) {
 
 export function ReportSentimentCharts({
   result,
+  itemLabel = 'Items',
+  metricLabel = 'Views',
 }: {
   result: SourceAnalysisResult;
+  itemLabel?: string;
   metricLabel?: string;
 }) {
   if (!result?.sentimentOverTime || !result.overallSentiment) return null;
@@ -62,7 +65,11 @@ export function ReportSentimentCharts({
   return (
     <div className="grid gap-4 lg:grid-cols-4">
       <div className="flex flex-col gap-4 lg:col-span-1">
-        <SentimentStatsCards overallSentiment={result.overallSentiment} />
+        <SentimentStatsCards
+          overallSentiment={result.overallSentiment}
+          itemLabel={itemLabel}
+          metricLabel={metricLabel}
+        />
       </div>
 
       <Card className="lg:col-span-3">
@@ -84,7 +91,7 @@ export function ReportSentimentCharts({
                 tickFormatter={formatYAxisTick}
               >
                 <Label
-                  value="Views"
+                  value={metricLabel}
                   angle={-90}
                   position="insideLeft"
                   style={{textAnchor: 'middle'}}

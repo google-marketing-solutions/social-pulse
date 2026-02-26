@@ -16,9 +16,9 @@
 import logging
 
 from domain.ports import dataset
-from socialpulse_common.messages import common as msg_common
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import bigquery_client
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,292 +29,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
   def __init__(self, bq_client: bigquery_client.BigQueryClient):
     self._bq_client = bq_client
 
-  def get_analysis_results(
-      self,
-      datasets: list[report_msg.SentimentReportDataset],
-      start_date: str | None = None,
-      end_date: str | None = None,
-      channel_title: str | None = None,
-      excluded_channels: list[str] | None = None,
-      include_justifications: bool = True,
-  ) -> report_msg.AnalysisResults:
-    """Retrieves analysis results for the provided datasets.
-
-    Args:
-      datasets: List of datasets to retrieve analysis results for.
-      start_date: Optional start date filter (ISO format).
-      end_date: Optional end date filter (ISO format).
-      channel_title: Optional channel title filter.
-      excluded_channels: Optional list of channels to exclude.
-      include_justifications: Whether to include justifications in the
-        results.
-
-    Returns:
-      AnalysisResults object containing the analysis results for the
-      provided datasets.
-    """
-    results = report_msg.AnalysisResults()
-
-    for ds in datasets:
-      if not ds.dataset_uri or not ds.source or not ds.data_output:
-        continue
-
-      table_id = self._convert_uri_to_table_id(ds.dataset_uri)
-      source_result = self._fetch_dataset_result(
-          table_id,
-          ds.data_output,
-          start_date=start_date,
-          end_date=end_date,
-
-          channel_title=channel_title,
-          include_justifications=include_justifications,
-      )
-
-      # Mapping Source Enum to Field Name
-      field_name = ds.source.value.lower()
-
-      # Verify field exists (AnalysisResults fields are snake_case of enum)
-      if hasattr(results, field_name):
-        setattr(results, field_name, source_result)
-      else:
-        logger.warning("Unknown source or field not found for: %s", ds.source)
-
-    return results
-
-  def get_channels(
-      self,
-      datasets: list[report_msg.SentimentReportDataset],
-      query: str | None = None,
-  ) -> list[str]:
-    """Retrieves a list of unique channels for the provided datasets.
-
-    Args:
-      datasets: List of datasets to retrieve channels for.
-      query: Optional query to filter channels by.
-
-    Returns:
-      List of unique channel names.
-    """
-    channels = set()
-    for ds in datasets:
-      if not ds.dataset_uri:
-        continue
-
-      table_id = self._convert_uri_to_table_id(ds.dataset_uri)
-      try:
-        ds_channels = self._query_channels(table_id, query)
-        channels.update(ds_channels)
-      except Exception as e:  # pylint: disable=broad-exception-caught
-        logger.warning("Failed to fetch channels for table %s: %s", table_id, e)
-
-    return sorted(list(channels))
-
-  def _convert_uri_to_table_id(self, uri: str) -> str:
-    """Converts bq://project/dataset/table to project.dataset.table.
-
-    Args:
-      uri: URI to convert.
-
-    Returns:
-      Table ID in project.dataset.table format.
-    """
-    # Expected format: bq://project-id/dataset/table
-    if uri.startswith("bq://"):
-      return uri[5:].replace("/", ".")
-    return uri
-
-  def _fetch_dataset_result(
-      self,
-      table_id: str,
-      data_output: msg_common.SentimentDataType,
-      start_date: str | None = None,
-      end_date: str | None = None,
-      channel_title: str | None = None,
-      excluded_channels: list[str] | None = None,
-      include_justifications: bool = True,
-  ) -> report_msg.SourceAnalysisResult:
-    """Fetches and parses result from BigQuery for a single dataset.
-
-    Args:
-      table_id: Table ID in project.dataset.table format.
-      data_output: Data output type.
-      start_date: Optional start date filter.
-      end_date: Optional end date filter.
-      channel_title: Optional channel title filter.
-      excluded_channels: Optional list of channels to exclude.
-      include_justifications: Whether to include justifications in the
-        results.
-
-    Returns:
-      SourceAnalysisResult object containing the analysis results for the
-      provided dataset.
-    """
-    result = report_msg.SourceAnalysisResult()
-
-    if data_output == msg_common.SentimentDataType.SHARE_OF_VOICE:
-      logger.info("Fetching SHARE_OF_VOICE for %s", table_id)
-      rows = self._query_share_of_voice(
-          table_id,
-          start_date=start_date,
-          end_date=end_date,
-          channel_title=channel_title,
-          excluded_channels=excluded_channels,
-      )
-      result.share_of_voice = [
-          report_msg.ShareOfVoiceItem(
-              name=row.get("productOrBrand", "Unknown"),
-              positive=int(row.get("Positive_Views", 0)),
-              negative=int(row.get("Negative_Views", 0)),
-              neutral=int(row.get("Neutral_Views", 0)),
-          ) for row in rows
-      ]
-
-      # Also fetch overall stats for the Analysis Stats card
-      totals = self._query_share_of_voice_totals(
-          table_id,
-          start_date=start_date,
-          end_date=end_date,
-          channel_title=channel_title,
-          excluded_channels=excluded_channels,
-      )
-      result.overall_sentiment = report_msg.OverallSentiment(
-          positive=totals.get("positive", 0),
-          negative=totals.get("negative", 0),
-          neutral=totals.get("neutral", 0),
-          average=0.0,
-          item_count=totals.get("item_count", 0),
-      )
-
-    elif data_output == msg_common.SentimentDataType.SENTIMENT_SCORE:
-      logger.info("Fetching SENTIMENT_SCORE for %s", table_id)
-      rows = self._query_sentiment_score(
-          table_id,
-          start_date=start_date,
-          end_date=end_date,
-          channel_title=channel_title,
-          excluded_channels=excluded_channels,
-      )
-      logger.info("Got %s rows for SENTIMENT_SCORE", len(rows))
-
-      result.sentiment_over_time = self._build_sentiment_timeline(rows)
-      result.overall_sentiment = self._build_overall_sentiment(rows)
-
-      result.justification_breakdown = self._build_justification_breakdown(
-          table_id,
-          start_date=start_date,
-          end_date=end_date,
-          channel_title=channel_title,
-
-          excluded_channels=excluded_channels,
-          include_justifications=include_justifications,
-      )
-
-    return result
-
-  def _build_sentiment_timeline(
-      self, rows: list[dict[str, any]]
-  ) -> list[report_msg.SentimentOverTime]:
-    """Builds sentiment timeline from BigQuery rows."""
-    sentiment_over_time = []
-    for row in rows:
-      pos = int(row.get("POSITIVE_VIEWS", 0))
-      neg = int(row.get("NEGATIVE_VIEWS", 0))
-      neu = int(row.get("NEUTRAL_VIEWS", 0))
-
-      sentiment_over_time.append(
-          report_msg.SentimentOverTime(
-              date=row.get("published_week", ""),
-              positive=pos,
-              negative=neg,
-              neutral=neu,
-          )
-      )
-    return sentiment_over_time
-
-  def _build_overall_sentiment(
-      self, rows: list[dict[str, any]]
-  ) -> report_msg.OverallSentiment:
-    """Builds overall sentiment from BigQuery rows."""
-    overall_pos = sum(int(row.get("POSITIVE_VIEWS", 0)) for row in rows)
-    overall_neg = sum(int(row.get("NEGATIVE_VIEWS", 0)) for row in rows)
-    overall_neu = sum(int(row.get("NEUTRAL_VIEWS", 0)) for row in rows)
-
-    total = overall_pos + overall_neg + overall_neu
-    average = 0.0
-    if total > 0:
-      average = (overall_pos - overall_neg) / total
-
-    item_count = sum(int(row.get("TOTAL_ITEMS", 0)) for row in rows)
-
-    return report_msg.OverallSentiment(
-        positive=overall_pos,
-        negative=overall_neg,
-        neutral=overall_neu,
-        average=average,
-        item_count=item_count,
-    )
-
-  def _build_justification_breakdown(
-      self,
-      table_id: str,
-      start_date: str | None = None,
-      end_date: str | None = None,
-      channel_title: str | None = None,
-      excluded_channels: list[str] | None = None,
-      include_justifications: bool = True,
-  ) -> report_msg.JustificationBreakdown:
-    """Builds justification breakdown from BigQuery rows."""
-    if not include_justifications:
-      return report_msg.JustificationBreakdown()
-
-    logger.info("Building justification breakdown")
-    justification_breakdown = report_msg.JustificationBreakdown()
-
-    try:
-      # Positive justifications
-      pos_rows = self._query_justification_breakdown(
-          table_id,
-          sentiment_filter="POSITIVE",
-          start_date=start_date,
-          end_date=end_date,
-          channel_title=channel_title,
-          excluded_channels=excluded_channels,
-      )
-      justification_breakdown.positive = [
-          report_msg.JustificationItem(
-              category=row.get("category", "Unknown"),
-              count=int(row.get("sum_of_views", 0)),
-          )
-          for row in pos_rows
-      ]
-
-      # Negative justifications
-      neg_rows = self._query_justification_breakdown(
-          table_id,
-          sentiment_filter="NEGATIVE",
-          start_date=start_date,
-          end_date=end_date,
-          channel_title=channel_title,
-          excluded_channels=excluded_channels,
-      )
-      justification_breakdown.negative = [
-          report_msg.JustificationItem(
-              category=row.get("category", "Unknown"),
-              count=int(row.get("sum_of_views", 0)),
-          )
-          for row in neg_rows
-      ]
-    except Exception as e:  # pylint: disable=broad-exception-caught
-      logger.warning(
-          "Failed to fetch justification breakdown for table %s: %s",
-          table_id,
-          e,
-      )
-      raise
-
-    return justification_breakdown
-
-  def _query_justification_breakdown(
+  def query_justification_breakdown_for_videos(
       self,
       table_id: str,
       sentiment_filter: str,
@@ -369,7 +84,62 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         """
     return self._bq_client.query(query)
 
-  def _query_share_of_voice(
+  def query_justification_breakdown_for_comments(
+      self,
+      table_id: str,
+      sentiment_filter: str,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+  ) -> list[dict[str, any]]:
+    """Executes query for Justification Breakdown for comments.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+      sentiment_filter: 'POSITIVE' or 'NEGATIVE' to filter sentiments.
+      start_date: Optional start date filter.
+      end_date: Optional end date filter.
+      channel_title: Optional channel title filter.
+      excluded_channels: Optional list of channels to exclude.
+
+    Returns:
+      List of dictionaries containing the justification results.
+    """
+    where_clauses = [f"t0.sentimentScore LIKE '%{sentiment_filter}%'"]
+
+    if start_date:
+      where_clauses.append(f"comments.publishedAt >= '{start_date}'")
+    if end_date:
+      where_clauses.append(f"comments.publishedAt <= '{end_date}'")
+    if channel_title:
+      where_clauses.append(f"comments.channelTitle = '{channel_title}'")
+    if excluded_channels:
+      sanitized = [c.replace("'", "'") for c in excluded_channels]
+      channels_str = "', '".join(sanitized)
+      where_clauses.append(f"comments.channelTitle NOT IN ('{channels_str}')")
+
+    where_clause = " AND ".join(where_clauses)
+
+    query = f"""
+        SELECT
+          t1.category,
+          COUNT(*) AS sum_of_comments
+        FROM
+          `{table_id}` AS comments,
+          UNNEST(comments.sentiments) AS t0,
+          UNNEST(t0.justifications) AS t1
+        WHERE
+          {where_clause}
+        GROUP BY
+          t1.category
+        ORDER BY
+          sum_of_comments DESC
+        LIMIT 10
+        """
+    return self._bq_client.query(query)
+
+  def query_share_of_voice(
       self,
       table_id: str,
       start_date: str | None = None,
@@ -410,17 +180,17 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         SELECT
           s.productOrBrand,
           SUM(CASE
-              WHEN s.sentimentScore IN ( 'EXTREME_POSITIVE', 'POSITIVE', 'PARTIAL_POSITIVE' ) THEN COALESCE(t.viewCount, 0)
+              WHEN LOWER(s.sentimentScore) LIKE '%positive%' THEN COALESCE(t.viewCount, 0)
               ELSE 0
           END
             ) AS Positive_Views,
           SUM(CASE
-              WHEN s.sentimentScore IN ('NEUTRAL') OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
+              WHEN LOWER(s.sentimentScore) NOT LIKE '%positive%' AND LOWER(s.sentimentScore) NOT LIKE '%negative%' OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
               ELSE 0
           END
             ) AS Neutral_Views,
           SUM(CASE
-              WHEN s.sentimentScore IN ( 'EXTREME_NEGATIVE', 'NEGATIVE', 'PARTIAL_NEGATIVE' ) THEN COALESCE(t.viewCount, 0)
+              WHEN LOWER(s.sentimentScore) LIKE '%negative%' AND LOWER(s.sentimentScore) NOT LIKE '%positive%' THEN COALESCE(t.viewCount, 0)
               ELSE 0
           END
             ) AS Negative_Views,
@@ -438,7 +208,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     """
     return self._bq_client.query(query)
 
-  def _query_share_of_voice_totals(
+  def query_share_of_voice_totals(
       self,
       table_id: str,
       start_date: str | None = None,
@@ -477,15 +247,15 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         SELECT
           COUNT(DISTINCT t.videoId) AS item_count,
           SUM(CASE
-              WHEN s.sentimentScore IN ( 'EXTREME_POSITIVE', 'POSITIVE', 'PARTIAL_POSITIVE' ) THEN COALESCE(t.viewCount, 0)
+              WHEN LOWER(s.sentimentScore) LIKE '%positive%' THEN COALESCE(t.viewCount, 0)
               ELSE 0
           END) AS positive,
           SUM(CASE
-              WHEN s.sentimentScore IN ('NEUTRAL') OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
+              WHEN LOWER(s.sentimentScore) NOT LIKE '%positive%' AND LOWER(s.sentimentScore) NOT LIKE '%negative%' OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
               ELSE 0
           END) AS neutral,
           SUM(CASE
-              WHEN s.sentimentScore IN ( 'EXTREME_NEGATIVE', 'NEGATIVE', 'PARTIAL_NEGATIVE' ) THEN COALESCE(t.viewCount, 0)
+              WHEN LOWER(s.sentimentScore) LIKE '%negative%' AND LOWER(s.sentimentScore) NOT LIKE '%positive%' THEN COALESCE(t.viewCount, 0)
               ELSE 0
           END) AS negative
         FROM
@@ -506,7 +276,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
         "neutral": int(row.get("neutral", 0)),
     }
 
-  def _query_sentiment_score(
+  def query_sentiment_breakdown_for_videos(
       self,
       table_id: str,
       start_date: str | None = None,
@@ -543,33 +313,26 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
 
     query = f"""
         SELECT
-          FORMAT_TIMESTAMP('%Y-%m-%d', TIMESTAMP_TRUNC(CAST(publishedAt AS TIMESTAMP), WEEK)) AS published_week,
+          FORMAT_TIMESTAMP(
+              '%Y-%m-%d',
+              TIMESTAMP_TRUNC(CAST(publishedAt AS TIMESTAMP), WEEK)
+          ) AS published_week,
 
           -- Sum views for all POSITIVE scores
           SUM(CASE
-            WHEN sent.sentimentScore IN (
-                'EXTREME_POSITIVE',
-                'POSITIVE',
-                'PARTIAL_POSITIVE'
-              ) THEN COALESCE(videos.viewCount, 0)
+            WHEN LOWER(sent.sentimentScore) LIKE '%positive%' THEN COALESCE(videos.viewCount, 0)
             ELSE 0
           END) AS POSITIVE_VIEWS,
 
           -- Sum views for all NEGATIVE scores
           SUM(CASE
-            WHEN sent.sentimentScore IN (
-                'EXTREME_NEGATIVE',
-                'NEGATIVE',
-                'PARTIAL_NEGATIVE'
-              ) THEN COALESCE(videos.viewCount, 0)
+            WHEN LOWER(sent.sentimentScore) LIKE '%negative%' AND LOWER(sent.sentimentScore) NOT LIKE '%positive%' THEN COALESCE(videos.viewCount, 0)
             ELSE 0
           END) AS NEGATIVE_VIEWS,
 
           -- Sum views for NEUTRAL (as a catch-all)
           SUM(CASE
-            WHEN sent.sentimentScore IN (
-                'NEUTRAL'
-              ) THEN COALESCE(videos.viewCount, 0)
+            WHEN LOWER(sent.sentimentScore) NOT LIKE '%positive%' AND LOWER(sent.sentimentScore) NOT LIKE '%negative%' OR sent.sentimentScore IS NULL THEN COALESCE(videos.viewCount, 0)
             ELSE 0
           END) AS NEUTRAL_VIEWS,
 
@@ -590,6 +353,243 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
           published_week
     """
     return self._bq_client.query(query)
+
+  def query_sentiment_breakdown_for_comments(
+      self,
+      table_id: str,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+  ) -> list[dict[str, any]]:
+    """Executes query for SENTIMENT_SCORE for comments.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+      start_date: Optional start date filter.
+      end_date: Optional end date filter.
+      channel_title: Optional channel title filter.
+      excluded_channels: Optional list of channels to exclude.
+
+    Returns:
+      List of dictionaries containing the sentiment score results.
+    """
+    where_clauses = ["comments.relevanceScore >= 90"]
+
+    if start_date:
+      where_clauses.append(f"comments.publishedAt >= '{start_date}'")
+    if end_date:
+      where_clauses.append(f"comments.publishedAt <= '{end_date}'")
+    if channel_title:
+      where_clauses.append(f"comments.channelTitle = '{channel_title}'")
+    if excluded_channels:
+      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
+      channels_str = "', '".join(sanitized)
+      where_clauses.append(f"comments.channelTitle NOT IN ('{channels_str}')")
+
+    where_clause = " AND ".join(where_clauses)
+
+    query = f"""
+        SELECT
+          FORMAT_TIMESTAMP(
+              '%Y-%m-%d',
+              TIMESTAMP_TRUNC(CAST(publishedAt AS TIMESTAMP), WEEK)
+          ) AS published_week,
+
+          -- Count for all POSITIVE scores
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) LIKE '%positive%' THEN 1
+            ELSE 0
+          END) AS POSITIVE_COUNT,
+
+          -- Count for all NEGATIVE scores
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) LIKE '%negative%' AND LOWER(sent.sentimentScore) NOT LIKE '%positive%' THEN 1
+            ELSE 0
+          END) AS NEGATIVE_COUNT,
+
+          -- Count for NEUTRAL (as a catch-all)
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) NOT LIKE '%positive%' AND LOWER(sent.sentimentScore) NOT LIKE '%negative%' OR sent.sentimentScore IS NULL THEN 1
+            ELSE 0
+          END) AS NEUTRAL_COUNT,
+
+          -- Total items count
+          COUNT(*) AS TOTAL_ITEMS
+
+        FROM
+          `{table_id}` AS comments,
+          UNNEST(comments.sentiments) AS sent
+        WHERE
+          {where_clause}
+        GROUP BY
+          published_week
+        ORDER BY
+          published_week
+    """
+    return self._bq_client.query(query)
+
+  def query_sentiment_score_summary_for_videos(
+      self,
+      table_id: str,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+  ) -> list[dict[str, any]]:
+    """Queries for summary stats of sentiment scores for videos.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+      start_date: Optional start date filter.
+      end_date: Optional end date filter.
+      channel_title: Optional channel title filter.
+      excluded_channels: Optional list of channels to exclude.
+
+    Returns:
+      List of dictionaries containing the sentiment score results.
+    """
+    where_clauses = ["videos.relevanceScore >= 90"]
+
+    if start_date:
+      where_clauses.append(f"videos.publishedAt >= '{start_date}'")
+    if end_date:
+      where_clauses.append(f"videos.publishedAt <= '{end_date}'")
+    if channel_title:
+      where_clauses.append(f"videos.channelTitle = '{channel_title}'")
+    if excluded_channels:
+      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
+      channels_str = "', '".join(sanitized)
+      where_clauses.append(f"videos.channelTitle NOT IN ('{channels_str}')")
+
+    where_clause = " AND ".join(where_clauses)
+
+    query = f"""
+        SELECT
+          -- Sum views for all POSITIVE scores
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) LIKE '%positive%' THEN COALESCE(videos.viewCount, 0)
+            ELSE 0
+          END) AS POSITIVE_VIEWS,
+
+          -- Sum views for all NEGATIVE scores
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) LIKE '%negative%' AND LOWER(sent.sentimentScore) NOT LIKE '%positive%' THEN COALESCE(videos.viewCount, 0)
+            ELSE 0
+          END) AS NEGATIVE_VIEWS,
+
+          -- Sum views for NEUTRAL (as a catch-all)
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) NOT LIKE '%positive%' AND LOWER(sent.sentimentScore) NOT LIKE '%negative%' OR sent.sentimentScore IS NULL THEN COALESCE(videos.viewCount, 0)
+            ELSE 0
+          END) AS NEUTRAL_VIEWS,
+
+          -- Total sum for verification
+          SUM(COALESCE(videos.viewCount, 0)) AS TOTAL_VIEWS,
+
+          -- Total items count
+          COUNT(*) AS TOTAL_ITEMS
+
+        FROM
+          `{table_id}` AS videos,
+          UNNEST(videos.sentiments) AS sent
+        WHERE
+          {where_clause}
+    """
+    return self._bq_client.query(query)
+
+  def query_sentiment_score_summary_for_comments(
+      self,
+      table_id: str,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+  ) -> list[dict[str, any]]:
+    """Queries for summary stats of sentiment scores for comments.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+      start_date: Optional start date filter.
+      end_date: Optional end date filter.
+      channel_title: Optional channel title filter.
+      excluded_channels: Optional list of channels to exclude.
+
+    Returns:
+      List of dictionaries containing the sentiment score results.
+    """
+    where_clauses = ["comments.relevanceScore >= 90"]
+
+    if start_date:
+      where_clauses.append(f"comments.publishedAt >= '{start_date}'")
+    if end_date:
+      where_clauses.append(f"comments.publishedAt <= '{end_date}'")
+    if channel_title:
+      where_clauses.append(f"comments.channelTitle = '{channel_title}'")
+    if excluded_channels:
+      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
+      channels_str = "', '".join(sanitized)
+      where_clauses.append(f"comments.channelTitle NOT IN ('{channels_str}')")
+
+    where_clause = " AND ".join(where_clauses)
+
+    query = f"""
+        SELECT
+          -- Count for all POSITIVE scores
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) LIKE '%positive%' THEN 1
+            ELSE 0
+          END) AS POSITIVE_COUNT,
+
+          -- Count for all NEGATIVE scores
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) LIKE '%negative%' AND LOWER(sent.sentimentScore) NOT LIKE '%positive%' THEN 1
+            ELSE 0
+          END) AS NEGATIVE_COUNT,
+
+          -- Count for NEUTRAL (as a catch-all)
+          SUM(CASE
+            WHEN LOWER(sent.sentimentScore) NOT LIKE '%positive%' AND LOWER(sent.sentimentScore) NOT LIKE '%negative%' OR sent.sentimentScore IS NULL THEN 1
+            ELSE 0
+          END) AS NEUTRAL_COUNT,
+
+          -- Total items count
+          COUNT(*) AS TOTAL_ITEMS
+
+        FROM
+          `{table_id}` AS comments,
+          UNNEST(comments.sentiments) AS sent
+        WHERE
+          {where_clause}
+    """
+    return self._bq_client.query(query)
+
+  def get_channels(
+      self,
+      datasets: list[report_msg.SentimentReportDataset],
+      query: str | None = None,
+  ) -> list[str]:
+    """Retrieves a list of unique channels for the provided datasets.
+
+    Args:
+      datasets: List of datasets.
+      query: Optional search query.
+
+    Returns:
+      List of channel titles.
+    """
+    all_channels = set()
+    for d in datasets:
+      if not d.dataset_uri:
+        continue
+      table_id = d.dataset_uri
+      if table_id.startswith("bq://"):
+        table_id = table_id[5:].replace("/", ".")
+
+      channels = self._query_channels(table_id, query)
+      all_channels.update(channels)
+
+    return sorted(list(all_channels))
 
   def _query_channels(
       self, table_id: str, query: str | None = None
