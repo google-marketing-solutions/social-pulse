@@ -20,6 +20,7 @@ import string
 
 import pandas as pd
 from socialpulse_common import service
+from tasks import constants
 from tasks import core as tasks_core
 from tasks.ports import apis
 
@@ -295,7 +296,20 @@ class ProcessJustificationsTask(tasks_core.SentimentTask):
             len(input_sentiment_data),
         )
 
-        categorizer.categorize(chunk)
+        # Only process rows where the relevance score is above the minimum
+        # threshold for sentiment to be generated.
+        relevant_mask = (
+            chunk["relevanceScore"]
+            >= constants.MIN_RELEVANCE_THRESHOLD_FOR_SENTIMENT_TO_BE_GENERATED
+        )
+        chunk_to_process = chunk[relevant_mask].copy()
+
+        if not chunk_to_process.empty:
+          categorizer.categorize(chunk_to_process)
+          chunk.loc[relevant_mask, "sentiments"] = (
+              chunk_to_process["sentiments"]
+          )
+
         processed_chunks.append(chunk)
 
       # Combine processed chunks back into a single DataFrame

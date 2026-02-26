@@ -225,7 +225,7 @@ module "sp_analysis_wfe" {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
   max_retries = 1
-  timeout     = "3600s"
+  timeout     = "7200s"
 
   depends_on = [google_service_account.social-pulse-sa,
     google_vpc_access_connector.connector,
@@ -237,6 +237,7 @@ module "sp_analysis_wfe" {
 }
 
 module "analysis_migration_job" {
+  timeout               = "7200s"
   source                = "./modules/cloud_run_job"
   project_id            = var.project_id
   location              = var.region
@@ -268,6 +269,7 @@ module "analysis_migration_job" {
 }
 
 module "report_migration_job" {
+  timeout               = "7200s"
   source                = "./modules/cloud_run_job"
   project_id            = var.project_id
   location              = var.region

@@ -132,6 +132,8 @@ class YoutubeCommentsTest(unittest.TestCase):
     expected_input_df = pd.DataFrame(
         {
             "videoId": ["vidTest"],
+            "videoTitle": ["a video title"],
+            "channelTitle": ["a channel title"],
             "summary": ["a video summary"]
         }
     )
@@ -159,6 +161,8 @@ class YoutubeCommentsTest(unittest.TestCase):
     input_videos_df = pd.DataFrame(
         {
             "videoId": ["vidWithReplies"],
+            "videoTitle": ["a video title"],
+            "channelTitle": ["a channel title"],
             "summary": ["a video summary"]
         }
     )
@@ -177,6 +181,8 @@ class YoutubeCommentsTest(unittest.TestCase):
             "likeCount": [10, 2],
             "numOfReplies": [1, 0],  # Top-level has 1, reply has 0
             "parentId": [pd.NA, "top1"],
+            "videoTitle": ["a video title", "a video title"],
+            "channelTitle": ["a channel title", "a channel title"],
             "summary": ["a video summary", "a video summary"],
         }
     ).astype({"likeCount": "int64", "numOfReplies": "int64"})
@@ -210,6 +216,8 @@ class YoutubeCommentsTest(unittest.TestCase):
     input_videos_df = pd.DataFrame(
         {
             "videoId": ["vidWithNoComments"],
+            "videoTitle": ["a video title"],
+            "channelTitle": ["a channel title"],
             "summary": ["a video summary"]
         }
     )
@@ -292,6 +300,8 @@ class YoutubeCommentsTest(unittest.TestCase):
     input_videos_df = pd.DataFrame(
         {
             "videoId": ["vidWithReplies"],
+            "videoTitle": ["a video title"],
+            "channelTitle": ["a channel title"],
             "summary": ["a video summary"]
         }
     )

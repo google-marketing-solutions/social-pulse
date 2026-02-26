@@ -81,7 +81,7 @@ class FindYoutubeComments(tasks_core.SentimentTask):
       )
       merged_df = pd.merge(
           flattened_comments_df,
-          videos_df[["videoId", "summary"]],
+          videos_df[["videoId", "videoTitle", "channelTitle", "summary"]],
           on="videoId",
           how="left"
       )
