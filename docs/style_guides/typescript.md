@@ -1,7 +1,7 @@
 # TypeScript & UI Code Style Guide
 
 This document outlines key rules and best practices for creating and modifying
-TypeScript code in the Social Pulse project, primarily focusing on the Next.js
+TypeScript code in the Gemini Social Sentiment Analyzer project, primarily focusing on the Next.js
 `report_service/ui` application.
 
 ## 1. General TypeScript Rules

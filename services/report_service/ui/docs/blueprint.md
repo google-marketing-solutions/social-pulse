@@ -1,4 +1,4 @@
-# **App Name**: Social Pulse
+# **App Name**: Gemini Social Sentiment Analyzer
 
 ## Core Features:
 
@@ -19,17 +19,17 @@
 ## Style Guidelines:
 
 - Primary color: Strong purple (#6200EE) to convey authority and insight for
-  Social Pulse.
+  Gemini Social Sentiment Analyzer.
 - Background color: Light grey (#FAFAFA) to provide a clean, neutral backdrop
-  for data visualization for Social Pulse.
+  for data visualization for Gemini Social Sentiment Analyzer.
 - Accent color: Blue (#2962FF) to highlight key data points and interactive
-  elements for Social Pulse.
+  elements for Gemini Social Sentiment Analyzer.
 - Headline Font: 'Space Grotesk' sans-serif for a modern, scientific look for
-  Social Pulse.
+  Gemini Social Sentiment Analyzer.
 - Body Font: 'Inter' sans-serif for readability and neutrality for Social
   Pulse.
 - Use clear and informative icons to represent data sources, sentiment types,
-  and analysis options for Social Pulse.
+  and analysis options for Gemini Social Sentiment Analyzer.
 - A clean and structured layout to present the complex data in an easily
   digestible manner. Implement charts, graphs and other visualizations as
-  needed for Social Pulse.
+  needed for Gemini Social Sentiment Analyzer.

@@ -1,4 +1,4 @@
-# Social Pulse
+# Gemini Social Sentiment Analyzer
 
 ## License and Copyright Notice
 > Copyright 2025 Google LLC
@@ -143,17 +143,17 @@ you have the following pre-requisites set up:
 3. [Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk)
    installed and __authenticated__
 4. [Create an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
-   for the GCP project you're either going to install Social Pulse into, or the
+   for the GCP project you're either going to install Gemini Social Sentiment Analyzer into, or the
    GCP project you'll use for local development.
 
 
 ## Deploying to Google Cloud
 
 ### Steps
-1. Create or re-use a Google Cloud Project for deploying Social Pulse to.
+1. Create or re-use a Google Cloud Project for deploying Gemini Social Sentiment Analyzer to.
 
 2. If the haven't done it already, create an API key within the GCP project
-   you're going to install Social Pulse into.
+   you're going to install Gemini Social Sentiment Analyzer into.
 
 3. Download the code from the repository.
 
@@ -163,25 +163,25 @@ you have the following pre-requisites set up:
    a. Update the `yt_api_key` field with the API key you created in step 2.
 
    b. Update the `project_id` field with the project ID of the GCP project
-      you're installing Social Pulse onto.
+      you're installing Gemini Social Sentiment Analyzer onto.
 
    c. Update the `region` field with the region of the GCP project you're
-      installing Social Pulse onto (ie, "us-central1").
+      installing Gemini Social Sentiment Analyzer onto (ie, "us-central1").
 
    d. Update the `project_number` field with the project number of the GCP
-      project you're installing Social Pulse onto.
+      project you're installing Gemini Social Sentiment Analyzer onto.
 
    e. Update the `db_username` field with the username of the database you're
-      installing Social Pulse onto.
+      installing Gemini Social Sentiment Analyzer onto.
 
    f. Update the `db_password` field with the password of the database you're
-      installing Social Pulse onto.
+      installing Gemini Social Sentiment Analyzer onto.
 
    g. Update the `bq_dataset_name` field with the name of the BigQuery dataset
-      you're installing Social Pulse onto.
+      you're installing Gemini Social Sentiment Analyzer onto.
 
 5. Run `deploy/terraform/deploy.sh` with the project ID of the GCP project
-   you're installing Social Pulse onto.
+   you're installing Gemini Social Sentiment Analyzer onto.
 
    **Note**: This script will create a temporary virtual environment to install
    necessary build dependencies (`twine`,
@@ -327,7 +327,7 @@ create report endpoint by posting a JSON request to the `/api/report` URL.
 
 ## Local Development Workflow
 
-This section outlines the flow for developers working on Social Pulse,
+This section outlines the flow for developers working on Gemini Social Sentiment Analyzer,
 especially when modifying the shared library or services.
 
 

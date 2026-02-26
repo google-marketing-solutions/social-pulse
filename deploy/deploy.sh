@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Deploy script for Social Pulse.
+# Deploy script for Gemini Social Sentiment Analyzer.
 
 # --- PARAMETER CHECK AND PROJECT CONFIGURATION ---
 if [ -z "$1" ]; then

@@ -58,8 +58,8 @@ resource "google_bigquery_dataset" "social_pulse_sentiment_dataset" {
   dataset_id    = var.bq_dataset_name
   location      = var.region
   project       = var.project_id
-  friendly_name = "Social Pulse Sentiment Data"
-  description   = "Dataset for social pulse sentiment analysis data"
+  friendly_name = "Gemini Social Sentiment Analyzer Sentiment Data"
+  description   = "Dataset for Gemini Social Sentiment Analyzer data"
 
   access {
     role          = "OWNER"
