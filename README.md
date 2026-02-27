@@ -192,6 +192,15 @@ you have the following pre-requisites set up:
    ./deploy.sh <PROJECT_ID>
    ```
 
+### Troubleshooting
+
+If you run into any issues during the deployment process, please consult the
+Troubleshooting Guide.
+
+```bash
+cat ./deploy/TROUBLESHOOTING.md
+```
+
 ### Creating a Sentiment Analysis Report
 
 At the moment, the only way to create a sentiment report is via the command
@@ -355,21 +364,8 @@ your sentiment analysis reports.  Make sure it has the following:
    data.  *NOTE:* The README files for the other services will outline the
    steps for setting up their respective databases.
 
-3. Open up the [Shared Library README](./services/shared_lib/README.md)
-   file and follow the instructions there to set up the common library code used
-   by the Analysis and Reporting micro-services.
-
-4. Open up the [Analysis Service README](./services/analysis_service/README.md)
-   file and follow the instructions there to set up and run the analysis
-   micro-service.
-
-5. Open up the [Report Service README](./services/report_service/README.md)
-   file and follow the instructions there to set up and run the reporting
-   micro-service.
-
-6. Open up the [Report UI README](./services/report_service/ui/README.md)
-   file and follow the instructions there to set up and run the reporting
-   UI.
+3. Open up the [Deployment README](./deploy/README.md)
+   file and follow the instructions there to deploy Gemini Social Sentiment Analayzer locally.
 
 ### Running the workflow executor
 
