@@ -40,6 +40,7 @@ import {
 import {Separator} from '@/components/ui/separator';
 import {sourceConfiguration} from '@/lib/sources';
 import {ReportInsightsSection} from '@/components/report-insights-section';
+import {ReportChatSidebar} from '@/components/report-chat-sidebar';
 
 const PendingState = ({status}: {status?: Status}) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -316,6 +317,7 @@ export default async function ReportDetailPage({
             {insights && insights.length > 0 && (
               <ReportInsightsSection insights={insights} />
             )}
+            <ReportChatSidebar reportId={reportId} />
           </>
         )}
       </div>

@@ -164,3 +164,34 @@ export async function getInsightsById(id: string): Promise<ReportInsight[]> {
   const data = await response.json();
   return data;
 }
+
+/**
+ * Performs a context-aware chat about a report.
+ *
+ * @param id The ID of the report.
+ * @param request The chat request containing query and history.
+ * @return A promise that resolves to the chat response.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function chatAboutReport(
+  id: string,
+  request: {query: string; history?: Array<{role: string; content: string}>},
+): Promise<{response: string}> {
+  const baseUrl = process.env.REPORTING_API_URL;
+  const url = new URL(`${baseUrl}/api/insights/${id}`);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch chat response');
+  }
+
+  const data = await response.json();
+  return data;
+}

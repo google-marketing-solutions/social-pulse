@@ -165,3 +165,23 @@ export async function getInsightsById(id: string): Promise<ReportInsight[]> {
     return [];
   }
 }
+
+/**
+ * Performs a context-aware chat about a report.
+ * @param id The ID of the report.
+ * @param request The chat request containing query and history.
+ * @return A promise that resolves to the chat response.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function chatAboutReport(
+  id: string,
+  request: {query: string; history?: Array<{role: string; content: string}>},
+): Promise<{response: string}> {
+  const {chatAboutReport: apiChatAboutReport} = await import('./api');
+  try {
+    return await apiChatAboutReport(id, request);
+  } catch (error) {
+    console.error(`Failed to chat about report ${id}:`, error);
+    throw error;
+  }
+}

@@ -80,7 +80,7 @@ class PostgresDbReportInsightsRepo(persistence.ReportInsightsRepo):
     """
     params = (report_id,)
 
-    rows = self._postgres_client.execute_query(query, params)
+    rows = self._postgres_client.retrieve_rows(query, params)
     insights = []
     for row in rows:
       insights.append(

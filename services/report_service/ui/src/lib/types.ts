@@ -58,6 +58,29 @@ export interface ReportInsight {
 }
 
 /**
+ * Represents a single message in a chat conversation.
+ */
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+/**
+ * Represents a request to chat about a report.
+ */
+export interface ChatRequest {
+  query: string;
+  history?: ChatMessage[];
+}
+
+/**
+ * Represents a response from a chat query.
+ */
+export interface ChatResponse {
+  response: string;
+}
+
+/**
  * The social media sources that can be analyzed.
  */
 export enum SocialMediaSource {
