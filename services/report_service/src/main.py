@@ -35,6 +35,7 @@ from infrastructure.persistence.postgresdb import sentiment_report_repo
 from infrastructure.persistence.postgresdb import sentiment_report_search_repo
 from socialpulse_common import config
 from socialpulse_common import service
+from socialpulse_common.messages import report_insight as insight_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import bigquery_client
 from socialpulse_common.persistence import postgresdb_client as client
@@ -104,6 +105,83 @@ app_config = AppConfig()
 @app.get("/api/hello")
 def read_root():
   return {"message": "Hello from the backend!"}
+
+
+@app.get("/api/insights/{report_id}")
+def get_insights(report_id: str) -> list[insight_msg.ReportInsight]:
+  """Retrieves pre-generated insights for a report.
+
+  Args:
+    report_id: The ID of the report.
+
+  Returns:
+    A list of report insights.
+  """
+  try:
+    return app_config.report_insights_repository.get_insights_for_report(
+        report_id
+    )
+  except Exception as e:
+    logger.exception("Error fetching insights:")
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e),
+    ) from e
+
+
+@app.post("/api/insights/{report_id}")
+def chat_about_report(
+    report_id: str,
+    request: insight_msg.ChatRequest,
+) -> insight_msg.ChatResponse:
+  """Performs a context-aware chat about a report.
+
+  Args:
+    report_id: The ID of the report.
+    request: The chat request message.
+
+  Returns:
+    The chat response message.
+  """
+  try:
+    report_entity = app_config.sentiment_report_repository.load_report(
+        report_id
+    )
+
+    # Load analysis results if completed to provide context
+    context = f"Report Topic: {report_entity.topic}\n"
+    if (
+        report_entity.status == report_msg.Status.COMPLETED
+        and report_entity.datasets
+    ):
+      analysis_results = app_config.dataset_repository.get_full_report_context(
+          report_entity.datasets,
+      )
+      context += f"Analysis Results: {analysis_results}\n"
+
+      response_text = app_config.gemini_insights_provider.answer_chat_query(
+          report_context=context,
+          chat_history=[msg.model_dump() for msg in request.history],
+          query=request.query,
+      )
+    else:
+      response_text = (
+          "Sorry, but the report hasn't been completed yet so I can't answer"
+          " any questions just yet"
+      )
+
+    return insight_msg.ChatResponse(response=response_text)
+
+  except ValueError as e:
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_404_NOT_FOUND, detail=str(e)
+    ) from e
+  except Exception as e:
+    logger.exception("Error during chat:")
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e),
+    ) from e
 
 
 @app.get("/api/reports")

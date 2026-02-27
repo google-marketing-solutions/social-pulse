@@ -52,3 +52,38 @@ class ReportInsight(pydantic.BaseModel):
 
   # Timestamp of when this insight was created
   created_on: typing.Optional[datetime.datetime] = None
+
+
+class ChatMessage(pydantic.BaseModel):
+  """Represents a single message in a chat conversation."""
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
+
+  role: str
+  content: str
+
+
+class ChatRequest(pydantic.BaseModel):
+  """Represents a request to chat about a report."""
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
+
+  query: str
+  history: list[ChatMessage] = pydantic.Field(default_factory=list)
+
+
+class ChatResponse(pydantic.BaseModel):
+  """Represents a response from a chat query."""
+  model_config = pydantic.ConfigDict(
+      use_enum_names=True,
+      populate_by_name=True,
+      alias_generator=alias_generators.to_camel,
+  )
+
+  response: str
