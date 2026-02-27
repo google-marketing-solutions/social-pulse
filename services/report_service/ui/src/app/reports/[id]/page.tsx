@@ -11,7 +11,7 @@
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-import {getReportById} from '@/lib/actions';
+import {getReportById, getInsightsById} from '@/lib/actions';
 import {notFound} from 'next/navigation';
 import {
   Card,
@@ -35,9 +35,11 @@ import {
   SentimentDataType,
   SourceAnalysisResult,
   ShareOfVoiceResult,
+  ReportInsight,
 } from '@/lib/types';
 import {Separator} from '@/components/ui/separator';
 import {sourceConfiguration} from '@/lib/sources';
+import {ReportInsightsSection} from '@/components/report-insights-section';
 
 const PendingState = ({status}: {status?: Status}) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -111,6 +113,11 @@ export default async function ReportDetailPage({
     notFound();
   }
 
+  let insights: ReportInsight[] = [];
+  if (report.status === Status.COMPLETED) {
+    insights = await getInsightsById(reportId);
+  }
+
   const renderCharts = () => {
     return (
       <div className="flex flex-col gap-8">
@@ -156,8 +163,16 @@ export default async function ReportDetailPage({
                   )}
                   <ReportSentimentCharts
                     result={sourceResult as SourceAnalysisResult}
-                    itemLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Videos' : 'Comments'}
-                    metricLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Views' : 'Comments'}
+                    itemLabel={
+                      source === SocialMediaSource.YOUTUBE_VIDEO
+                        ? 'Videos'
+                        : 'Comments'
+                    }
+                    metricLabel={
+                      source === SocialMediaSource.YOUTUBE_VIDEO
+                        ? 'Views'
+                        : 'Comments'
+                    }
                   />
                 </>
               )}
@@ -173,14 +188,22 @@ export default async function ReportDetailPage({
                         (sourceResult as SourceAnalysisResult)
                           .justificationBreakdown!
                       }
-                      metricLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Views' : 'Comments Published'}
+                      metricLabel={
+                        source === SocialMediaSource.YOUTUBE_VIDEO
+                          ? 'Views'
+                          : 'Comments Published'
+                      }
                     />
                   </>
                 )}
               {report.dataOutput === SentimentDataType.SHARE_OF_VOICE && (
                 <ReportShareOfVoiceCharts
                   result={sourceResult as ShareOfVoiceResult}
-                  metricLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Views' : 'Comments'}
+                  metricLabel={
+                    source === SocialMediaSource.YOUTUBE_VIDEO
+                      ? 'Views'
+                      : 'Comments'
+                  }
                 />
               )}
             </div>
@@ -290,6 +313,9 @@ export default async function ReportDetailPage({
               defaultEndDate={report.endTime}
             />
             {renderCharts()}
+            {insights && insights.length > 0 && (
+              <ReportInsightsSection insights={insights} />
+            )}
           </>
         )}
       </div>

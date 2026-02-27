@@ -18,7 +18,12 @@ import {revalidatePath} from 'next/cache';
 import {z} from 'zod';
 
 import {createReportSchema} from './schema';
-import {SentimentReport, SocialMediaSource, ReportArtifactType} from './types';
+import {
+  SentimentReport,
+  SocialMediaSource,
+  ReportArtifactType,
+  ReportInsight,
+} from './types';
 
 type CreateReportState = {
   errors?: z.inferFlattenedErrors<typeof createReportSchema>['fieldErrors'];
@@ -30,6 +35,7 @@ import {
   createReport as apiCreateReport,
   getReports as apiGetReports,
   getReportById as apiGetReportsById,
+  getInsightsById as apiGetInsightsById,
 } from './api';
 
 /**
@@ -140,6 +146,22 @@ export async function getReportChannels(
     return await apiGetReportChannels(id, query);
   } catch (error) {
     console.error(`Failed to fetch channels for report ${id}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Fetches a list of insights for a report by its ID.
+ * @param id The ID of the report.
+ * @return A promise that resolves to an array of insights.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function getInsightsById(id: string): Promise<ReportInsight[]> {
+  try {
+    const insights = await apiGetInsightsById(id);
+    return insights;
+  } catch (error) {
+    console.error(`Failed to fetch insights for report ${id}:`, error);
     return [];
   }
 }
