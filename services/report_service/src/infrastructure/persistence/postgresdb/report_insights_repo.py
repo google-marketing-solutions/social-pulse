@@ -52,3 +52,45 @@ class PostgresDbReportInsightsRepo(persistence.ReportInsightsRepo):
 
     new_id = self._postgres_client.insert_row(query, params)
     logger.debug("Inserted new insight with ID %s", new_id)
+
+  def get_insights_for_report(
+      self, report_id: str
+  ) -> list[insight_msg.ReportInsight]:
+    """Retrieves all insights for a specific report.
+
+    Args:
+      report_id: The ID of the report.
+
+    Returns:
+      A list of ReportInsight messages.
+    """
+    if not report_id:
+      raise ValueError("Provided report_id was None or empty.")
+
+    query: str = """
+        SELECT
+            reportInsightId,
+            reportId,
+            insightType,
+            content,
+            rawPromptOutput,
+            createdOn
+        FROM ReportInsights
+        WHERE reportId = %s;
+    """
+    params = (report_id,)
+
+    rows = self._postgres_client.execute_query(query, params)
+    insights = []
+    for row in rows:
+      insights.append(
+          insight_msg.ReportInsight(
+              insight_id=str(row[0]),
+              report_id=row[1],
+              insight_type=insight_msg.InsightType(row[2]),
+              content=json.loads(row[3]) if isinstance(row[3], str) else row[3],
+              raw_prompt_output=row[4],
+              created_on=row[5],
+          )
+      )
+    return insights

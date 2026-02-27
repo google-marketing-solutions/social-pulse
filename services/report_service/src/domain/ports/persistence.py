@@ -106,3 +106,10 @@ class ReportInsightsRepo(abc.ABC):
   ):
     """Inserts a new insight for a report."""
     raise NotImplementedError
+
+  @abc.abstractmethod
+  def get_insights_for_report(
+      self, report_id: str
+  ) -> list[insight_msg.ReportInsight]:
+    """Retrieves all insights for a specific report."""
+    raise NotImplementedError
