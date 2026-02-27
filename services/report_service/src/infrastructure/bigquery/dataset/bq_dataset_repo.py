@@ -619,3 +619,29 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     """
     rows = self._bq_client.query(qt)
     return [row["channelTitle"] for row in rows]
+
+  def get_full_report_context(
+      self,
+      datasets: list[report_msg.SentimentReportDataset],
+  ) -> list[dict[str, any]]:
+    """Retrieves the full report context from datasets.
+
+    Args:
+      datasets: List of datasets.
+
+    Returns:
+      List of dictionaries containing the full context results.
+    """
+    all_results = []
+    for d in datasets:
+      if not d.dataset_uri:
+        continue
+      table_id = d.dataset_uri
+      if table_id.startswith("bq://"):
+        table_id = table_id[5:].replace("/", ".")
+
+      query = f"SELECT * FROM `{table_id}` WHERE relevanceScore >= 90"
+      rows = self._bq_client.query(query)
+      all_results.extend(rows)
+
+    return all_results

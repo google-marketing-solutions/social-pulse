@@ -33,6 +33,7 @@ class TestInsightsGenerator(unittest.TestCase):
   """Test suite for the generate_and_store_insights function."""
 
   def setUp(self):
+    """Sets up test data."""
     super().setUp()
     self.report_id = "test-report-id"
 
@@ -64,12 +65,12 @@ class TestInsightsGenerator(unittest.TestCase):
     report_repo.load_report.return_value = self.report_entity
 
     # Mock BigQuery result
-    self.mock_analysis_result = report_msg.AnalysisResults(
-        youtube_comment=report_msg.SourceAnalysisResult()
-    )
+    self.mock_analysis_result = [{"some_column": "some_value"}]
 
     dataset_repo = self.app_config.dataset_repository
-    dataset_repo.get_analysis_results.return_value = self.mock_analysis_result
+    dataset_repo.get_full_report_context.return_value = (
+        self.mock_analysis_result
+    )
 
   def test_generate_and_store_insights_success(self):
     """Tests the successful generation and persistence of insights.
@@ -96,9 +97,8 @@ class TestInsightsGenerator(unittest.TestCase):
 
     # Verify BigQuery data was fetched
     dataset_repo = self.app_config.dataset_repository
-    dataset_repo.get_analysis_results.assert_called_once_with(
-        self.datasets,
-        include_justifications=True
+    dataset_repo.get_full_report_context.assert_called_once_with(
+        self.datasets
     )
 
     # Verify Gemini provider was called twice
@@ -134,9 +134,7 @@ class TestInsightsGenerator(unittest.TestCase):
     Then the background task returns early without calling Gemini or inserting.
     """
     dataset_repo = self.app_config.dataset_repository
-    dataset_repo.get_analysis_results.return_value = (
-        report_msg.AnalysisResults()
-    )
+    dataset_repo.get_full_report_context.return_value = []
 
     insights_generator.generate_and_store_insights(
         report_id=self.report_id,

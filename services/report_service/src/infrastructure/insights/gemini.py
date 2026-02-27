@@ -22,7 +22,6 @@ from domain.ports.insights import InsightsProvider
 from socialpulse_common.gemini import GeminiPromptClient
 
 
-# Initialize logging
 logger = logging.getLogger(__name__)
 
 GEMINI_MODEL_NAME = "gemini-3-pro-preview"
@@ -67,17 +66,24 @@ class GeminiInsightsProvider(InsightsProvider):
             "identifying key trending topics from social listening reports."
         )
         prompt = f"""
-          Task: Analyze the provided social listening report data and
-          identify 2-3 of the most significant topics discussed in the
+          Task: Analyze the social listening report data and identify 2-3 of
+          the most significant topics discussed in the
           report justifications. Ensure these topics are distinct and
           represent different aspects of the report data. They should be
           more about topics and discussed and less about the metrics and
           spikes themselves. Justifications should be speicific video or
-          comment quote examples from the report context.
+          comment quote examples from the report context. Focus EXCLUSIVELY
+          on 'views' as the primary metric for these base insights; ignore
+          likes/comments here.
 
           Rules:
-          - Base your analysis strictly on the specific justifications and
-            quote data provided in the report context.
+          - Keep findings snappy and concise for a UI card format. The
+            'description' must be 1-2 short sentences maximum.
+          - If 1 or 2 specific videos or channels are the primary reason for a
+            trend, you MUST explicitly call them out by name in the description.
+          - For the "justifications" array, you MUST use exact user quotes
+            from the 'sentiments.justifications.quote' data in the report.
+            Do not just return the justification category.
           - Format your response exactly as valid JSON matching the schema
             below. Do not include markdown code blocks.
 
@@ -85,9 +91,12 @@ class GeminiInsightsProvider(InsightsProvider):
           {{
             "top_trends": [
               {{
-                "trend_title": "string (Short, punchy title)",
-                "description": "string (1-2 sentences explaining the trend)",
-                "justifications": ["string", "string"]
+                "trend_title": "string",
+                "description": "string (See Rules for constraints)",
+                "justifications": [
+                  "string (Exact user quote)",
+                  "string (Exact user quote)"
+                ]
               }}
             ]
           }}
@@ -114,30 +123,34 @@ class GeminiInsightsProvider(InsightsProvider):
             "and spike detection within social media metrics."
         )
         prompt = f"""
-          Task: Analyze the provided social listening report data to identify
-          up to 2 significant spikes in activity or sentiment (if they exist).
-          The primary metric is views, but you should also consider likes,
-          comments, etc. as well as the total number of videos posted.
+          Task: Analyze the social listening report data to identify up to 2
+          significant spikes in activity or sentiment. Focus EXCLUSIVELY on
+          'views' to identify these spikes.
 
           Rules:
-          - When determining the root cause of a spike, you must weigh specific
-            video justifications and content evidence significantly heavier
-            than general macroeconomic events around the same time.
+          - Weigh specific video justifications and content evidence heavily
+            over general macroeconomic events.
+          - Keep the 'cause_analysis' snappy and concise for a UI card (max
+            1-2 short sentences).
+          - If 1 or 2 specific videos or channels are the main driver of the
+            spike, explicitly call them out by name in the 'cause_analysis'.
+          - For 'primary_video_evidence', you MUST use exact user quotes from
+            the 'sentiments.justifications.quote' data and specific video
+            titles. Do not just return the justification category.
           - If no significant spikes exist in the data, return an empty array.
           - Format your response exactly as valid JSON matching the schema
-            below. Do not include markdown code blocks. Ensure
-            primary_video_evidence contains quote data from the report context.
-            Reference specific videos titles and channels that contibuted to
-            the spike in views.
+            below. Do not include markdown code blocks.
 
           Output Format:
           {{
             "spikes": [
               {{
                 "spike_topic": "string",
-                "cause_analysis": "string (Explanation weighing evidence)",
-                "primary_video_evidence": ["string"],
-                "spike_magnitude": "string (e.g., 'high', 'medium', 'low')",
+                "cause_analysis": "string (See Rules for constraints)",
+                "primary_video_evidence": [
+                  "string (Exact user quote and/or video title)"
+                ],
+                "spike_magnitude": "string ('high', 'medium', 'low')",
                 "spike_trend": "string ('increasing', 'decreasing', 'stable')",
                 "spike_month": "string (YYYY-MM)"
               }}
@@ -166,8 +179,10 @@ class GeminiInsightsProvider(InsightsProvider):
             str: The conversational response.
         """
         system_instruction = (
-            "You are a helpful Social Analyst assistant, answering user "
-            "questions about a specific social listening report."
+            "You are a quick and helpful Social Analyst assistant answering "
+            "questions about a social listening report. While the dashboard "
+            "focuses on views, you should actively help users explore other "
+            "metrics like likes and comments if they ask."
         )
 
         # Format chat history for the prompt
@@ -179,20 +194,21 @@ class GeminiInsightsProvider(InsightsProvider):
         )
 
         prompt = f"""
-          Task: Answer the user's latest query using ONLY the provided Report
+          Task: Answer the user's query using ONLY the provided Report
           Context and Chat History.
 
           Rules:
-          - Provide a conversational, concise, and direct answer.
+          - Keep answers snappy, conversational, and concise for a chat UI.
+          - If the user asks about metrics beyond views (like likes, comments),
+            provide detailed answers based on the report data.
+          - Ground justifications in exact user quotes from the
+            'sentiments.justifications.quote' data. Do not just cite a category.
+          - If 1 or 2 specific videos/channels drive a trend or spike being
+            discussed, call them out explicitly by name in the answer.
+          - If the user asks for a video, provide the title and channel.
+          - If the user asks for a channel, provide the name and link.
           - If the answer cannot be found in the Report Context, politely
-            state that you do not have that information based on the report.
-          - Reference specific data points from the report when answering.
-          - If the user asks for a video, provide the video title and channel.
-          - If the user asks for a channel, provide the channel name and link.
-          - If the user asks for a trend, provide the trend title and
-            description.
-          - If the user asks for a spike, provide the spike topic and cause.
-          - Ground justifications in quote data from the Report Context.
+            state that you do not have that information.
 
           Report Context:
           {report_context}
@@ -210,7 +226,7 @@ class GeminiInsightsProvider(InsightsProvider):
                 model=GEMINI_MODEL_NAME,
                 contents=prompt,
                 system_instruction=system_instruction,
-                temperature=0.7,  # Slightly higher for conversation
+                temperature=0.7,
                 tools=[{"code_execution": {}}],
             )
             return response.text
@@ -221,7 +237,19 @@ class GeminiInsightsProvider(InsightsProvider):
     def _generate_json_content(
         self, system_instruction: str, prompt: str
     ) -> tuple[dict[str, Any], str]:
-        """Helper to generate content and parse JSON response."""
+        """Helper to generate content and parse JSON response.
+
+        Args:
+            system_instruction: The system instruction for the model.
+            prompt: The user query or prompt.
+
+        Returns:
+            A tuple containing parsed JSON of the insights and raw string
+            response.
+
+        Raises:
+            Exception: If content parsing or generation fails.
+        """
         try:
             response = self._client.generate_content(
                 model=GEMINI_MODEL_NAME,

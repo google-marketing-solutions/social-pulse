@@ -18,7 +18,6 @@ import json
 import logging
 from typing import Any
 
-from domain import sentiment_report
 from socialpulse_common.messages import report_insight as insight_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 
@@ -36,25 +35,27 @@ def generate_and_store_insights(
     report_id: The ID of the report.
     datasets: The datasets associated with the report.
     app_config: The application configuration containing dependencies.
+
+  Returns:
+    None.
+
+  Raises:
+    Exception: If insight generation fails.
   """
   try:
     logger.info(
         "Starting background insight generation for report %s", report_id
     )
 
-    # 1. Fetch report entity
-    report_entity: sentiment_report.SentimentReportEntity = (
-        app_config.sentiment_report_repository.load_report(report_id)
-    )
+    # 1. Verify report exists
+    app_config.sentiment_report_repository.load_report(report_id)
 
     # 2. Fetch analysis results from BigQuery
-    analysis_results = app_config.dataset_repository.get_analysis_results(
-        datasets,
-        include_justifications=report_entity.include_justifications,
+    analysis_results = app_config.dataset_repository.get_full_report_context(
+        datasets
     )
 
-    analysis_dict = analysis_results.model_dump(exclude_none=True)
-    if not analysis_dict:
+    if not analysis_results:
       logger.warning(
           "No analysis results found for report %s. Skipping insights.",
           report_id
@@ -62,7 +63,7 @@ def generate_and_store_insights(
       return
 
     # 3. Construct the report context string
-    report_context = json.dumps(analysis_dict, default=str)
+    report_context = json.dumps(analysis_results, default=str)
 
     # 4. Generate Base Insights (Top Trends)
     logger.debug("Generating base insights for report %s", report_id)

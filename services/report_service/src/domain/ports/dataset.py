@@ -129,3 +129,18 @@ class DatasetRepo(service.RegisterableService):
       List of unique channel names.
     """
     raise NotImplementedError
+
+  @abc.abstractmethod
+  def get_full_report_context(
+      self,
+      datasets: typing.List[report_msg.SentimentReportDataset],
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Retrieves the full report context for the provided datasets.
+
+    Args:
+      datasets: List of datasets to retrieve context for.
+
+    Returns:
+      List of dictionaries containing the full context.
+    """
+    raise NotImplementedError
