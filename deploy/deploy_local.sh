@@ -591,6 +591,14 @@ deploy_ui() {
     log "Installing UI dependencies with npm ci..."
     npm ci || { log_error "npm ci failed"; return 1; }
     log_success "UI dependencies installed"
+
+    log "Creating .env.local file..."
+    cat > .env.local <<EOF
+# UI Configuration
+REPORTING_API_URL=http://127.0.0.1:8008
+EOF
+    log_success ".env.local file created"
+
     log "Starting Next.js development server (npm run dev)..."
     nohup npm run dev > ui_dev.log 2>&1 &
     log_success "UI dev server started (http://localhost:9002)"

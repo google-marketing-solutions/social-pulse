@@ -60,6 +60,7 @@ chmod +x deploy/stop_local_services.sh
 # Analysis Service: http://localhost:8080/docs
 # Report Service: http://localhost:8008/docs
 # PyPI Server: http://localhost:3322/simple
+# Report UI: http://localhost:9002
 ```
 
 ## Detailed Setup

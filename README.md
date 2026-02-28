@@ -191,6 +191,10 @@ you have the following pre-requisites set up:
    cd deploy
    ./deploy.sh <PROJECT_ID>
    ```
+Once completed, you can create and view reports by navigating to the
+Reporting UI.  The URL of the deployed Reporting UI is printed to the console
+when the deployment completes as a Terraform output variable named
+`reporting_ui_url`.
 
 ### Troubleshooting
 
@@ -200,139 +204,6 @@ Troubleshooting Guide.
 ```bash
 cat ./deploy/TROUBLESHOOTING.md
 ```
-
-### Creating a Sentiment Analysis Report
-
-At the moment, the only way to create a sentiment report is via the command
-line, by issuing an HTTP request directly to the reporting service to create
-a report.  From there, the reporting and analysis service will coordinate
-between themselves, scheduling the necessary workflow executions to generate
-the data sets.  In order to create a report, you'll call the Reporting service
-create report endpoint by posting a JSON request to the `/api/report` URL.
-
-1. Authenticate yourself at the command line by running `gcloud auth login`.
-
-2. Run the following commands to create a Share of Voice or a Sentiment Score
-   report.
-
-    ```shell
-      # Share of Voice
-      curl -X POST \
-        'https://sp-reporting-api-[Your GCP Project NUMBER].[Project Location].run.app/api/report' \
-        -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-        -H 'Content-Type: application/json' \
-        -d '{ "sources": [ "YOUTUBE_VIDEO" ], "data_output": "SHARE_OF_VOICE", "topic": "[Your Topic]", "start_time": "2024-12-01T00:00:00Z", "end_time": "2025-12-01T23:59:59Z", "include_justifications": false }'
-
-      # Sentiment Scoring
-      curl -X POST \
-        'https://sp-reporting-api-[Your GCP NUMBER].[Project Location].run.app/api/report' \
-        -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-        -H 'Content-Type: application/json' \
-        -d '{ "sources": [ "YOUTUBE_VIDEO" ], "data_output": "SENTIMENT_SCORE", "topic": [Your Topic], "start_time": "2024-12-01T00:00:00Z", "end_time": "2025-12-01T23:59:59Z", "include_justifications": true }'
-    ```
-
-3. Monitor the `ReportDataSet` table in the `reporting-database` PostgreSQL
-   DB.  When the report is marked as `COMPLETE`, then the analysis workflows
-   have been executed and the report dataset is ready to be queried:
-   ```sql
-    SELECT
-      r.reportId,
-      r.status,
-      r.topic,
-      rd.dataOutput,
-      rd.outputUri
-    FROM
-      SentimentReports r
-    LEFT OUTER JOIN
-      SentimentReportDatasets rd
-    ON
-      r.reportId = rd.reportId
-    ORDER BY
-      r.createdOn DESC
-    ;
-   ```
-
-4. Once completed, you can run the following queries in BigQuery to generate
-   the share-of-voice or sentiment score reports.
-   ```sql
-    -- SOV with Sentiment Breakout
-    SELECT
-      s.productOrBrand,
-      SUM(CASE
-          WHEN s.sentimentScore IN ( 'EXTREME_POSITIVE', 'POSITIVE', 'PARTIAL_POSITIVE' ) THEN COALESCE(t.viewCount, 0)
-          ELSE 0
-      END
-        ) AS Positive_Views,
-      SUM(CASE
-          WHEN s.sentimentScore IN ('NEUTRAL') OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
-          ELSE 0
-      END
-        ) AS Neutral_Views,
-      SUM(CASE
-          WHEN s.sentimentScore IN ( 'EXTREME_NEGATIVE', 'NEGATIVE', 'PARTIAL_NEGATIVE' ) THEN COALESCE(t.viewCount, 0)
-          ELSE 0
-      END
-        ) AS Negative_Views,
-      SUM(COALESCE(t.viewCount, 0)) AS Total_Views_Associated_With_Brand
-    FROM
-      `[BQ Table Name for the 'SHARE_OF_VOICE' dataset]` AS t,
-      UNNEST(t.sentiments) AS s
-    WHERE
-      s.productOrBrand IS NOT NULL
-      AND relevanceScore >= 90
-    GROUP BY
-      s.productOrBrand
-    ORDER BY
-      Total_Views_Associated_With_Brand DESC
-    ;
-
-    -- Sentiment Score - Dimensioned by week
-    SELECT
-      FORMAT_TIMESTAMP('%Y-%m', CAST(publishedAt AS TIMESTAMP)) AS published_month,
-
-      -- Sum views for all POSITIVE scores
-      SUM(CASE
-        WHEN sent.sentimentScore IN (
-            'EXTREME_POSITIVE',
-            'POSITIVE',
-            'PARTIAL_POSITIVE'  -- Corrected typo from 'PARTILA_POSITIVE'
-          ) THEN COALESCE(videos.viewCount, 0)
-        ELSE 0
-      END) AS POSITIVE_VIEWS,
-
-      -- Sum views for all NEGATIVE scores
-      SUM(CASE
-        WHEN sent.sentimentScore IN (
-            'EXTREME_NEGATIVE',
-            'NEGATIVE',
-            'PARTIAL_NEGATIVE'
-          ) THEN COALESCE(videos.viewCount, 0)
-        ELSE 0
-      END) AS NEGATIVE_VIEWS,
-
-      -- Sum views for NEUTRAL (as a catch-all)
-      -- This bucket catches 'NUETRAL', NULLs, or any other values
-      SUM(CASE
-        WHEN sent.sentimentScore IN (
-            'NEUTRAL'
-          ) THEN COALESCE(videos.viewCount, 0)
-        ELSE 0
-      END) AS NEUTRAL_VIEWS,
-
-      -- Total sum for verification
-      SUM(COALESCE(videos.viewCount, 0)) AS TOTAL_VIEWS
-
-    FROM
-      `[BQ Table Name for the 'SENTIMENT_SCORE' dataset]` AS videos,
-      UNNEST(videos.sentiments) AS sent
-    WHERE
-      videos.relevanceScore >= 90
-    GROUP BY
-      published_month
-    ORDER BY
-      published_month
-    ;
-   ```
 
 ## Local Development Workflow
 
@@ -365,7 +236,8 @@ your sentiment analysis reports.  Make sure it has the following:
    steps for setting up their respective databases.
 
 3. Open up the [Deployment README](./deploy/README.md)
-   file and follow the instructions there to deploy Gemini Social Sentiment Analayzer locally.
+   file and follow the instructions there to deploy Gemini Social Sentiment
+   Analayzer locally.
 
 ### Running the workflow executor
 
