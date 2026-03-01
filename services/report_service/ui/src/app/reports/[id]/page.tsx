@@ -156,8 +156,16 @@ export default async function ReportDetailPage({
                   )}
                   <ReportSentimentCharts
                     result={sourceResult as SourceAnalysisResult}
-                    itemLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Videos' : 'Comments'}
-                    metricLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Views' : 'Comments'}
+                    itemLabel={
+                      source === SocialMediaSource.YOUTUBE_VIDEO
+                        ? 'Videos'
+                        : 'Comments'
+                    }
+                    metricLabel={
+                      source === SocialMediaSource.YOUTUBE_VIDEO
+                        ? 'Views'
+                        : 'Comments'
+                    }
                   />
                 </>
               )}
@@ -173,14 +181,22 @@ export default async function ReportDetailPage({
                         (sourceResult as SourceAnalysisResult)
                           .justificationBreakdown!
                       }
-                      metricLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Views' : 'Comments Published'}
+                      metricLabel={
+                        source === SocialMediaSource.YOUTUBE_VIDEO
+                          ? 'Views'
+                          : 'Comments Published'
+                      }
                     />
                   </>
                 )}
               {report.dataOutput === SentimentDataType.SHARE_OF_VOICE && (
                 <ReportShareOfVoiceCharts
                   result={sourceResult as ShareOfVoiceResult}
-                  metricLabel={source === SocialMediaSource.YOUTUBE_VIDEO ? 'Views' : 'Comments'}
+                  metricLabel={
+                    source === SocialMediaSource.YOUTUBE_VIDEO
+                      ? 'Views'
+                      : 'Comments'
+                  }
                 />
               )}
             </div>

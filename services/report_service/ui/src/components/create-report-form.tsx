@@ -19,6 +19,7 @@ import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {useEffect, useState, useTransition} from 'react';
 import {useRouter} from 'next/navigation';
+import {InfoIcon} from 'lucide-react';
 
 import {createReport} from '@/lib/actions';
 import {createReportSchema} from '@/lib/schema';
@@ -26,6 +27,7 @@ import {availableSources} from '@/lib/sources';
 import {useToast} from '@/hooks/use-toast';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardFooter} from '@/components/ui/card';
+import {Alert, AlertDescription} from '@/components/ui/alert';
 import {Checkbox} from '@/components/ui/checkbox';
 import {DatePicker} from '@/components/ui/date-picker';
 import {
@@ -120,11 +122,29 @@ export function CreateReportForm() {
 
   const dataOutput = form.watch('dataOutput');
 
+  useEffect(() => {
+    if (dataOutput === SentimentDataType.SHARE_OF_VOICE) {
+      const currentSources = form.getValues('sources');
+      const filteredSources = currentSources.filter(
+        s => s === SocialMediaSource.YOUTUBE_VIDEO,
+      );
+      if (currentSources.length !== filteredSources.length) {
+        form.setValue('sources', filteredSources);
+      }
+    }
+  }, [dataOutput, form]);
+
   return (
     <Card>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onFormSubmit)}>
           <CardContent className="p-6 space-y-6">
+            <Alert>
+              <InfoIcon className="h-4 w-4" />
+              <AlertDescription>
+                Share of Voice reports are only supported for YouTube videos.
+              </AlertDescription>
+            </Alert>
             <FormField
               control={form.control}
               name="dataOutput"
@@ -172,7 +192,7 @@ export function CreateReportForm() {
                   <FormLabel>Topic</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., 'Next.js 15' or 'My Brand'"
+                      placeholder="Brand, product name or industry topic"
                       {...field}
                     />
                   </FormControl>
@@ -227,46 +247,53 @@ export function CreateReportForm() {
                 <FormItem>
                   <FormLabel>Sources</FormLabel>
                   <div className="space-y-2 pt-2">
-                    {availableSources.map(source => (
-                      <FormField
-                        key={source.id}
-                        control={form.control}
-                        name="sources"
-                        render={({field}) => {
-                          return (
-                            <FormItem
-                              key={source.id}
-                              className="flex flex-row items-start space-x-3 space-y-0"
-                            >
-                              <FormControl>
-                                <Checkbox
-                                  id={source.id}
-                                  checked={field.value?.includes(source.id)}
-                                  onCheckedChange={checked => {
-                                    return checked
-                                      ? field.onChange([
-                                          ...field.value,
-                                          source.id,
-                                        ])
-                                      : field.onChange(
-                                          field.value?.filter(
-                                            value => value !== source.id,
-                                          ),
-                                        );
-                                  }}
-                                />
-                              </FormControl>
-                              <Label
-                                htmlFor={source.id}
-                                className="font-normal flex items-center gap-2 cursor-pointer"
+                    {availableSources.map(source => {
+                      const isDisabled =
+                        dataOutput === SentimentDataType.SHARE_OF_VOICE &&
+                        source.id !== SocialMediaSource.YOUTUBE_VIDEO;
+
+                      return (
+                        <FormField
+                          key={source.id}
+                          control={form.control}
+                          name="sources"
+                          render={({field}) => {
+                            return (
+                              <FormItem
+                                key={source.id}
+                                className="flex flex-row items-start space-x-3 space-y-0"
                               >
-                                {source.icon} {source.label}
-                              </Label>
-                            </FormItem>
-                          );
-                        }}
-                      />
-                    ))}
+                                <FormControl>
+                                  <Checkbox
+                                    id={source.id}
+                                    disabled={isDisabled}
+                                    checked={field.value?.includes(source.id)}
+                                    onCheckedChange={checked => {
+                                      return checked
+                                        ? field.onChange([
+                                            ...field.value,
+                                            source.id,
+                                          ])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              value => value !== source.id,
+                                            ),
+                                          );
+                                    }}
+                                  />
+                                </FormControl>
+                                <Label
+                                  htmlFor={source.id}
+                                  className={`font-normal flex items-center gap-2 ${isDisabled ? 'text-muted-foreground cursor-not-allowed' : 'cursor-pointer'}`}
+                                >
+                                  {source.icon} {source.label}
+                                </Label>
+                              </FormItem>
+                            );
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                   <FormMessage />
                 </FormItem>

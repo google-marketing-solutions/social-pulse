@@ -234,18 +234,26 @@ export function ReportFilters({
               </DialogHeader>
               <div className="flex justify-between items-center text-sm py-2 px-1">
                 <div>
-                  <button onClick={handleSelectAll} className="text-blue-600 hover:text-blue-800 hover:underline">Select all {channels.length}</button>
+                  <button
+                    onClick={handleSelectAll}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Select all {channels.length}
+                  </button>
                   <span className="mx-2 text-muted-foreground">-</span>
-                  <button onClick={handleClearAll} className="text-blue-600 hover:text-blue-800 hover:underline">Clear</button>
+                  <button
+                    onClick={handleClearAll}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Clear
+                  </button>
                 </div>
                 <div className="text-muted-foreground">
                   Displaying {channels.length}
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">
-                <Command
-                  className="h-full border rounded-md"
-                >
+                <Command className="h-full border rounded-md">
                   <CommandInput
                     placeholder="Search channel..."
                     value={searchQuery}
@@ -272,9 +280,7 @@ export function ReportFilters({
                                 <div
                                   className={cn(
                                     'mr-2 flex h-4 w-4 items-center justify-center',
-                                    isIncluded
-                                      ? 'text-primary'
-                                      : 'opacity-0'
+                                    isIncluded ? 'text-primary' : 'opacity-0',
                                   )}
                                 >
                                   <Check className="h-4 w-4" />

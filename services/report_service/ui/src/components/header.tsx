@@ -38,7 +38,9 @@ export function Header() {
               height={28}
             />
           )}
-          <span className="font-headline text-lg">Gemini Social Sentiment Analyzer</span>
+          <span className="font-headline text-lg">
+            Gemini Social Sentiment Analyzer
+          </span>
         </Link>
         <nav>
           <Button asChild variant="ghost">
