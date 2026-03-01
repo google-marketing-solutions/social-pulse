@@ -31,6 +31,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import {ShareOfVoiceResult} from '@/lib/types';
+import {SentimentStatsCards} from '@/components/sentiment-stats-cards';
 
 const chartConfig: ChartConfig = {
   positive: {
@@ -60,60 +61,74 @@ function formatYAxisTick(value: number) {
 
 export function ReportShareOfVoiceCharts({
   result,
+  itemLabel = 'Items',
   metricLabel = 'Views',
 }: {
   result: ShareOfVoiceResult;
+  itemLabel?: string;
   metricLabel?: string;
 }) {
   if (!result?.shareOfVoice || result.shareOfVoice.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Share of Voice</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[400px] w-full">
-          <BarChart
-            data={result.shareOfVoice}
-            layout="vertical"
-            margin={{left: 20, right: 20, top: 20, bottom: 20}}
-          >
-            <CartesianGrid horizontal={false} />
-            <XAxis
-              type="number"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={formatYAxisTick}
+    <div className="grid gap-4 lg:grid-cols-4">
+      {result.overallSentiment && (
+        <div className="flex flex-col gap-4 lg:col-span-1">
+          <SentimentStatsCards
+            overallSentiment={result.overallSentiment}
+            itemLabel={itemLabel}
+            metricLabel={metricLabel}
+          />
+        </div>
+      )}
+      <Card className={result.overallSentiment ? 'lg:col-span-3' : ''}>
+        <CardHeader>
+          <CardTitle>Share of Voice</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[400px] w-full">
+            <BarChart
+              data={result.shareOfVoice}
+              layout="vertical"
+              margin={{left: 20, right: 20, top: 20, bottom: 20}}
             >
-              <Label value={metricLabel} position="bottom" offset={10} />
-            </XAxis>
-            <YAxis
-              dataKey="name"
-              type="category"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={10}
-              width={150}
-            />
-            <Tooltip content={<ChartTooltipContent indicator="dot" />} />
-            <Bar
-              dataKey="positive"
-              stackId="a"
-              fill="var(--color-positive)"
-              radius={0}
-            />
-            <Bar dataKey="neutral" stackId="a" fill="var(--color-neutral)" />
-            <Bar
-              dataKey="negative"
-              stackId="a"
-              fill="var(--color-negative)"
-              radius={[0, 4, 4, 0]}
-            />
-          </BarChart>
-        </ChartContainer>
-      </CardContent>
-    </Card>
+              <CartesianGrid horizontal={false} />
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={formatYAxisTick}
+              >
+                <Label value={metricLabel} position="bottom" offset={10} />
+              </XAxis>
+              <YAxis
+                dataKey="name"
+                type="category"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={10}
+                width={150}
+                interval={0}
+              />
+              <Tooltip content={<ChartTooltipContent indicator="dot" />} />
+              <Bar
+                dataKey="positive"
+                stackId="a"
+                fill="var(--color-positive)"
+                radius={0}
+              />
+              <Bar dataKey="neutral" stackId="a" fill="var(--color-neutral)" />
+              <Bar
+                dataKey="negative"
+                stackId="a"
+                fill="var(--color-negative)"
+                radius={[0, 4, 4, 0]}
+              />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
