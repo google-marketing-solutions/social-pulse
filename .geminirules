@@ -1,6 +1,6 @@
-# AI Assistant Instructions - Social Pulse Project
+# AI Assistant Instructions - Gemini Social Sentiment Analyzer Project
 
-You are an AI coding assistant helping to develop the Social Pulse platform.
+You are an AI coding assistant helping to develop the Gemini Social Sentiment Analyzer platform.
 Before writing, modifying, or refactoring code in this repository, you MUST
 abide by the style guides and rules defined in the `docs/style_guides/`
 directory.

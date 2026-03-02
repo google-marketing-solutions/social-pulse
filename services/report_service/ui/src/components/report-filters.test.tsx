@@ -54,28 +54,26 @@ describe('ReportFilters', () => {
   it('renders report filters', () => {
     render(<ReportFilters reportId="123" />);
     // Initial text should indicate selection or search
-    expect(screen.getByText(/Select channels to exclude/i)).toBeInTheDocument();
+    expect(screen.getByText(/Filter channels/i)).toBeInTheDocument();
     expect(screen.getByText('Start Date')).toBeInTheDocument();
   });
 
-  it('fetches channels when searching', async () => {
+  it('fetches channels on mount', async () => {
     (getReportChannels as jest.Mock).mockResolvedValue([
       'Channel A',
       'Channel B',
     ]);
     render(<ReportFilters reportId="123" />);
 
-    // Open dialog
-    fireEvent.click(screen.getByText(/Select channels to exclude/i));
-
-    // Type in search
-    const searchInput = screen.getByPlaceholderText('Search channel...');
-    fireEvent.change(searchInput, {target: {value: 'Channel'}});
-
     await waitFor(() => {
-      expect(getReportChannels).toHaveBeenCalledWith('123', 'Channel');
+      expect(getReportChannels).toHaveBeenCalledWith('123');
     });
 
-    expect(screen.getByText('Channel A')).toBeInTheDocument();
+    // Open dialog
+    fireEvent.click(screen.getByText(/Filter channels/i));
+
+    await waitFor(() => {
+      expect(screen.getByText('Channel A')).toBeInTheDocument();
+    });
   });
 });

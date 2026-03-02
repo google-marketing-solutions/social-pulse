@@ -21,7 +21,7 @@ import {Header} from '@/components/header';
  * The metadata for the application.
  */
 export const metadata: Metadata = {
-  title: 'Social Pulse',
+  title: 'Gemini Social Sentiment Analyzer',
   description: 'Analyze social media sentiment and share of voice.',
 };
 

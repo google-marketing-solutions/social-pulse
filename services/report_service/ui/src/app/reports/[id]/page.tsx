@@ -138,30 +138,31 @@ export default async function ReportDetailPage({
               </div>
               <Separator />
               {/* Impact Measurement Card */}
-              {report.dataOutput === SentimentDataType.SENTIMENT_SCORE && (
-                <>
-                  <h3 className="font-headline text-xl font-semibold tracking-tight mb-3">
-                    Analysis Summary
-                  </h3>
-                  {source === SocialMediaSource.YOUTUBE_VIDEO && (
-                    <div className="w-full mb-4">
-                      <Alert className="bg-blue-50 border-blue-200 text-blue-900">
-                        <Info className="h-4 w-4 text-blue-900" />
-                        <AlertTitle className="font-headline text-lg font-semibold tracking-tight text-blue-900">
-                          Using Views to measure impact
-                        </AlertTitle>
-                        <AlertDescription className="text-blue-800">
-                          When analyzing YouTube videos, we use views as a proxy
-                          for impact. This allows us to compare the reach of
-                          different videos and understand how they are
-                          performing in terms of influencing the conversation.
-                          For the purposes of analyzing YouTube videos, a view
-                          represents when a user{' '}
-                          <b>watches at least 30 seconds of a video</b>.
-                        </AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
+              <>
+                <h3 className="font-headline text-xl font-semibold tracking-tight mb-3">
+                  Analysis Summary
+                </h3>
+                {source === SocialMediaSource.YOUTUBE_VIDEO && (
+                  <div className="w-full mb-4">
+                    <Alert className="bg-blue-50 border-blue-200 text-blue-900">
+                      <Info className="h-4 w-4 text-blue-900" />
+                      <AlertTitle className="font-headline text-lg font-semibold tracking-tight text-blue-900">
+                        Using Views to measure impact
+                      </AlertTitle>
+                      <AlertDescription className="text-blue-800">
+                        When analyzing YouTube videos, we use views as a proxy
+                        for impact. This allows us to compare the reach of
+                        different videos and understand how they are performing
+                        in terms of influencing the conversation. For the
+                        purposes of analyzing YouTube videos, a view represents
+                        when a user{' '}
+                        <b>watches at least 30 seconds of a video</b>.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+
+                {report.dataOutput === SentimentDataType.SENTIMENT_SCORE && (
                   <ReportSentimentCharts
                     result={sourceResult as SourceAnalysisResult}
                     itemLabel={
@@ -175,8 +176,25 @@ export default async function ReportDetailPage({
                         : 'Comments'
                     }
                   />
-                </>
-              )}
+                )}
+
+                {report.dataOutput === SentimentDataType.SHARE_OF_VOICE && (
+                  <ReportShareOfVoiceCharts
+                    result={sourceResult as ShareOfVoiceResult}
+                    itemLabel={
+                      source === SocialMediaSource.YOUTUBE_VIDEO
+                        ? 'Videos'
+                        : 'Comments'
+                    }
+                    metricLabel={
+                      source === SocialMediaSource.YOUTUBE_VIDEO
+                        ? 'Views'
+                        : 'Comments'
+                    }
+                  />
+                )}
+              </>
+
               {report.dataOutput === SentimentDataType.SENTIMENT_SCORE &&
                 (sourceResult as SourceAnalysisResult)
                   ?.justificationBreakdown && (

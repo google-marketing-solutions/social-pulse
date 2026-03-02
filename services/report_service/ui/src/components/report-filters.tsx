@@ -38,7 +38,6 @@ import {
 } from '@/components/ui/dialog';
 import {DatePicker} from '@/components/ui/date-picker';
 import {getReportChannels} from '@/lib/actions';
-import {Badge} from '@/components/ui/badge';
 
 interface ReportFiltersProps {
   /** The ID of the report to filter. */
@@ -103,26 +102,28 @@ export function ReportFilters({
     });
   }, [excludedChannels]);
 
-  // Debounced search for channels
+  // Fetch all channels on mount
   React.useEffect(() => {
-    if (!open || !reportId) return;
+    if (!reportId) return;
 
-    const timer = setTimeout(() => {
-      if (searchQuery.length > 0) {
-        setLoadingChannels(true);
-        getReportChannels(reportId, searchQuery)
-          .then(data => {
-            setChannels(data);
-          })
-          .catch(err => console.error('Failed to load channels', err))
-          .finally(() => setLoadingChannels(false));
-      } else {
-        setChannels([]);
-      }
-    }, 300);
+    setLoadingChannels(true);
+    getReportChannels(reportId)
+      .then(data => {
+        setChannels(data);
+      })
+      .catch(err => console.error('Failed to load channels', err))
+      .finally(() => setLoadingChannels(false));
+  }, [reportId]);
 
-    return () => clearTimeout(timer);
-  }, [reportId, searchQuery, open]);
+  const handleSelectAll = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setTempExcluded(new Set());
+  };
+
+  const handleClearAll = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setTempExcluded(new Set(channels));
+  };
 
   // ... (rest of logic) ...
 
@@ -217,26 +218,42 @@ export function ReportFilters({
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   <span>
-                    {excludedChannels.length > 0
-                      ? `${excludedChannels.length} excluded`
-                      : 'Select channels to exclude...'}
+                    {excludedChannels.length > 0 && channels.length > 0
+                      ? `${channels.length - excludedChannels.length} channels selected`
+                      : 'Filter channels...'}
                   </span>
                 </div>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px] max-h-[85vh] flex flex-col">
               <DialogHeader>
-                <DialogTitle>Exclude Channels</DialogTitle>
+                <DialogTitle>Filter Channels</DialogTitle>
                 <DialogDescription>
-                  Search and select channels to exclude from the report
-                  analysis.
+                  Select which channels to include in the report analysis.
                 </DialogDescription>
               </DialogHeader>
+              <div className="flex justify-between items-center text-sm py-2 px-1">
+                <div>
+                  <button
+                    onClick={handleSelectAll}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Select all {channels.length}
+                  </button>
+                  <span className="mx-2 text-muted-foreground">-</span>
+                  <button
+                    onClick={handleClearAll}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="text-muted-foreground">
+                  Displaying {channels.length}
+                </div>
+              </div>
               <div className="flex-1 min-h-0 overflow-hidden">
-                <Command
-                  className="h-full border rounded-md"
-                  shouldFilter={false}
-                >
+                <Command className="h-full border rounded-md">
                   <CommandInput
                     placeholder="Search channel..."
                     value={searchQuery}
@@ -249,63 +266,31 @@ export function ReportFilters({
                       </div>
                     ) : (
                       <>
-                        <CommandEmpty>
-                          {searchQuery.length === 0
-                            ? 'Start typing to search...'
-                            : 'No channel found.'}
-                        </CommandEmpty>
-                        <CommandGroup heading="Search Results">
+                        <CommandEmpty>No channel found.</CommandEmpty>
+                        <CommandGroup>
                           {channels.map(channel => {
-                            const isExcluded = tempExcluded.has(channel);
+                            const isIncluded = !tempExcluded.has(channel);
                             return (
                               <CommandItem
                                 key={channel}
                                 value={channel}
                                 onSelect={() => toggleChannelExclusion(channel)}
-                                className="data-[selected='true']:bg-muted data-[selected='true']:text-muted-foreground"
+                                className="cursor-pointer"
                               >
                                 <div
                                   className={cn(
-                                    'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border-2 border-primary',
-                                    isExcluded
-                                      ? 'bg-primary text-primary-foreground'
-                                      : 'opacity-50 [&_svg]:invisible',
+                                    'mr-2 flex h-4 w-4 items-center justify-center',
+                                    isIncluded ? 'text-primary' : 'opacity-0',
                                   )}
                                 >
-                                  <Check className={cn('h-4 w-4')} />
+                                  <Check className="h-4 w-4" />
                                 </div>
-                                <span
-                                  className={
-                                    isExcluded
-                                      ? 'text-muted-foreground line-through decoration-destructive'
-                                      : ''
-                                  }
-                                >
-                                  {channel}
-                                </span>
+                                <span>{channel}</span>
                               </CommandItem>
                             );
                           })}
                         </CommandGroup>
                       </>
-                    )}
-                    {tempExcluded.size > 0 && searchQuery.length === 0 && (
-                      <CommandGroup heading="Currently Excluded">
-                        {Array.from(tempExcluded).map(channel => (
-                          <CommandItem
-                            key={channel}
-                            value={channel}
-                            onSelect={() => toggleChannelExclusion(channel)}
-                          >
-                            <div className="mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary bg-primary text-primary-foreground">
-                              <Check className="h-4 w-4" />
-                            </div>
-                            <span className="text-muted-foreground line-through decoration-destructive">
-                              {channel}
-                            </span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
                     )}
                   </CommandList>
                 </Command>
@@ -321,30 +306,6 @@ export function ReportFilters({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          {excludedChannels.length > 0 && (
-            <div className="flex flex-wrap gap-1 items-center">
-              {excludedChannels.map(c => (
-                <Badge
-                  variant="destructive"
-                  key={c}
-                  className="text-xs whitespace-nowrap px-1 flex items-center gap-1"
-                >
-                  {c}
-                  <button
-                    onClick={() => {
-                      const newExcluded = excludedChannels.filter(e => e !== c);
-                      updateFilters(newExcluded, startDate, endDate);
-                    }}
-                    className="ml-1 hover:bg-destructive-foreground/20 rounded-full p-0.5"
-                    type="button"
-                  >
-                    <X className="h-3 w-3" />
-                    <span className="sr-only">Remove {c}</span>
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Date Range Filters (Right Side) */}

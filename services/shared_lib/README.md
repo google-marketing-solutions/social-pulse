@@ -1,7 +1,7 @@
-# Social Pulse - Common
+# Gemini Social Sentiment Analyzer - Common
 
 This sub-project contains the common shared library of tools and messages used
-by other parts of the Social Pulse solution.
+by other parts of the Gemini Social Sentiment Analyzer solution.
 
 ## Local Development Environment
 

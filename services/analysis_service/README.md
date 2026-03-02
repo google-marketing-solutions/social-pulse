@@ -1,4 +1,4 @@
-# Social Pulse - Analysis Service
+# Gemini Social Sentiment Analyzer - Analysis Service
 
 The Analysis Service is responsible for coordinating the sentiment analysis workflow, breaking down reports into individual tasks and executing them.
 

@@ -1,7 +1,7 @@
 # General Code Style Guide
 
 This document outlines the general coding standards that apply to all files
-within the Social Pulse project, regardless of the programming language used.
+within the Gemini Social Sentiment Analyzer project, regardless of the programming language used.
 
 ## 1. Line Length
 - **Maximum Line Length:** By default, all lines of code and documentation

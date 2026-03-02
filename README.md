@@ -1,4 +1,4 @@
-# Social Pulse
+# Gemini Social Sentiment Analyzer
 
 ## License and Copyright Notice
 > Copyright 2025 Google LLC
@@ -143,17 +143,17 @@ you have the following pre-requisites set up:
 3. [Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk)
    installed and __authenticated__
 4. [Create an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
-   for the GCP project you're either going to install Social Pulse into, or the
+   for the GCP project you're either going to install Gemini Social Sentiment Analyzer into, or the
    GCP project you'll use for local development.
 
 
 ## Deploying to Google Cloud
 
 ### Steps
-1. Create or re-use a Google Cloud Project for deploying Social Pulse to.
+1. Create or re-use a Google Cloud Project for deploying Gemini Social Sentiment Analyzer to.
 
 2. If the haven't done it already, create an API key within the GCP project
-   you're going to install Social Pulse into.
+   you're going to install Gemini Social Sentiment Analyzer into.
 
 3. Download the code from the repository.
 
@@ -163,25 +163,25 @@ you have the following pre-requisites set up:
    a. Update the `yt_api_key` field with the API key you created in step 2.
 
    b. Update the `project_id` field with the project ID of the GCP project
-      you're installing Social Pulse onto.
+      you're installing Gemini Social Sentiment Analyzer onto.
 
    c. Update the `region` field with the region of the GCP project you're
-      installing Social Pulse onto (ie, "us-central1").
+      installing Gemini Social Sentiment Analyzer onto (ie, "us-central1").
 
    d. Update the `project_number` field with the project number of the GCP
-      project you're installing Social Pulse onto.
+      project you're installing Gemini Social Sentiment Analyzer onto.
 
    e. Update the `db_username` field with the username of the database you're
-      installing Social Pulse onto.
+      installing Gemini Social Sentiment Analyzer onto.
 
    f. Update the `db_password` field with the password of the database you're
-      installing Social Pulse onto.
+      installing Gemini Social Sentiment Analyzer onto.
 
    g. Update the `bq_dataset_name` field with the name of the BigQuery dataset
-      you're installing Social Pulse onto.
+      you're installing Gemini Social Sentiment Analyzer onto.
 
 5. Run `deploy/terraform/deploy.sh` with the project ID of the GCP project
-   you're installing Social Pulse onto.
+   you're installing Gemini Social Sentiment Analyzer onto.
 
    **Note**: This script will create a temporary virtual environment to install
    necessary build dependencies (`twine`,
@@ -191,143 +191,23 @@ you have the following pre-requisites set up:
    cd deploy
    ./deploy.sh <PROJECT_ID>
    ```
+Once completed, you can create and view reports by navigating to the
+Reporting UI.  The URL of the deployed Reporting UI is printed to the console
+when the deployment completes as a Terraform output variable named
+`reporting_ui_url`.
 
-### Creating a Sentiment Analysis Report
+### Troubleshooting
 
-At the moment, the only way to create a sentiment report is via the command
-line, by issuing an HTTP request directly to the reporting service to create
-a report.  From there, the reporting and analysis service will coordinate
-between themselves, scheduling the necessary workflow executions to generate
-the data sets.  In order to create a report, you'll call the Reporting service
-create report endpoint by posting a JSON request to the `/api/report` URL.
+If you run into any issues during the deployment process, please consult the
+Troubleshooting Guide.
 
-1. Authenticate yourself at the command line by running `gcloud auth login`.
-
-2. Run the following commands to create a Share of Voice or a Sentiment Score
-   report.
-
-    ```shell
-      # Share of Voice
-      curl -X POST \
-        'https://sp-reporting-api-[Your GCP Project NUMBER].[Project Location].run.app/api/report' \
-        -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-        -H 'Content-Type: application/json' \
-        -d '{ "sources": [ "YOUTUBE_VIDEO" ], "data_output": "SHARE_OF_VOICE", "topic": "[Your Topic]", "start_time": "2024-12-01T00:00:00Z", "end_time": "2025-12-01T23:59:59Z", "include_justifications": false }'
-
-      # Sentiment Scoring
-      curl -X POST \
-        'https://sp-reporting-api-[Your GCP NUMBER].[Project Location].run.app/api/report' \
-        -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
-        -H 'Content-Type: application/json' \
-        -d '{ "sources": [ "YOUTUBE_VIDEO" ], "data_output": "SENTIMENT_SCORE", "topic": [Your Topic], "start_time": "2024-12-01T00:00:00Z", "end_time": "2025-12-01T23:59:59Z", "include_justifications": true }'
-    ```
-
-3. Monitor the `ReportDataSet` table in the `reporting-database` PostgreSQL
-   DB.  When the report is marked as `COMPLETE`, then the analysis workflows
-   have been executed and the report dataset is ready to be queried:
-   ```sql
-    SELECT
-      r.reportId,
-      r.status,
-      r.topic,
-      rd.dataOutput,
-      rd.outputUri
-    FROM
-      SentimentReports r
-    LEFT OUTER JOIN
-      SentimentReportDatasets rd
-    ON
-      r.reportId = rd.reportId
-    ORDER BY
-      r.createdOn DESC
-    ;
-   ```
-
-4. Once completed, you can run the following queries in BigQuery to generate
-   the share-of-voice or sentiment score reports.
-   ```sql
-    -- SOV with Sentiment Breakout
-    SELECT
-      s.productOrBrand,
-      SUM(CASE
-          WHEN s.sentimentScore IN ( 'EXTREME_POSITIVE', 'POSITIVE', 'PARTIAL_POSITIVE' ) THEN COALESCE(t.viewCount, 0)
-          ELSE 0
-      END
-        ) AS Positive_Views,
-      SUM(CASE
-          WHEN s.sentimentScore IN ('NEUTRAL') OR s.sentimentScore IS NULL THEN COALESCE(t.viewCount, 0)
-          ELSE 0
-      END
-        ) AS Neutral_Views,
-      SUM(CASE
-          WHEN s.sentimentScore IN ( 'EXTREME_NEGATIVE', 'NEGATIVE', 'PARTIAL_NEGATIVE' ) THEN COALESCE(t.viewCount, 0)
-          ELSE 0
-      END
-        ) AS Negative_Views,
-      SUM(COALESCE(t.viewCount, 0)) AS Total_Views_Associated_With_Brand
-    FROM
-      `[BQ Table Name for the 'SHARE_OF_VOICE' dataset]` AS t,
-      UNNEST(t.sentiments) AS s
-    WHERE
-      s.productOrBrand IS NOT NULL
-      AND relevanceScore >= 90
-    GROUP BY
-      s.productOrBrand
-    ORDER BY
-      Total_Views_Associated_With_Brand DESC
-    ;
-
-    -- Sentiment Score - Dimensioned by week
-    SELECT
-      FORMAT_TIMESTAMP('%Y-%m', CAST(publishedAt AS TIMESTAMP)) AS published_month,
-
-      -- Sum views for all POSITIVE scores
-      SUM(CASE
-        WHEN sent.sentimentScore IN (
-            'EXTREME_POSITIVE',
-            'POSITIVE',
-            'PARTIAL_POSITIVE'  -- Corrected typo from 'PARTILA_POSITIVE'
-          ) THEN COALESCE(videos.viewCount, 0)
-        ELSE 0
-      END) AS POSITIVE_VIEWS,
-
-      -- Sum views for all NEGATIVE scores
-      SUM(CASE
-        WHEN sent.sentimentScore IN (
-            'EXTREME_NEGATIVE',
-            'NEGATIVE',
-            'PARTIAL_NEGATIVE'
-          ) THEN COALESCE(videos.viewCount, 0)
-        ELSE 0
-      END) AS NEGATIVE_VIEWS,
-
-      -- Sum views for NEUTRAL (as a catch-all)
-      -- This bucket catches 'NUETRAL', NULLs, or any other values
-      SUM(CASE
-        WHEN sent.sentimentScore IN (
-            'NEUTRAL'
-          ) THEN COALESCE(videos.viewCount, 0)
-        ELSE 0
-      END) AS NEUTRAL_VIEWS,
-
-      -- Total sum for verification
-      SUM(COALESCE(videos.viewCount, 0)) AS TOTAL_VIEWS
-
-    FROM
-      `[BQ Table Name for the 'SENTIMENT_SCORE' dataset]` AS videos,
-      UNNEST(videos.sentiments) AS sent
-    WHERE
-      videos.relevanceScore >= 90
-    GROUP BY
-      published_month
-    ORDER BY
-      published_month
-    ;
-   ```
+```bash
+cat ./deploy/TROUBLESHOOTING.md
+```
 
 ## Local Development Workflow
 
-This section outlines the flow for developers working on Social Pulse,
+This section outlines the flow for developers working on Gemini Social Sentiment Analyzer,
 especially when modifying the shared library or services.
 
 
@@ -355,21 +235,9 @@ your sentiment analysis reports.  Make sure it has the following:
    data.  *NOTE:* The README files for the other services will outline the
    steps for setting up their respective databases.
 
-3. Open up the [Shared Library README](./services/shared_lib/README.md)
-   file and follow the instructions there to set up the common library code used
-   by the Analysis and Reporting micro-services.
-
-4. Open up the [Analysis Service README](./services/analysis_service/README.md)
-   file and follow the instructions there to set up and run the analysis
-   micro-service.
-
-5. Open up the [Report Service README](./services/report_service/README.md)
-   file and follow the instructions there to set up and run the reporting
-   micro-service.
-
-6. Open up the [Report UI README](./services/report_service/ui/README.md)
-   file and follow the instructions there to set up and run the reporting
-   UI.
+3. Open up the [Deployment README](./deploy/README.md)
+   file and follow the instructions there to deploy Gemini Social Sentiment
+   Analayzer locally.
 
 ### Running the workflow executor
 

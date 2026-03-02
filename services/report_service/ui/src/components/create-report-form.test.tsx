@@ -62,6 +62,11 @@ describe('CreateReportForm', () => {
     expect(screen.getByLabelText(/Start Date/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/End Date/i)).toBeInTheDocument();
     expect(screen.getByText(/Create Report/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Share of Voice reports are only supported for YouTube videos./i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('should display validation errors for invalid submission', async () => {
@@ -175,5 +180,29 @@ describe('CreateReportForm', () => {
       const button = screen.getByRole('button', {name: /Creating.../i});
       expect(button).toBeDisabled();
     });
+  });
+  it('should disable non-YouTube Video sources when Share of Voice is selected', async () => {
+    /**
+     * Tests that Share of Voice restricts sources to YouTube Videos.
+     *
+     * Given the CreateReportForm component,
+     * When the "Share of Voice" analysis type is selected,
+     * Then non-YouTube Video sources are disabled.
+     */
+    render(<CreateReportForm />);
+
+    const sovRadio = screen.getByLabelText(/Share of Voice/i);
+    fireEvent.click(sovRadio);
+
+    // Give react hook form time to re-render
+    await waitFor(() => {
+      expect(screen.getByLabelText(/YouTube Videos/i)).not.toBeDisabled();
+    });
+
+    const ytVideoCheckbox = screen.getByLabelText(/YouTube Videos/i);
+    expect(ytVideoCheckbox).not.toBeDisabled();
+
+    const ytCommentCheckbox = screen.getByLabelText(/YouTube Comments/i);
+    expect(ytCommentCheckbox).toBeDisabled();
   });
 });

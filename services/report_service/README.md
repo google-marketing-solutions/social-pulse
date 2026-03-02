@@ -1,4 +1,4 @@
-# Social Pulse - Reporting Service
+# Gemini Social Sentiment Analyzer - Reporting Service
 
 The Reporting Service manages report creation, persistence configurations, and exposes the user-facing API.
 
