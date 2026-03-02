@@ -90,6 +90,19 @@ check_pypi_server() {
     log_success "PyPI server is running"
 }
 
+# Re-install shared library
+reinstall_shared_lib() {
+    log "Re-installing shared library into service virtual env..."
+    pip install \
+        --quiet \
+        --force-reinstall \
+        --no-deps \
+        --extra-index-url http://localhost:3322/simple \
+        --trusted-host localhost \
+        socialpulse-common
+    log_success "Shared library re-installed"
+}
+
 # Start analysis service
 start_analysis() {
     log "Starting Analysis Service..."
@@ -107,6 +120,8 @@ start_analysis() {
     fi
 
     source .venv/bin/activate
+
+    reinstall_shared_lib
 
     if [[ "$BACKGROUND" == true ]]; then
         log "Starting in background..."
@@ -138,6 +153,8 @@ start_report() {
     fi
 
     source .venv/bin/activate
+
+    reinstall_shared_lib
 
     if [[ "$BACKGROUND" == true ]]; then
         log "Starting in background..."
@@ -220,10 +237,10 @@ main() {
         fi
         echo ""
         echo "View logs:"
-        echo "  tail -f .analysis_service.log"
-        echo "  tail -f .report_service.log"
+        echo "  tail -f ../.analysis_service.log"
+        echo "  tail -f ../.report_service.log"
         if [[ "$WITH_UI" == true ]]; then
-            echo "  tail -f .report_ui.log"
+            echo "  tail -f ../.report_ui.log"
         fi
         echo ""
     fi

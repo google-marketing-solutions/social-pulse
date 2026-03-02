@@ -14,6 +14,7 @@ packages/
 
 # Ignore local env variable overrides
 .env
+.deployment_info.txt
 
 # Ignore Terraform related artifacts
 *.tfstate
