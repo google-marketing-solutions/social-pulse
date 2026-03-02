@@ -124,7 +124,11 @@ class PipelineRunner:
   def mark_as_failed(self, execution_id: str):
     """Marks the workflow execution as FAILED in the database."""
     try:
-      self._config.workflow_repo.update_status(execution_id, wfe.Status.FAILED)
+      workflow_repo = service.registry.get(
+          persistence.WorkflowExecutionPersistenceService
+      )
+      workflow_repo.update_status(execution_id, wfe.Status.FAILED)
+
     except Exception as cleanup_error:  # pylint: disable=broad-exception-caught
       logger.error(
           "Failed to mark job as FAILED during cleanup for execution_id %s: %s",
