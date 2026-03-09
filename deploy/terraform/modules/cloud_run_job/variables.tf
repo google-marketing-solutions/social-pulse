@@ -87,3 +87,15 @@ variable "image_wait_sleep" {
   type        = number
   default     = 5
 }
+
+variable "cpu" {
+  description = "The number of CPUs to allocate for the container."
+  type        = string
+  default     = "1"
+}
+
+variable "memory" {
+  description = "The amount of memory to allocate for the container."
+  type        = string
+  default     = "512Mi"
+}

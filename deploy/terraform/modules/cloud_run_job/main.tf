@@ -16,6 +16,13 @@ resource "google_cloud_run_v2_job" "default" {
         command = var.command
         args    = var.args
 
+        resources {
+          limits = {
+            cpu    = var.cpu
+            memory = var.memory
+          }
+        }
+
         dynamic "env" {
           for_each = var.env_vars
           content {

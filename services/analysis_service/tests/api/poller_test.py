@@ -246,7 +246,7 @@ class PollerEndpointTest(unittest.TestCase):
       mock_bootstrap: The mock _bootstrap_services function.
     """
     # Arrange
-    mock_settings.is_production = True
+    mock_settings.is_development = False
     mock_handler = mock.Mock()
     mock_handler_cls.return_value = mock_handler
 
@@ -281,7 +281,7 @@ class PollerEndpointTest(unittest.TestCase):
       mock_bootstrap: The mock _bootstrap_services function.
     """
     # Arrange
-    mock_settings.is_production = False
+    mock_settings.is_development = True
     mock_handler = mock.Mock()
     mock_handler_cls.return_value = mock_handler
 
