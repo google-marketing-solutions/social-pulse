@@ -17,6 +17,7 @@ import unittest
 from unittest import mock
 
 from api import poller
+from fastapi.testclient import TestClient
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution as wfe
 from tasks.ports import persistence
@@ -188,6 +189,110 @@ class PollerHandlerTest(unittest.TestCase):
     self.mock_repo.update_status.assert_called_once_with(
         "exec-456-ok", wfe.Status.IN_PROGRESS
     )
+
+  def test_clean_up_staging_datasets_ignores_specific_prefixes(self):
+    """Tests that staging cleanup ignores specific dataset prefixes.
+
+    Given a list of staging datasets, some with ignored prefixes.
+    When the _clean_up_staging_datasets method is invoked.
+    Then only datasets without the ignored prefixes are deleted.
+    """
+    # Arrange
+    mock_data_repo = mock.Mock(spec=persistence.SentimentDataRepo)
+    service.registry.register(persistence.SentimentDataRepo, mock_data_repo)
+
+    mock_data_repo.list_datasets_for_execution_id.return_value = [
+        "SentimentDataset_123",
+        "GenerateJustificationCategoriesTask_123",
+        "SomeOtherDataset_123",
+        "AnotherDataset_123",
+    ]
+
+    # Act
+    handler = poller.PollerHandler()
+    handler._clean_up_staging_datasets("exec-123")
+
+    # Assert
+    mock_data_repo.list_datasets_for_execution_id.assert_called_once_with(
+        "exec-123"
+    )
+    self.assertEqual(mock_data_repo.delete_dataset.call_count, 2)
+    mock_data_repo.delete_dataset.assert_any_call("SomeOtherDataset_123")
+    mock_data_repo.delete_dataset.assert_any_call("AnotherDataset_123")
+
+
+class PollerEndpointTest(unittest.TestCase):
+  """Tests the poller FastAPI endpoint."""
+
+  def setUp(self):
+    super().setUp()
+    self.client = TestClient(poller.app)
+
+  @mock.patch("api.poller._bootstrap_services")
+  @mock.patch("api.poller.PollerHandler")
+  @mock.patch("api.poller.settings")
+  def test_poller_production_mode_triggers_workflows(
+      self, mock_settings, mock_handler_cls, mock_bootstrap
+  ):
+    """Tests poller triggers workflows in production mode.
+
+    Given the application is running in production mode.
+    When the /poller endpoint is called.
+    Then the trigger_ready_workflow_execs method is invoked.
+
+    Args:
+      mock_settings: The mock settings object.
+      mock_handler_cls: The mock PollerHandler class.
+      mock_bootstrap: The mock _bootstrap_services function.
+    """
+    # Arrange
+    mock_settings.is_production = True
+    mock_handler = mock.Mock()
+    mock_handler_cls.return_value = mock_handler
+
+    # Act
+    response = self.client.post("/poller")
+
+    # Assert
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(
+        response.json(),
+        {"status": "success", "message": "Polling cycle completed."},
+    )
+    mock_handler.trigger_ready_workflow_execs.assert_called_once()
+    mock_handler.mark_completed_reports.assert_called_once()
+    mock_bootstrap.assert_called_once()
+
+  @mock.patch("api.poller._bootstrap_services")
+  @mock.patch("api.poller.PollerHandler")
+  @mock.patch("api.poller.settings")
+  def test_poller_non_production_mode_skips_triggering(
+      self, mock_settings, mock_handler_cls, mock_bootstrap
+  ):
+    """Tests poller skips triggering workflows when not in production.
+
+    Given the application is not running in production mode.
+    When the /poller endpoint is called.
+    Then the trigger_ready_workflow_execs method is not invoked.
+
+    Args:
+      mock_settings: The mock settings object.
+      mock_handler_cls: The mock PollerHandler class.
+      mock_bootstrap: The mock _bootstrap_services function.
+    """
+    # Arrange
+    mock_settings.is_production = False
+    mock_handler = mock.Mock()
+    mock_handler_cls.return_value = mock_handler
+
+    # Act
+    response = self.client.post("/poller")
+
+    # Assert
+    self.assertEqual(response.status_code, 200)
+    mock_handler.trigger_ready_workflow_execs.assert_not_called()
+    mock_handler.mark_completed_reports.assert_called_once()
+    mock_bootstrap.assert_called_once()
 
 
 if __name__ == "__main__":

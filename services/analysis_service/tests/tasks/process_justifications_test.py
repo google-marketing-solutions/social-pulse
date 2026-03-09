@@ -37,22 +37,20 @@ class JustificationCategorizerTest(unittest.TestCase):
 
     self.categorizer = process_justifications.JustificationCategorizer(
         category_json_data=self.category_json_data,
-        task_family="TestCategorizer"
+        task_family="TestCategorizer",
     )
 
-  def test_categorize_raises_error_if_no_justifications(self):
-    """Raises ValueError if no justifications to categorize.
+  def test_categorize_skips_if_no_justifications(self):
+    """Skips categorization if no justifications to categorize.
 
     Given a DataFrame with empty sentiments/justifications
     When categorize is called
-    Then a ValueError is raised
+    Then it successfully returns without raising or calling the LLM
     """
-    df = pd.DataFrame([{
-        "sentiments": []
-    }])
+    df = pd.DataFrame([{"sentiments": []}])
 
-    with self.assertRaisesRegex(ValueError, "No justifications to categorize"):
-      self.categorizer.categorize(df)
+    self.categorizer.categorize(df)
+    self.mock_analyzer.analyze_content_with_gemini.assert_not_called()
 
   def test_categorize_calls_analyzer_and_updates_dataframe(self):
     """Calls analyzer and updates DataFrame with categories.
@@ -63,17 +61,14 @@ class JustificationCategorizerTest(unittest.TestCase):
     Then the analyzer is called with the prompt
     And the DataFrame is updated with the categories
     """
-    df = pd.DataFrame([{
-        "sentiments": [{
-            "justifications": [{"quote": "great feature"}]
-        }]
-    }])
+    df = pd.DataFrame(
+        [{"sentiments": [{"justifications": [{"quote": "great feature"}]}]}]
+    )
 
     # Mock LLM response
-    mock_response = json.dumps([{
-        "id": "0_0_0",
-        "category": "Feature: Quality"
-    }])
+    mock_response = json.dumps(
+        [{"id": "0_0_0", "category": "Feature: Quality"}]
+    )
     self.mock_analyzer.analyze_content_with_gemini.return_value = mock_response
 
     self.categorizer.categorize(df)
@@ -83,8 +78,7 @@ class JustificationCategorizerTest(unittest.TestCase):
     # Verify the category was added
     updated_sentiment = df.iloc[0]["sentiments"][0]
     self.assertEqual(
-        updated_sentiment["justifications"][0]["category"],
-        "Feature: Quality"
+        updated_sentiment["justifications"][0]["category"], "Feature: Quality"
     )
 
   def test_categorize_handles_markdown_response(self):
@@ -94,24 +88,22 @@ class JustificationCategorizerTest(unittest.TestCase):
     When categorize is called
     Then the response is correctly parsed and DataFrame updated
     """
-    df = pd.DataFrame([{
-        "sentiments": [{
-            "justifications": [{"quote": "bad output"}]
-        }]
-    }])
+    df = pd.DataFrame(
+        [{"sentiments": [{"justifications": [{"quote": "bad output"}]}]}]
+    )
 
-    mock_response = "```json\n" + json.dumps([{
-        "id": "0_0_0",
-        "category": "General: Negative"
-    }]) + "\n```"
+    mock_response = (
+        "```json\n"
+        + json.dumps([{"id": "0_0_0", "category": "General: Negative"}])
+        + "\n```"
+    )
     self.mock_analyzer.analyze_content_with_gemini.return_value = mock_response
 
     self.categorizer.categorize(df)
 
     updated_sentiment = df.iloc[0]["sentiments"][0]
     self.assertEqual(
-        updated_sentiment["justifications"][0]["category"],
-        "General: Negative"
+        updated_sentiment["justifications"][0]["category"], "General: Negative"
     )
 
   def test_categorize_logs_error_on_failure(self):
@@ -121,11 +113,9 @@ class JustificationCategorizerTest(unittest.TestCase):
     When categorize is called
     Then the JSONDecodeError is raised (and error logged implicitly)
     """
-    df = pd.DataFrame([{
-        "sentiments": [{
-            "justifications": [{"quote": "error prone"}]
-        }]
-    }])
+    df = pd.DataFrame(
+        [{"sentiments": [{"justifications": [{"quote": "error prone"}]}]}]
+    )
 
     self.mock_analyzer.analyze_content_with_gemini.return_value = "invalid json"
 
@@ -134,8 +124,7 @@ class JustificationCategorizerTest(unittest.TestCase):
 
 
 class ProcessJustificationsTaskTest(
-    unittest.TestCase,
-    test_mixins.SetupMockSentimentTaskDepependenciesMixin
+    unittest.TestCase, test_mixins.SetupMockSentimentTaskDepependenciesMixin
 ):
 
   def setUp(self):
@@ -147,9 +136,14 @@ class ProcessJustificationsTaskTest(
     service.registry.register(apis.LlmApiClient, self.mock_analyzer)
 
     self.task = process_justifications.ProcessJustificationsTask(
-        execution_id="test_exec_id",
-        my_required_task=self.mock_required_task
+        execution_id="test_exec_id", my_required_task=self.mock_required_task
     )
+
+    self.mock_categories_target = mock.Mock()
+    self.mock_input_dict = {
+        "sentiment_data": self.mock_input_target,
+        "categories": self.mock_categories_target,
+    }
 
   def test_run_validates_input_data(self):
     """Validates that input data has required columns.
@@ -159,14 +153,12 @@ class ProcessJustificationsTaskTest(
     Then a ValueError is raised
     """
     # Mock input target to return invalid DF
-    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame({
-        "other_col": []
-    })
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame(
+        {"other_col": []}
+    )
     # We need to mock input() to return our mock target
     with mock.patch.object(
-        self.task,
-        "input",
-        return_value=self.mock_input_target
+        self.task, "input", return_value=self.mock_input_dict
     ):
       with self.assertRaisesRegex(ValueError, "missing 'sentiments' column"):
         self.task.run()
@@ -175,53 +167,51 @@ class ProcessJustificationsTaskTest(
     """Successfully executes the categorization flow.
 
     Given valid input DataFrame with justifications
-    And the analyzer returns valid prompts and categories
+    And the analyzer returns valid categories
     When run is called
     Then input is validated
-    And categories are generated
     And justifications are categorized and saved
     """
     # Setup input data
-    input_df = pd.DataFrame([{
-        "sentiments": [{
-            "justifications": [{"quote": "awesome stuff"}],
-            "sentimentScore": 0.9
-        }],
-        "summary": "Everything is awesome",
-        "relevanceScore": 100
-    }])
+    input_df = pd.DataFrame(
+        [
+            {
+                "sentiments": [
+                    {
+                        "justifications": [{"quote": "awesome stuff"}],
+                        "sentimentScore": 0.9,
+                    }
+                ],
+                "summary": "Everything is awesome",
+                "relevanceScore": 100,
+            }
+        ]
+    )
     self.mock_input_target.load_sentiment_data.return_value = input_df
 
+    # Configure mock categories target
+    categories_df = pd.DataFrame(
+        [{"category_json_data": '[{"categoryName": "General: Awesome"}]'}]
+    )
+    self.mock_categories_target.load_sentiment_data.return_value = categories_df
+
     # Configure mock analyzer responses
-    # First call: category generation
-    # Second call: categorization
     self.mock_analyzer.analyze_content_with_gemini.side_effect = [
-        '[{"categoryName": "General: Awesome"}]',
-        json.dumps([{
-            "id": "0_0_0",
-            "category": "General: Awesome"
-        }])
+        json.dumps([{"id": "0_0_0", "category": "General: Awesome"}])
     ]
 
     # Mock output target
     mock_output_target = mock.Mock()
-    with mock.patch.object(
-        self.task,
-        "input",
-        return_value=self.mock_input_target
-    ), \
-    mock.patch.object(
-        self.task,
-        "output",
-        return_value=mock_output_target
+    with (
+        mock.patch.object(
+            self.task, "input", return_value=self.mock_input_dict
+        ),
+        mock.patch.object(self.task, "output", return_value=mock_output_target),
     ):
       self.task.run()
 
       # Validation
-      self.mock_analyzer.analyze_content_with_gemini.assert_called()
-      self.assertEqual(
-          self.mock_analyzer.analyze_content_with_gemini.call_count, 2
-      )
+      self.mock_analyzer.analyze_content_with_gemini.assert_called_once()
 
       # Verify output was written
       mock_output_target.write_sentiment_data.assert_called_once()
@@ -230,7 +220,7 @@ class ProcessJustificationsTaskTest(
 
       self.assertEqual(
           output_df.iloc[0]["sentiments"][0]["justifications"][0]["category"],
-          "General: Awesome"
+          "General: Awesome",
       )
 
   def test_run_handles_batch_processing(self):
@@ -241,64 +231,81 @@ class ProcessJustificationsTaskTest(
     Then the categorizer is called multiple times
     """
     # Create DF with 2 rows, set batch size to 1
-    input_df = pd.DataFrame([
-        {
-            "sentiments": [{"justifications": [{"quote": "q1"}]}],
-            "summary": "s1",
-            "relevanceScore": 100
-        },
-        {
-            "sentiments": [{"justifications": [{"quote": "q2"}]}],
-            "summary": "s2",
-            "relevanceScore": 100
-        }
-    ])
+    input_df = pd.DataFrame(
+        [
+            {
+                "sentiments": [{"justifications": [{"quote": "q1"}]}],
+                "summary": "s1",
+                "relevanceScore": 100,
+            },
+            {
+                "sentiments": [{"justifications": [{"quote": "q2"}]}],
+                "summary": "s2",
+                "relevanceScore": 100,
+            },
+        ]
+    )
     self.mock_input_target.load_sentiment_data.return_value = input_df
+
+    # Configure mock categories target
+    categories_df = pd.DataFrame(
+        [{"category_json_data": '[{"categoryName": "C"}]'}]
+    )
+    self.mock_categories_target.load_sentiment_data.return_value = categories_df
 
     # Mock responses
     self.mock_analyzer.analyze_content_with_gemini.side_effect = [
-        '[{"categoryName": "C"}]',
         json.dumps([{"id": "0_0_0", "category": "C"}]),
-        json.dumps([{"id": "1_0_0", "category": "C"}])
+        json.dumps([{"id": "1_0_0", "category": "C"}]),
     ]
 
     mock_output_target = mock.Mock()
 
     # Patch MAX_JUSTIFICATIONS_PER_BATCH constant
-    with mock.patch(
-        "tasks.process_justifications.MAX_JUSTIFICATIONS_PER_BATCH", 1
-    ), mock.patch.object(
-        self.task, "input", return_value=self.mock_input_target
-    ), mock.patch.object(
-        self.task, "output", return_value=mock_output_target
+    with (
+        mock.patch(
+            "tasks.process_justifications.MAX_JUSTIFICATIONS_PER_BATCH", 1
+        ),
+        mock.patch.object(
+            self.task, "input", return_value=self.mock_input_dict
+        ),
+        mock.patch.object(self.task, "output", return_value=mock_output_target),
     ):
       self.task.run()
 
-      # 1 call for categories + 2 calls for batches = 3 calls
+      # 2 calls for batches
       self.assertEqual(
-          self.mock_analyzer.analyze_content_with_gemini.call_count, 3
+          self.mock_analyzer.analyze_content_with_gemini.call_count, 2
       )
 
       mock_output_target.write_sentiment_data.assert_called_once()
       args, _ = mock_output_target.write_sentiment_data.call_args
       self.assertEqual(len(args[0]), 2)  # Should still have 2 rows
 
-  def test_run_generates_categories_if_empty(self):
-    """Raises error if no justifications found to generate categories from.
+  def test_run_skips_categorization_if_categories_empty(self):
+    """Skips categorization if the upstream task generated no categories.
 
-    Given input DataFrame with empty justifications
+    Given input data
+    And the upstream categories target returns []
     When run is called
-    Then a ValueError is raised by _generate_category_description_json_data
+    Then the data is written unmodified and LLM is not called
     """
-    input_df = pd.DataFrame([{
-        "sentiments": [],
-        "summary": "Nothing here",
-        "relevanceScore": 100
-    }])
+    input_df = pd.DataFrame([{"sentiments": [], "summary": "Nothing here"}])
     self.mock_input_target.load_sentiment_data.return_value = input_df
 
-    with mock.patch.object(
-        self.task, "input", return_value=self.mock_input_target
+    categories_df = pd.DataFrame([{"category_json_data": "[]"}])
+    self.mock_categories_target.load_sentiment_data.return_value = categories_df
+
+    mock_output_target = mock.Mock()
+    with (
+        mock.patch.object(
+            self.task, "input", return_value=self.mock_input_dict
+        ),
+        mock.patch.object(self.task, "output", return_value=mock_output_target),
     ):
-      with self.assertRaisesRegex(ValueError, "No justifications found"):
-        self.task.run()
+      self.task.run()
+
+      self.mock_analyzer.analyze_content_with_gemini.assert_not_called()
+      mock_output_target.write_sentiment_data.assert_called_once()
+      args, _ = mock_output_target.write_sentiment_data.call_args
+      self.assertEqual(len(args[0]), 1)

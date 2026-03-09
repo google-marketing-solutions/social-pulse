@@ -224,7 +224,11 @@ class PollerHandler:
         execution_id,
     )
     for dataset_name in sentiment_datasets:
-      if not dataset_name.startswith("SentimentDataset"):
+      if (
+          not dataset_name.startswith("SentimentDataset")
+          and not dataset_name.startswith("GenerateJustificationCategoriesTask")
+      ):
+        logger.info("Deleting dataset: %s", dataset_name)
         repo.delete_dataset(dataset_name)
 
 
@@ -254,7 +258,12 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
 
   try:
     handler = PollerHandler()
-    handler.trigger_ready_workflow_execs()
+
+    if settings.is_production:
+      logger.info("Production mode enabled. Triggering ready workflows.")
+      handler.trigger_ready_workflow_execs()
+
+    logger.info("Marking completed reports.")
     handler.mark_completed_reports()
 
     return {"status": "success", "message": "Polling cycle completed."}

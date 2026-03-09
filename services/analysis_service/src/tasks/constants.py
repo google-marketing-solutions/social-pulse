@@ -16,7 +16,8 @@
 
 LLM_REQUEST_COL_NAME = "request"
 
-
+# Prefix for the final sentiment results dataset name.  The full dataset name
+# will be in the format: {SENTIMENT_RESULTS_DATASET_PREFIX}_{execution_id}
 SENTIMENT_RESULTS_DATASET_PREFIX = "SentimentDataset"
 
 # Minimum threshold of relevance score for sentiment to be generated.  If a

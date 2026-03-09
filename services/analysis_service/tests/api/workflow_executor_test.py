@@ -159,7 +159,7 @@ class WorkflowExecutorTest(unittest.TestCase):
     self.mock_youtube_client_cls.assert_called_once_with(api_key="test_yt_key")
     self.mock_vertexai_client_cls.assert_called_once_with(
         project_id="test_project_id",
-        region="global",
+        region="test_region",
         bq_dataset_name="test_dataset_name",
     )
     self.assertIsNotNone(
