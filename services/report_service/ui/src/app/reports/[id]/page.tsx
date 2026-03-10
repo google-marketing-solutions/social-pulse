@@ -199,6 +199,10 @@ export default async function ReportDetailPage({
                         (sourceResult as SourceAnalysisResult)
                           .justificationBreakdown!
                       }
+                      categories={
+                        (sourceResult as SourceAnalysisResult)
+                          .justificationCategories
+                      }
                       metricLabel={
                         source === SocialMediaSource.YOUTUBE_VIDEO
                           ? 'Views'

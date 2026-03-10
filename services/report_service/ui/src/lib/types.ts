@@ -89,6 +89,7 @@ export interface SourceAnalysisResult {
   sentimentOverTime?: SentimentDataPoint[];
   overallSentiment?: OverallSentiment;
   justificationBreakdown?: JustificationBreakdown;
+  justificationCategories?: JustificationCategoryMetadataItem[];
 }
 
 /**
@@ -121,6 +122,19 @@ export interface ShareOfVoiceResult {
 export interface JustificationItem {
   category: string;
   count: number;
+}
+
+/**
+ * Represents metadata for a justification category, providing a clear
+ * definition and a representative example.
+ */
+export interface JustificationCategoryMetadataItem {
+  /** The unique name of the category. */
+  categoryName: string;
+  /** A concise definition explaining what the category represents. */
+  definition: string;
+  /** A representative example from the data illustrating the category. */
+  representativeExample: string;
 }
 
 /**
