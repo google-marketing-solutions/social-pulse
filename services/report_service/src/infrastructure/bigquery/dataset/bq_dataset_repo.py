@@ -13,11 +13,13 @@
 #  limitations under the License.
 """BigQuery implementation of Dataset Persistence."""
 
+import json
 import logging
 
 from domain.ports import dataset
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import bigquery_client
+from socialpulse_common.utils import markdown
 
 
 logger = logging.getLogger(__name__)
@@ -619,3 +621,33 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     """
     rows = self._bq_client.query(qt)
     return [row["channelTitle"] for row in rows]
+
+  def query_justification_category_metadata(
+      self,
+      table_id: str,
+  ) -> list[dict[str, any]]:
+    """Queries justification category metadata.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+
+    Returns:
+      List of dictionaries containing the category metadata.
+    """
+    try:
+      query = f"SELECT category_json_data FROM `{table_id}`"
+      rows = list(self._bq_client.query(query))
+      if not rows:
+        return []
+
+      json_data = rows[0].get("category_json_data")
+      if not json_data:
+        return []
+
+      # Handle potential markdown wrapping
+      json_data = markdown.strip_markdown_code_blocks(json_data)
+
+      return json.loads(json_data)
+    except Exception as e:  # pylint: disable=broad-except
+      logger.warning("Failed to query metadata table %s: %s", table_id, e)
+      return []

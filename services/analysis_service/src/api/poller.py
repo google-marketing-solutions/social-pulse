@@ -259,7 +259,7 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
   try:
     handler = PollerHandler()
 
-    if not config.is_development():
+    if not settings.is_development():
       logger.info("Production mode enabled. Triggering ready workflows.")
       handler.trigger_ready_workflow_execs()
 

@@ -32,6 +32,7 @@ _YT_VIDEO_TIMELINE_BUILDERS = [
     youtube_video_builders.YoutubeVideoSentimentTimelineBuilder(),
     youtube_video_builders.YoutubeVideoOverallSentimentBuilder(),
     youtube_video_builders.YoutubeVideoJustificationBuilder(),
+    youtube_video_builders.YoutubeVideoJustificationCategoryMetadataBuilder(),
 ]
 
 # List of builders for Youtube video share of voice.
@@ -45,6 +46,7 @@ _YT_COMMENT_BUILDERS = [
     youtube_comment_builders.YoutubeCommentSentimentTimelineBuilder(),
     youtube_comment_builders.YoutubeCommentOverallSentimentBuilder(),
     youtube_comment_builders.YoutubeCommentJustificationBuilder(),
+    youtube_comment_builders.YoutubeCommentJustificationCategoryMetadataBuilder(),
 ]
 
 # The _deep_merge function has been removed as we are now populating
@@ -115,6 +117,13 @@ class CompositeAnalysisResultsBuilder:
             ):
               source_result.justification_breakdown = (
                   partial_result.justification_breakdown
+              )
+            elif isinstance(
+                partial_result,
+                analysis_result.JustificationCategoryMetadataResultSet,
+            ):
+              source_result.justification_categories = (
+                  partial_result.justification_categories
               )
             elif isinstance(
                 partial_result, analysis_result.ShareOfVoiceResultSet

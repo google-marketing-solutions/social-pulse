@@ -21,6 +21,7 @@ import string
 import luigi
 import pandas as pd
 from socialpulse_common import service
+from socialpulse_common.utils import markdown
 from tasks import constants
 from tasks import core as tasks_core
 from tasks.generate_justifications_categories import GenerateJustificationCategoriesTask
@@ -122,11 +123,7 @@ class JustificationCategorizer:
       response_text = analyzer.analyze_content_with_gemini(prompt)
 
       # Gemini might return markdown code blocks, strip them if needed
-      cleaned_response = response_text.strip()
-      if cleaned_response.startswith("```json"):
-        cleaned_response = cleaned_response[7:]
-      if cleaned_response.endswith("```"):
-        cleaned_response = cleaned_response[:-3]
+      cleaned_response = markdown.strip_markdown_code_blocks(response_text)
 
       categorized_justifications = json.loads(cleaned_response)
       logging.debug(

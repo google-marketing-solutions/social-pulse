@@ -114,6 +114,20 @@ class DatasetRepo(service.RegisterableService):
     """Executes query for Justification Breakdown for comments."""
 
   @abc.abstractmethod
+  def query_justification_category_metadata(
+      self,
+      table_id: str,
+  ) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Queries justification category metadata.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+
+    Returns:
+      List of dictionaries containing the category metadata.
+    """
+
+  @abc.abstractmethod
   def get_channels(
       self,
       datasets: typing.List[report_msg.SentimentReportDataset],

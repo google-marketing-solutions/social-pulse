@@ -188,6 +188,14 @@ class Settings:
     self._internal_settings = _AppSettings()
     self._initialized = True
 
+  def is_development(self) -> bool:
+    """Flag indicating if the application is running in development mode.
+
+    Returns:
+      True if the application is running in development mode, False otherwise.
+    """
+    return is_development()
+
   def __getattr__(self, name):
     try:
       return getattr(self._internal_settings, name)
