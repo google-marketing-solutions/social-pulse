@@ -101,7 +101,7 @@ describe('Server Actions', () => {
 
       const result = await getReportById('123');
 
-      expect(api.getReportById).toHaveBeenCalledWith('123');
+      expect(api.getReportById).toHaveBeenCalledWith('123', undefined);
       expect(result).toEqual(mockReport);
     });
 

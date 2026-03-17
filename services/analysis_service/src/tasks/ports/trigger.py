@@ -31,8 +31,8 @@ class WorkflowExecutionTrigger(service.RegisterableService, abc.ABC):
     raise NotImplementedError
 
 
-class ReportCompletionService(service.RegisterableService, abc.ABC):
-  """Abstract interface for marking reports as completed."""
+class ReportStatusUpdatingService(service.RegisterableService, abc.ABC):
+  """Abstract interface for updating report status."""
 
   @abc.abstractmethod
   def mark_report_completed(
@@ -44,5 +44,14 @@ class ReportCompletionService(service.RegisterableService, abc.ABC):
         report_id: The unique ID of the report to mark as completed.
         datasets: A list of SentimentReportDataset objects associated with the
           completed report.
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def mark_report_in_progress(self, report_id: str) -> None:
+    """Marks a report as in progress.
+
+    Args:
+        report_id: The unique ID of the report to mark as in progress.
     """
     raise NotImplementedError

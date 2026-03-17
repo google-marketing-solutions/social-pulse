@@ -230,6 +230,36 @@ def mark_as_completed(
     ) from e
 
 
+@app.post("/api/{report_id}/mark_as_in_progress")
+def mark_as_in_progress(report_id: str) -> report_msg.SentimentReport:
+  """Marks a sentiment report as in progress.
+
+  Args:
+    report_id: The ID of the report to mark as in progress.
+  """
+  try:
+    logger.info(
+        "Marking report %s as in progress",
+        report_id,
+    )
+    report_entity = app_config.sentiment_report_repository.load_report(
+        report_id
+    )
+
+    report_entity.mark_as_in_progress()
+    app_config.sentiment_report_repository.persist_report(report_entity)
+
+    return _entity_to_message(report_entity)
+
+  except Exception as e:  # pylint: disable=broad-except
+    logger.exception("Error occurred, will return 500 error:")
+
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e),
+    ) from e
+
+
 @app.get("/api/report/{report_id}")
 def get_report(
     report_id: str,

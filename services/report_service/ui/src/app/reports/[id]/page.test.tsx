@@ -96,7 +96,7 @@ describe('ReportDetailPage', () => {
     (getReportById as jest.Mock).mockImplementation(() =>
       Promise.resolve({
         ...mockReport,
-        status: Status.GENERATING_REPORT,
+        status: Status.IN_PROGRESS,
       }),
     );
 
@@ -107,7 +107,7 @@ describe('ReportDetailPage', () => {
     render(jsx);
 
     expect(
-      screen.getByText(/Analysis is GENERATING REPORT/i),
+      screen.getByText(/Analysis is IN PROGRESS/i),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('sentiment-charts')).not.toBeInTheDocument();
   });

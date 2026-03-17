@@ -19,6 +19,7 @@ from unittest import mock
 from api import poller
 from fastapi.testclient import TestClient
 from socialpulse_common import service
+from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import workflow_execution as wfe
 from tasks.ports import persistence
 from tasks.ports import trigger
@@ -33,11 +34,21 @@ class PollerHandlerTest(unittest.TestCase):
 
     self._mock_services()
     self._mock_config_settings()
+    self._mock_is_development()
+
+  def _mock_is_development(self):
+    patcher = mock.patch("socialpulse_common.config.is_development")
+    self.mock_is_dev = patcher.start()
+    self.addCleanup(patcher.stop)
+    self.mock_is_dev.return_value = False
 
   def _mock_services(self):
     self.mock_repo = mock.Mock(
         spec=persistence.WorkflowExecutionPersistenceService
     )
+    self.mock_repo.find_ready_executions.return_value = []
+    self.mock_repo.find_completed_reports.return_value = []
+
     service.registry.register(
         persistence.WorkflowExecutionPersistenceService, self.mock_repo
     )
@@ -48,10 +59,10 @@ class PollerHandlerTest(unittest.TestCase):
     )
 
     self.mock_report_completion_trigger = mock.Mock(
-        spec=trigger.ReportCompletionService
+        spec=trigger.ReportStatusUpdatingService
     )
     service.registry.register(
-        trigger.ReportCompletionService, self.mock_report_completion_trigger
+        trigger.ReportStatusUpdatingService, self.mock_report_completion_trigger
     )
 
   def _mock_config_settings(self):
@@ -74,6 +85,14 @@ class PollerHandlerTest(unittest.TestCase):
     self._mock_settings_cls = patcher.start()
     self.addCleanup(patcher.stop)
     self._mock_settings_cls.return_value = self._mock_settings
+
+    # Also patch the module-level settings in api.poller
+    patcher_module_settings = mock.patch(
+        "api.poller.settings",
+        self._mock_settings
+    )
+    patcher_module_settings.start()
+    self.addCleanup(patcher_module_settings.stop)
 
   def test_trigger_ready_workflow_execs_does_nothing_when_no_ready_workflows(
       self
@@ -198,27 +217,128 @@ class PollerHandlerTest(unittest.TestCase):
     Then only datasets without the ignored prefixes are deleted.
     """
     # Arrange
-    mock_data_repo = mock.Mock(spec=persistence.SentimentDataRepo)
-    service.registry.register(persistence.SentimentDataRepo, mock_data_repo)
+    mock_dataset_repo = mock.Mock(spec=persistence.SentimentDataRepo)
+    service.registry.register(persistence.SentimentDataRepo, mock_dataset_repo)
 
-    mock_data_repo.list_datasets_for_execution_id.return_value = [
+    mock_dataset_repo.list_datasets_for_execution_id.return_value = [
         "SentimentDataset_123",
         "GenerateJustificationCategoriesTask_123",
         "SomeOtherDataset_123",
         "AnotherDataset_123",
     ]
 
+    exec_params = wfe.WorkflowExecutionParams(
+        execution_id="exec-123",
+        source=common_msg.SocialMediaSource.YOUTUBE_VIDEO,
+        data_output=[common_msg.SentimentDataType.SENTIMENT_SCORE]
+    )
+    self.mock_repo.find_completed_reports.return_value = {
+        "report-123": [exec_params]
+    }
+
     # Act
     handler = poller.PollerHandler()
-    handler._clean_up_staging_datasets("exec-123")
+    handler.mark_completed_reports()
 
     # Assert
-    mock_data_repo.list_datasets_for_execution_id.assert_called_once_with(
+    mock_dataset_repo.list_datasets_for_execution_id.assert_called_once_with(
         "exec-123"
     )
-    self.assertEqual(mock_data_repo.delete_dataset.call_count, 2)
-    mock_data_repo.delete_dataset.assert_any_call("SomeOtherDataset_123")
-    mock_data_repo.delete_dataset.assert_any_call("AnotherDataset_123")
+    self.assertEqual(mock_dataset_repo.delete_dataset.call_count, 2)
+    mock_dataset_repo.delete_dataset.assert_any_call("SomeOtherDataset_123")
+    mock_dataset_repo.delete_dataset.assert_any_call("AnotherDataset_123")
+
+  def test_trigger_ready_workflow_execs_skips_in_development_mode(self):
+    """Tests that workflows are NOT triggered when in development mode.
+
+    Given the application is running in development mode.
+    When the trigger_ready_workflow_execs method is invoked.
+    Then no ready executions are searched for, and no workflows are triggered.
+    """
+    # Arrange
+    self.mock_is_dev.return_value = True
+
+    # Act
+    handler = poller.PollerHandler()
+    handler.trigger_ready_workflow_execs()
+
+    # Assert
+    self.mock_repo.find_ready_executions.assert_not_called()
+    self.mock_trigger.trigger_workflow.assert_not_called()
+
+  def test_mark_in_progress_reports_processes_multiple_reports(self):
+    """Tests that in-progress reports are correctly marked.
+
+    Given several in-progress report IDs.
+    When the mark_in_progress_reports method is invoked.
+    Then the mark_report_in_progress trigger is called for each ID.
+    """
+    # Arrange
+    self.mock_repo.find_in_progress_reports.return_value = ["rep-1", "rep-2"]
+
+    # Act
+    handler = poller.PollerHandler()
+    handler.mark_in_progress_reports()
+
+    # Assert
+    self.assertEqual(
+        self.mock_report_completion_trigger.mark_report_in_progress.call_count,
+        2
+    )
+    self.mock_report_completion_trigger.mark_report_in_progress.assert_any_call(
+        "rep-1"
+    )
+    self.mock_report_completion_trigger.mark_report_in_progress.assert_any_call(
+        "rep-2"
+    )
+
+  def test_mark_in_progress_reports_handles_no_reports(self):
+    """Tests that no marking occurs if no in-progress reports are found.
+
+    Given no in-progress report IDs.
+    When the mark_in_progress_reports method is invoked.
+    Then no triggers are called.
+    """
+    # Arrange
+    self.mock_repo.find_in_progress_reports.return_value = []
+
+    # Act
+    handler = poller.PollerHandler()
+    handler.mark_in_progress_reports()
+
+    # Assert
+    (self.mock_report_completion_trigger
+     .mark_report_in_progress
+     .assert_not_called())
+
+  def test_mark_in_progress_reports_handles_trigger_failure(self):
+    """Tests that a failure in one report does not block others.
+
+    Given multiple in-progress report IDs, where one trigger call fails.
+    When the mark_in_progress_reports method is invoked.
+    Then the failing attempt is caught, and others are still processed.
+    """
+    # Arrange
+    self.mock_repo.find_in_progress_reports.return_value = [
+        "fail-rep", "ok-rep"
+    ]
+    self.mock_report_completion_trigger.mark_report_in_progress.side_effect = [
+        Exception("Marking failed!"),
+        None,
+    ]
+
+    # Act
+    handler = poller.PollerHandler()
+    handler.mark_in_progress_reports()
+
+    # Assert
+    self.assertEqual(
+        self.mock_report_completion_trigger.mark_report_in_progress.call_count,
+        2
+    )
+    self.mock_report_completion_trigger.mark_report_in_progress.assert_any_call(
+        "ok-rep"
+    )
 
 
 class PollerEndpointTest(unittest.TestCase):
@@ -230,23 +350,18 @@ class PollerEndpointTest(unittest.TestCase):
 
   @mock.patch("api.poller._bootstrap_services")
   @mock.patch("api.poller.PollerHandler")
-  @mock.patch("api.poller.settings")
-  def test_poller_production_mode_triggers_workflows(
-      self, mock_settings, mock_handler_cls, mock_bootstrap
-  ):
-    """Tests poller triggers workflows in production mode.
+  def test_poller_success(self, mock_handler_cls, mock_bootstrap):
+    """Tests the /poller endpoint returns 200 on success.
 
-    Given the application is running in production mode.
+    Given the application is working correctly.
     When the /poller endpoint is called.
-    Then the trigger_ready_workflow_execs method is invoked.
+    Then 200 is returned, and bootstrapping and handler methods are called.
 
     Args:
-      mock_settings: The mock settings object.
-      mock_handler_cls: The mock PollerHandler class.
-      mock_bootstrap: The mock _bootstrap_services function.
+      mock_handler_cls: Mock class for PollerHandler.
+      mock_bootstrap: Mock function for _bootstrap_services.
     """
     # Arrange
-    mock_settings.is_development.return_value = False
     mock_handler = mock.Mock()
     mock_handler_cls.return_value = mock_handler
 
@@ -259,39 +374,58 @@ class PollerEndpointTest(unittest.TestCase):
         response.json(),
         {"status": "success", "message": "Polling cycle completed."},
     )
-    mock_handler.trigger_ready_workflow_execs.assert_called_once()
-    mock_handler.mark_completed_reports.assert_called_once()
     mock_bootstrap.assert_called_once()
+    mock_handler.trigger_ready_workflow_execs.assert_called_once()
+    mock_handler.mark_in_progress_reports.assert_called_once()
+    mock_handler.mark_completed_reports.assert_called_once()
 
   @mock.patch("api.poller._bootstrap_services")
-  @mock.patch("api.poller.PollerHandler")
-  @mock.patch("api.poller.settings")
-  def test_poller_non_production_mode_skips_triggering(
-      self, mock_settings, mock_handler_cls, mock_bootstrap
-  ):
-    """Tests poller skips triggering workflows when not in production.
+  def test_poller_bootstrap_failure(self, mock_bootstrap):
+    """Tests the /poller endpoint returns 500 when bootstrapping fails.
 
-    Given the application is not running in production mode.
+    Given bootstrapping services raises an Exception.
     When the /poller endpoint is called.
-    Then the trigger_ready_workflow_execs method is not invoked.
+    Then a 500 status code is returned with a descriptive error.
 
     Args:
-      mock_settings: The mock settings object.
-      mock_handler_cls: The mock PollerHandler class.
-      mock_bootstrap: The mock _bootstrap_services function.
+      mock_bootstrap: Mock function for _bootstrap_services.
     """
     # Arrange
-    mock_settings.is_development.return_value = True
-    mock_handler = mock.Mock()
-    mock_handler_cls.return_value = mock_handler
+    mock_bootstrap.side_effect = Exception("Bootstrap failed")
 
     # Act
     response = self.client.post("/poller")
 
     # Assert
-    self.assertEqual(response.status_code, 200)
-    mock_handler.trigger_ready_workflow_execs.assert_not_called()
-    mock_handler.mark_completed_reports.assert_called_once()
+    self.assertEqual(response.status_code, 500)
+    self.assertIn("Service initialization failed", response.json()["detail"])
+
+  @mock.patch("api.poller._bootstrap_services")
+  @mock.patch("api.poller.PollerHandler")
+  def test_poller_handler_failure(self, mock_handler_cls, mock_bootstrap):
+    """Tests the /poller endpoint returns 500 when handler fails.
+
+    Given the handler raises an Exception during execution.
+    When the /poller endpoint is called.
+    Then a 500 status code is returned with a descriptive error.
+
+    Args:
+      mock_handler_cls: Mock class for PollerHandler.
+      mock_bootstrap: Mock function for _bootstrap_services.
+    """
+    # Arrange
+    mock_handler = mock.Mock()
+    mock_handler_cls.return_value = mock_handler
+    mock_handler.trigger_ready_workflow_execs.side_effect = Exception(
+        "Handler failed"
+    )
+
+    # Act
+    response = self.client.post("/poller")
+
+    # Assert
+    self.assertEqual(response.status_code, 500)
+    self.assertIn("Polling and triggering failed", response.json()["detail"])
     mock_bootstrap.assert_called_once()
 
 

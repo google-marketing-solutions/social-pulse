@@ -25,9 +25,7 @@ import socialpulse_common.messages.common as msg_common
 class Status(enum.StrEnum):
   """Status types of a sentiment report."""
   NEW = "NEW"
-  COLLECTING_DATA = "COLLECTING_DATA"
-  DATA_COLLECTED = "DATA_COLLECTED"
-  GENERATING_REPORT = "GENERATING_REPORT"
+  IN_PROGRESS = "IN_PROGRESS"
   COMPLETED = "COMPLETED"
   FAILED = "FAILED"
 

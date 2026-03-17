@@ -175,18 +175,14 @@ class SentimentReportEntity(domain.Entity):
     """A list of sentiment datasets associated with the report."""
     return self._datasets
 
-  def mark_as_failed(self, reason: str):
-    """Marks the report as failed.
-
-    Args:
-      reason: The reason for the failure.
-    """
+  def mark_as_failed(self):
+    """Marks the report as failed."""
     self._status = report_msg.Status.FAILED
     self._last_updated = datetime.datetime.now()
 
-  def mark_as_collecting_data(self):
-    """Marks the report as collecting data."""
-    self._status = report_msg.Status.COLLECTING_DATA
+  def mark_as_in_progress(self):
+    """Marks the report as in progress."""
+    self._status = report_msg.Status.IN_PROGRESS
     self._last_updated = datetime.datetime.now()
 
   def mark_as_completed(self,

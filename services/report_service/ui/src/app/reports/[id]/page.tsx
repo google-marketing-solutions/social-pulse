@@ -38,6 +38,7 @@ import {
 } from '@/lib/types';
 import {Separator} from '@/components/ui/separator';
 import {sourceConfiguration} from '@/lib/sources';
+import {statusColors} from '@/components/reports/columns';
 
 const PendingState = ({status}: {status?: Status}) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -225,7 +226,10 @@ export default async function ReportDetailPage({
           <h1 className="font-headline text-4xl font-bold tracking-tighter">
             {report.topic}
           </h1>
-          <Badge className="capitalize text-sm py-1 px-3">
+          <Badge
+            variant={statusColors[report.status || Status.NEW]}
+            className="capitalize text-sm py-1 px-3"
+          >
             {report.status?.replace(/_/g, ' ')}
           </Badge>
         </div>
