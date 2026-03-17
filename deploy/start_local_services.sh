@@ -12,7 +12,6 @@
 #   --analysis-only     Start only analysis service
 #   --report-only       Start only report service
 #   --with-ui           Also start the report UI
-#   --background        Run services in background
 #
 ################################################################################
 
@@ -34,7 +33,6 @@ SERVICES_DIR="$PROJECT_ROOT/services"
 ANALYSIS_ONLY=false
 REPORT_ONLY=false
 WITH_UI=false
-BACKGROUND=false
 
 # Function: Print colored output
 log() {
@@ -66,10 +64,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --with-ui)
             WITH_UI=true
-            shift
-            ;;
-        --background)
-            BACKGROUND=true
             shift
             ;;
         *)
@@ -123,17 +117,11 @@ start_analysis() {
 
     reinstall_shared_lib
 
-    if [[ "$BACKGROUND" == true ]]; then
-        log "Starting in background..."
-        nohup bash -c "cd src && APP_ENV=dev uvicorn api.runner_entry:app --reload --port=8080" \
-            > "$PROJECT_ROOT/.analysis_service.log" 2>&1 &
-        log_success "Analysis Service started in background (PID: $!)"
-        log "Logs: $PROJECT_ROOT/.analysis_service.log"
-    else
-        log "Starting in foreground (press Ctrl+C to stop)..."
-        cd src
-        APP_ENV=dev uvicorn api.runner_entry:app --reload --port=8080
-    fi
+    log "Starting in background..."
+    nohup bash -c "cd src && APP_ENV=dev uvicorn api.runner_entry:app --reload --port=8080" \
+        > "$PROJECT_ROOT/.analysis_service.log" 2>&1 &
+    log_success "Analysis Service started in background (PID: $!)"
+    log "Logs: $PROJECT_ROOT/.analysis_service.log"
 }
 
 # Start report service
@@ -156,17 +144,11 @@ start_report() {
 
     reinstall_shared_lib
 
-    if [[ "$BACKGROUND" == true ]]; then
-        log "Starting in background..."
-        nohup bash -c "cd src && APP_ENV=dev uvicorn main:app --reload --port=8008" \
-            > "$PROJECT_ROOT/.report_service.log" 2>&1 &
-        log_success "Report Service started in background (PID: $!)"
-        log "Logs: $PROJECT_ROOT/.report_service.log"
-    else
-        log "Starting in foreground (press Ctrl+C to stop)..."
-        cd src
-        APP_ENV=dev uvicorn main:app --reload --port=8008
-    fi
+    log "Starting in background..."
+    nohup bash -c "cd src && APP_ENV=dev uvicorn main:app --reload --port=8008" \
+        > "$PROJECT_ROOT/.report_service.log" 2>&1 &
+    log_success "Report Service started in background (PID: $!)"
+    log "Logs: $PROJECT_ROOT/.report_service.log"
 }
 
 # Start report UI
@@ -175,16 +157,11 @@ start_ui() {
 
     cd "$SERVICES_DIR/report_service/ui"
 
-    if [[ "$BACKGROUND" == true ]]; then
-        log "Starting in background..."
-        nohup bash -c "npm run dev" \
-            > "$PROJECT_ROOT/.report_ui.log" 2>&1 &
-        log_success "Report UI started in background (PID: $!)"
-        log "Logs: $PROJECT_ROOT/.report_ui.log"
-    else
-        log "Starting in foreground (press Ctrl+C to stop)..."
-        npm run dev
-    fi
+    log "Starting in background..."
+    nohup bash -c "npm run dev" \
+        > "$PROJECT_ROOT/.report_ui.log" 2>&1 &
+    log_success "Report UI started in background (PID: $!)"
+    log "Logs: $PROJECT_ROOT/.report_ui.log"
 }
 
 # Main execution
@@ -200,50 +177,36 @@ main() {
     # Determine which services to start
     if [[ "$REPORT_ONLY" != true ]]; then
         start_analysis
-
-        if [[ "$BACKGROUND" != true && "$WITH_UI" != true ]]; then
-            exit 0
-        fi
     fi
 
     if [[ "$ANALYSIS_ONLY" != true ]]; then
-        if [[ "$BACKGROUND" == true ]]; then
-            start_report &
-            sleep 2
-        else
-            start_report
-        fi
+        start_report &
+        sleep 2
     fi
 
     if [[ "$WITH_UI" == true ]]; then
-        if [[ "$BACKGROUND" == true ]]; then
-            start_ui &
-            sleep 2
-        else
-            start_ui
-        fi
+        start_ui &
+        sleep 2
     fi
 
-    if [[ "$BACKGROUND" == true ]]; then
-        sleep 2
-        echo ""
-        echo -e "${GREEN}All services started in background${NC}"
-        echo ""
-        echo "Service URLs:"
-        echo "  Analysis Service: http://localhost:8080/docs"
-        echo "  Report Service: http://localhost:8008/docs"
-        if [[ "$WITH_UI" == true ]]; then
-            echo "  Report UI: http://localhost:3000"
-        fi
-        echo ""
-        echo "View logs:"
-        echo "  tail -f ../.analysis_service.log"
-        echo "  tail -f ../.report_service.log"
-        if [[ "$WITH_UI" == true ]]; then
-            echo "  tail -f ../.report_ui.log"
-        fi
-        echo ""
+    sleep 2
+    echo ""
+    echo -e "${GREEN}All services started in background${NC}"
+    echo ""
+    echo "Service URLs:"
+    echo "  Analysis Service: http://localhost:8080/docs"
+    echo "  Report Service: http://localhost:8008/docs"
+    if [[ "$WITH_UI" == true ]]; then
+        echo "  Report UI: http://localhost:3000"
     fi
+    echo ""
+    echo "View logs:"
+    echo "  tail -f ../.analysis_service.log"
+    echo "  tail -f ../.report_service.log"
+    if [[ "$WITH_UI" == true ]]; then
+        echo "  tail -f ../.report_ui.log"
+    fi
+    echo ""
 }
 
 main
