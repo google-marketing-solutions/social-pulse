@@ -124,6 +124,31 @@ start_analysis() {
     log "Logs: $PROJECT_ROOT/.analysis_service.log"
 }
 
+# Start poller service
+start_poller() {
+    log "Starting Poller Service..."
+
+    cd "$SERVICES_DIR/analysis_service"
+
+    if [ ! -f ".venv/bin/activate" ]; then
+        log_error "Analysis Service not set up. Run: ./deploy/deploy_local.sh"
+        exit 1
+    fi
+
+    if [ ! -f ".env" ]; then
+        log_error ".env file not found. Configure it first."
+        exit 1
+    fi
+
+    source .venv/bin/activate
+
+    log "Starting in background..."
+    nohup bash -c "cd src && APP_ENV=dev uvicorn api.poller:app --reload --port=8081" \
+        > "$PROJECT_ROOT/.poller_service.log" 2>&1 &
+    log_success "Poller Service started in background (PID: $!)"
+    log "Logs: $PROJECT_ROOT/.poller_service.log"
+}
+
 # Start report service
 start_report() {
     log "Starting Report Service..."
@@ -177,6 +202,7 @@ main() {
     # Determine which services to start
     if [[ "$REPORT_ONLY" != true ]]; then
         start_analysis
+        start_poller
     fi
 
     if [[ "$ANALYSIS_ONLY" != true ]]; then
@@ -195,6 +221,7 @@ main() {
     echo ""
     echo "Service URLs:"
     echo "  Analysis Service: http://localhost:8080/docs"
+    echo "  Poller Service:   http://localhost:8081/docs"
     echo "  Report Service: http://localhost:8008/docs"
     if [[ "$WITH_UI" == true ]]; then
         echo "  Report UI: http://localhost:3000"
@@ -202,6 +229,7 @@ main() {
     echo ""
     echo "View logs:"
     echo "  tail -f ../.analysis_service.log"
+    echo "  tail -f ../.poller_service.log"
     echo "  tail -f ../.report_service.log"
     if [[ "$WITH_UI" == true ]]; then
         echo "  tail -f ../.report_ui.log"
