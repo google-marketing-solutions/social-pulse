@@ -42,6 +42,19 @@ export enum Status {
 }
 
 /**
+ * Defines the colors for the different report statuses.
+ */
+export const statusColors: {
+  [key in Status]: 'default' | 'secondary' | 'destructive' | 'success' | 'info';
+} = {
+  NEW: 'secondary',
+  IN_PROGRESS: 'info',
+  COMPLETED: 'success',
+  FAILED: 'destructive',
+};
+
+
+/**
  * Types of artifacts that can be generated for a sentiment report.
  */
 export enum ReportArtifactType {

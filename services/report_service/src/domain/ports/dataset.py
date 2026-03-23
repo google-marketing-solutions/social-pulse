@@ -31,6 +31,7 @@ class DatasetRepo(service.RegisterableService):
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
       excluded_channels: typing.Optional[typing.List[str]] = None,
+      relevance_threshold: int = 90,
   ) -> typing.List[typing.Dict[str, typing.Any]]:
     """Executes query for SHARE_OF_VOICE."""
 
@@ -42,6 +43,7 @@ class DatasetRepo(service.RegisterableService):
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
       excluded_channels: typing.Optional[typing.List[str]] = None,
+      relevance_threshold: int = 90,
   ) -> typing.Dict[str, int]:
     """Queries total item count and views for Share of Voice context."""
 
@@ -53,6 +55,7 @@ class DatasetRepo(service.RegisterableService):
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
       excluded_channels: typing.Optional[typing.List[str]] = None,
+      relevance_threshold: int = 90,
   ) -> typing.List[typing.Dict[str, typing.Any]]:
     """Queries for timeseries breakdown of sentiment scores for videos."""
 
@@ -64,6 +67,7 @@ class DatasetRepo(service.RegisterableService):
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
       excluded_channels: typing.Optional[typing.List[str]] = None,
+      relevance_threshold: int = 90,
   ) -> typing.List[typing.Dict[str, typing.Any]]:
     """Queries for timeseries breakdown of sentiment scores for comments."""
 
@@ -75,6 +79,7 @@ class DatasetRepo(service.RegisterableService):
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
       excluded_channels: typing.Optional[typing.List[str]] = None,
+      relevance_threshold: int = 90,
   ) -> typing.List[typing.Dict[str, typing.Any]]:
     """Queries for summary stats of sentiment scores for videos."""
 
@@ -86,6 +91,7 @@ class DatasetRepo(service.RegisterableService):
       end_date: typing.Optional[str] = None,
       channel_title: typing.Optional[str] = None,
       excluded_channels: typing.Optional[typing.List[str]] = None,
+      relevance_threshold: int = 90,
   ) -> typing.List[typing.Dict[str, typing.Any]]:
     """Queries for summary stats of sentiment scores for comments."""
 

@@ -75,6 +75,7 @@ class YoutubeCommentSentimentTimelineBuilder(_BaseYoutubeCommentBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
+        relevance_threshold=report_entity.relevance_threshold,
     )
 
     timeline = []
@@ -119,6 +120,7 @@ class YoutubeCommentOverallSentimentBuilder(_BaseYoutubeCommentBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
+        relevance_threshold=report_entity.relevance_threshold,
     )
 
     overall_pos = sum(int(row.get("POSITIVE_COUNT", 0)) for row in rows)
@@ -166,6 +168,7 @@ class YoutubeCommentJustificationBuilder(_BaseYoutubeCommentBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
+        relevance_threshold=report_entity.relevance_threshold,
     )
     neg_rows = repo.query_justification_breakdown_for_comments(
         table_id,
@@ -174,6 +177,7 @@ class YoutubeCommentJustificationBuilder(_BaseYoutubeCommentBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
+        relevance_threshold=report_entity.relevance_threshold,
     )
 
     result = {"positive": [], "negative": [], "neutral": []}
@@ -225,11 +229,7 @@ class YoutubeCommentJustificationCategoryMetadataBuilder(
 
   def build(
       self,
-      report_entity: sentiment_report.SentimentReportEntity,
-      start_date: str | None = None,
-      end_date: str | None = None,
-      channel_title: str | None = None,
-      excluded_channels: list[str] | None = None,
+      report_entity: sentiment_report.SentimentReportEntity
   ) -> analysis_result.JustificationCategoryMetadataResultSet:
     if not report_entity.include_justifications:
       return analysis_result.JustificationCategoryMetadataResultSet(

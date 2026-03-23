@@ -32,6 +32,8 @@ DATERANGEEND_COL_INDEX = 5
 STATUS_COL_INDEX = 6
 CREATEDON_COL_INDEX = 7
 LASTUPDATEDON_COL_INDEX = 8
+INCLUDEJUSTIFICATIONS_COL_INDEX = 9
+RELEVANCETHRESHOLD_COL_INDEX = 10
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
           status,
           createdon,
           lastupdatedon,
-          includeJustifications
+          includeJustifications,
+          relevanceThreshold
       FROM
           public.SentimentReports
       WHERE
@@ -228,7 +231,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         end_time=row[DATERANGEEND_COL_INDEX],
         created=row[CREATEDON_COL_INDEX],
         last_updated=row[LASTUPDATEDON_COL_INDEX],
-        include_justifications=row[9],
+        include_justifications=row[INCLUDEJUSTIFICATIONS_COL_INDEX],
+        relevance_threshold=row[RELEVANCETHRESHOLD_COL_INDEX],
         datasets=datasets,
     )
 

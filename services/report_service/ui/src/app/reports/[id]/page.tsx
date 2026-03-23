@@ -35,10 +35,10 @@ import {
   SentimentDataType,
   SourceAnalysisResult,
   ShareOfVoiceResult,
+  statusColors,
 } from '@/lib/types';
 import {Separator} from '@/components/ui/separator';
 import {sourceConfiguration} from '@/lib/sources';
-import {statusColors} from '@/components/reports/columns';
 
 const PendingState = ({status}: {status?: Status}) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
