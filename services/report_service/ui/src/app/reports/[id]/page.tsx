@@ -220,19 +220,21 @@ export default async function ReportDetailPage({
   };
 
   return (
-    <div className="container mx-auto p-4 md:py-12">
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-          <h1 className="font-headline text-4xl font-bold tracking-tighter">
-            {report.topic}
-          </h1>
-          <Badge
-            variant={statusColors[report.status || Status.NEW]}
-            className="capitalize text-sm py-1 px-3"
-          >
-            {report.status?.replace(/_/g, ' ')}
-          </Badge>
-        </div>
+    <div className="flex flex-col w-full">
+      {/* Sticky Full-Width Report Header */}
+      <div className="sticky top-14 z-40 w-full bg-muted/80 backdrop-blur-md border-b shadow-sm">
+        <div className="container mx-auto px-4 py-6 md:px-8 flex flex-col gap-6">
+          <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+            <h1 className="font-headline text-4xl font-bold tracking-tighter">
+              {report.topic}
+            </h1>
+            <Badge
+              variant={statusColors[report.status || Status.NEW]}
+              className="capitalize text-sm py-1 px-3"
+            >
+              {report.status?.replace(/_/g, ' ')}
+            </Badge>
+          </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -308,22 +310,25 @@ export default async function ReportDetailPage({
           </Card>
         </div>
 
+        {report.status === Status.COMPLETED && (
+          <ReportFilters
+            reportId={reportId}
+            excludedChannels={filters.excludedChannels || []}
+            defaultStartDate={report.startTime}
+            defaultEndDate={report.endTime}
+          />
+        )}
+        </div>
+      </div> {/* End Sticky Full-Width Report Header */}
+
+      {/* Main Analysis Results Viewport */}
+      <div className="container mx-auto px-4 py-8 md:px-8 md:py-12 flex flex-col gap-8">
         {report.status !== Status.COMPLETED &&
           report.status !== Status.FAILED && (
             <PendingState status={report.status} />
           )}
 
-        {report.status === Status.COMPLETED && (
-          <>
-            <ReportFilters
-              reportId={reportId}
-              excludedChannels={filters.excludedChannels || []}
-              defaultStartDate={report.startTime}
-              defaultEndDate={report.endTime}
-            />
-            {renderCharts()}
-          </>
-        )}
+        {report.status === Status.COMPLETED && renderCharts()}
       </div>
     </div>
   );

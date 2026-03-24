@@ -78,16 +78,18 @@ describe('ReportDetailPage', () => {
   };
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
   });
 
   it('calls notFound when report is missing', async () => {
     (getReportById as jest.Mock).mockResolvedValue(undefined);
 
-    await ReportDetailPage({
-      params: mockParams,
-      searchParams: mockSearchParams,
-    });
+    await expect(
+      ReportDetailPage({
+        params: mockParams,
+        searchParams: mockSearchParams,
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
 
     expect(notFound).toHaveBeenCalled();
   });
