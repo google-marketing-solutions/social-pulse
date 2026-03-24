@@ -182,7 +182,6 @@ class YoutubeVideoJustificationBuilder(_BaseYoutubeVideoBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
-        relevance_threshold=report_entity.relevance_threshold,
     )
     neg_rows = repo.query_justification_breakdown_for_videos(
         table_id,
@@ -191,7 +190,6 @@ class YoutubeVideoJustificationBuilder(_BaseYoutubeVideoBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
-        relevance_threshold=report_entity.relevance_threshold,
     )
 
     result = {"positive": [], "negative": [], "neutral": []}
@@ -243,7 +241,11 @@ class YoutubeVideoJustificationCategoryMetadataBuilder(
 
   def build(
       self,
-      report_entity: sentiment_report.SentimentReportEntity
+      report_entity: sentiment_report.SentimentReportEntity,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
   ) -> analysis_result.JustificationCategoryMetadataResultSet:
     if not report_entity.include_justifications:
       return analysis_result.JustificationCategoryMetadataResultSet(
