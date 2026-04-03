@@ -78,7 +78,7 @@ class GenerateJustificationCategoriesTaskTest(
     ):
       self.task.run()
 
-      self.mock_analyzer.analyze_content_with_gemini.assert_not_called()
+      self.mock_analyzer.analyze_content.assert_not_called()
       mock_output_target.write_sentiment_data.assert_called_once()
 
       args, _ = mock_output_target.write_sentiment_data.call_args
@@ -109,7 +109,7 @@ class GenerateJustificationCategoriesTaskTest(
     self.mock_input_target.load_sentiment_data.return_value = input_df
 
     mock_response = '[{"categoryName": "General: Awesome"}]'
-    self.mock_analyzer.analyze_content_with_gemini.return_value = mock_response
+    self.mock_analyzer.analyze_content.return_value = mock_response
 
     mock_output_target = mock.Mock()
     with (
@@ -120,7 +120,7 @@ class GenerateJustificationCategoriesTaskTest(
     ):
       self.task.run()
 
-      self.mock_analyzer.analyze_content_with_gemini.assert_called_once()
+      self.mock_analyzer.analyze_content.assert_called_once()
       mock_output_target.write_sentiment_data.assert_called_once()
 
       args, _ = mock_output_target.write_sentiment_data.call_args

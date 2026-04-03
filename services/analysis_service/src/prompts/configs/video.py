@@ -12,6 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 """Constants and classes for creating video based content prompts."""
+
+import abc
 import string
 
 import pandas as pd
@@ -195,8 +197,8 @@ VIDEO_SHARE_OF_VOICE_SCORE_PROMPT_TEMPLATE = """
   """
 
 
-class BasicSentimentScoreFromVideoPromptConfig(core.PromptConfig):
-  """Configuration for generating video sentiment analysis prompts."""
+class _BaseVideoPromptConfig(core.PromptConfig):
+  """Base configuration for video analysis prompts."""
 
   def get_input_columns(self) -> list[str]:
     return [
@@ -212,61 +214,63 @@ class BasicSentimentScoreFromVideoPromptConfig(core.PromptConfig):
   def get_system_instruction(self) -> str:
     return VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
 
+  def get_file_data(self, row: pd.Series) -> list[tuple[str, str]] | None:
+    return [("video/*", row["videoUrl"])]
+
+  @abc.abstractmethod
+  def get_prompt_template(self) -> str:
+    """Returns the base prompt template for the LLM."""
+    raise NotImplementedError
+
+  def add_custom_schema_properties(
+      self, schema_builder: core.SentimentResponseSchemaBuilder
+  ) -> None:
+    """Hook for subclasses to add custom properties to the response schema.
+
+    Args:
+      schema_builder: The schema builder to add properties to.
+    """
+    pass
+
   def generate_llm_prompt(self, row: pd.Series) -> str:
-    template_string = VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE
+    template_string = self.get_prompt_template()
     if self._workflow_exec.include_justifications:
       template_string += PROVIDE_JUSTIFICATION_STANZA
 
-    brand_or_product = self._workflow_exec.topic
-    video_url = row["videoUrl"]
-
     scoring_prompt = string.Template(template_string)
     return scoring_prompt.substitute(
-        brand_or_product=brand_or_product, video_url=video_url
+        topic=self._workflow_exec.topic,
+        brand_or_product=self._workflow_exec.topic,
+        video_url=row["videoUrl"],
     )
 
   def get_response_schema(self) -> str:
     schema_builder = core.SentimentResponseSchemaBuilder()
 
-    if (self._workflow_exec.include_justifications):
+    if self._workflow_exec.include_justifications:
       schema_builder.add_property(core.JUSTIFICATION_RESPONSE_SCHEMA_MIXIN)
+
+    self.add_custom_schema_properties(schema_builder)
 
     return schema_builder.build()
 
-  def get_file_data(self, row: pd.Series) -> list[tuple[str, str]] | None:
-    return [("video/*", row["videoUrl"])]
+
+class BasicSentimentScoreFromVideoPromptConfig(_BaseVideoPromptConfig):
+  """Configuration for generating video sentiment analysis prompts."""
+
+  def get_prompt_template(self) -> str:
+    return VIDEO_SENTIMENT_SCORE_PROMPT_TEMPLATE
 
 
-class ShareOfVoiceSentimentScoresFromVideoPromptConfig(core.PromptConfig):
+class ShareOfVoiceSentimentScoresFromVideoPromptConfig(_BaseVideoPromptConfig):
   """Configuration for generating video SoV analysis prompts."""
 
-  def get_input_columns(self) -> list[str]:
-    return [
-        "videoId",
-        "videoTitle",
-        "videoDescription",
-        "videoUrl",
-        "channelId",
-        "channelTitle",
-        "publishedAt",
-    ]
+  def get_prompt_template(self) -> str:
+    return VIDEO_SHARE_OF_VOICE_SCORE_PROMPT_TEMPLATE
 
-  def get_system_instruction(self) -> str:
-    return VIDEO_EXTRACTION_SYSTEM_INSTRUCTION
-
-  def generate_llm_prompt(self, row: pd.Series) -> str:
-    scoring_prompt = string.Template(VIDEO_SHARE_OF_VOICE_SCORE_PROMPT_TEMPLATE)
-    topic = self._workflow_exec.topic
-    video_url = row["videoUrl"]
-
-    return scoring_prompt.substitute(topic=topic, video_url=video_url)
-
-  def get_response_schema(self) -> str:
-    return (
-        core.SentimentResponseSchemaBuilder()
-        .add_property(core.SHARE_OF_VOICE_WEIGHT_RESPONSE_SCHEMA_MIXIN)
-        .build()
+  def add_custom_schema_properties(
+      self, schema_builder: core.SentimentResponseSchemaBuilder
+  ) -> None:
+    schema_builder.add_property(
+        core.SHARE_OF_VOICE_WEIGHT_RESPONSE_SCHEMA_MIXIN
     )
-
-  def get_file_data(self, row):
-    return [("video/*", row["videoUrl"])]

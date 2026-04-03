@@ -41,12 +41,10 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):
     if not api_key:
       logger.error("API key is required.")
       raise ValueError("API key is required.")
-    self._api_key = api_key
 
     if not project_id:
       logger.error("GCP project ID is required.")
       raise ValueError("GCP project ID is required.")
-    self._project_id = project_id
 
     try:
       self._client = genai.Client(
@@ -60,7 +58,7 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):
       logger.error("Failed to initialize GenAI client: %s", e)
       raise
 
-  def analyze_content_with_gemini(self, prompt: str) -> dict[str]:
+  def analyze_content(self, prompt: str) -> dict[str]:
     """Analyzes content using Vertex AI's generate_content API.
 
     Args:
@@ -74,7 +72,8 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):
 
     try:
       response = self._client.models.generate_content(
-          model=GEMINI_MODEL_NAME, contents=prompt,
+          model=GEMINI_MODEL_NAME,
+          contents=prompt,
           config=types.GenerateContentConfig(
               temperature=0.1,
               thinking_config=types.ThinkingConfig(

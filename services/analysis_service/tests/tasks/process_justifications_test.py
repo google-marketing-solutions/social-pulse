@@ -50,7 +50,7 @@ class JustificationCategorizerTest(unittest.TestCase):
     df = pd.DataFrame([{"sentiments": []}])
 
     self.categorizer.categorize(df)
-    self.mock_analyzer.analyze_content_with_gemini.assert_not_called()
+    self.mock_analyzer.analyze_content.assert_not_called()
 
   def test_categorize_calls_analyzer_and_updates_dataframe(self):
     """Calls analyzer and updates DataFrame with categories.
@@ -69,11 +69,11 @@ class JustificationCategorizerTest(unittest.TestCase):
     mock_response = json.dumps(
         [{"id": "0_0_0", "category": "Feature: Quality"}]
     )
-    self.mock_analyzer.analyze_content_with_gemini.return_value = mock_response
+    self.mock_analyzer.analyze_content.return_value = mock_response
 
     self.categorizer.categorize(df)
 
-    self.mock_analyzer.analyze_content_with_gemini.assert_called_once()
+    self.mock_analyzer.analyze_content.assert_called_once()
 
     # Verify the category was added
     updated_sentiment = df.iloc[0]["sentiments"][0]
@@ -97,7 +97,7 @@ class JustificationCategorizerTest(unittest.TestCase):
         + json.dumps([{"id": "0_0_0", "category": "General: Negative"}])
         + "\n```"
     )
-    self.mock_analyzer.analyze_content_with_gemini.return_value = mock_response
+    self.mock_analyzer.analyze_content.return_value = mock_response
 
     self.categorizer.categorize(df)
 
@@ -117,7 +117,7 @@ class JustificationCategorizerTest(unittest.TestCase):
         [{"sentiments": [{"justifications": [{"quote": "error prone"}]}]}]
     )
 
-    self.mock_analyzer.analyze_content_with_gemini.return_value = "invalid json"
+    self.mock_analyzer.analyze_content.return_value = "invalid json"
 
     with self.assertRaises(json.JSONDecodeError):
       self.categorizer.categorize(df)
@@ -196,7 +196,7 @@ class ProcessJustificationsTaskTest(
     self.mock_categories_target.load_sentiment_data.return_value = categories_df
 
     # Configure mock analyzer responses
-    self.mock_analyzer.analyze_content_with_gemini.side_effect = [
+    self.mock_analyzer.analyze_content.side_effect = [
         json.dumps([{"id": "0_0_0", "category": "General: Awesome"}])
     ]
 
@@ -211,7 +211,7 @@ class ProcessJustificationsTaskTest(
       self.task.run()
 
       # Validation
-      self.mock_analyzer.analyze_content_with_gemini.assert_called_once()
+      self.mock_analyzer.analyze_content.assert_called_once()
 
       # Verify output was written
       mock_output_target.write_sentiment_data.assert_called_once()
@@ -254,7 +254,7 @@ class ProcessJustificationsTaskTest(
     self.mock_categories_target.load_sentiment_data.return_value = categories_df
 
     # Mock responses
-    self.mock_analyzer.analyze_content_with_gemini.side_effect = [
+    self.mock_analyzer.analyze_content.side_effect = [
         json.dumps([{"id": "0_0_0", "category": "C"}]),
         json.dumps([{"id": "1_0_0", "category": "C"}]),
     ]
@@ -275,7 +275,7 @@ class ProcessJustificationsTaskTest(
 
       # 2 calls for batches
       self.assertEqual(
-          self.mock_analyzer.analyze_content_with_gemini.call_count, 2
+          self.mock_analyzer.analyze_content.call_count, 2
       )
 
       mock_output_target.write_sentiment_data.assert_called_once()
@@ -305,7 +305,7 @@ class ProcessJustificationsTaskTest(
     ):
       self.task.run()
 
-      self.mock_analyzer.analyze_content_with_gemini.assert_not_called()
+      self.mock_analyzer.analyze_content.assert_not_called()
       mock_output_target.write_sentiment_data.assert_called_once()
       args, _ = mock_output_target.write_sentiment_data.call_args
       self.assertEqual(len(args[0]), 1)

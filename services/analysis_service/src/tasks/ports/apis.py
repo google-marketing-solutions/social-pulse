@@ -143,8 +143,13 @@ class LlmApiClient(abc.ABC):
   """Abstract interface for interacting with the LLM API."""
 
   @abc.abstractmethod
-  def analyze_content_with_gemini(
-      self, prompt: str
-  ) -> str:
-    """Analyzes content with Gemini."""
+  def analyze_content(self, prompt: str) -> str:
+    """Analyzes the provided prompt using an LLM.
+
+    Args:
+      prompt: The prompt to analyze.
+
+    Returns:
+      The analysis result.
+    """
     raise NotImplementedError

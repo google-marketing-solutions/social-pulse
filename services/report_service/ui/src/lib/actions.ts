@@ -20,11 +20,11 @@ import {z} from 'zod';
 import {createReportSchema} from './schema';
 import {SentimentReport, SocialMediaSource, ReportArtifactType} from './types';
 
-type CreateReportState = {
+interface CreateReportState {
   errors?: z.inferFlattenedErrors<typeof createReportSchema>['fieldErrors'];
   message?: string;
   success?: boolean;
-};
+}
 
 import {
   createReport as apiCreateReport,
@@ -89,8 +89,6 @@ export async function createReport(
     sources,
     dataOutput,
     dateRange,
-    // scheduleType, // Removed
-    // scheduleFrequencyWeeks, // Removed
   } = validatedFields.data;
 
   const payload = {
@@ -102,8 +100,8 @@ export async function createReport(
       : undefined,
     endTime: dateRange?.to ? new Date(dateRange.to).toISOString() : undefined,
 
-    // Defaulting to true for SENTIMENT_SCORE and false for SHARE_OF_VOICE
-    includeJustifications: dataOutput === 'SENTIMENT_SCORE',
+    // Defaulting to true for all reports
+    includeJustifications: true,
 
     // Defaulting to BQ_TABLE for now, as it's not in the form
     reportArtifactType: ReportArtifactType.BQ_TABLE,

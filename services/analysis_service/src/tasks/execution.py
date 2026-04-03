@@ -25,6 +25,7 @@ from tasks import generate_prompt
 from tasks import llm_response_processing
 from tasks import load_parent_data
 from tasks import process_justifications
+from tasks import process_sov_brands
 from tasks import run_sentiment_job
 from tasks import youtube_comments
 from tasks import youtube_data
@@ -207,9 +208,8 @@ class WorkflowExecution(
     self._attach_analysis_tasks(task_chain)
     self._attach_cleanup_task(task_chain)
 
-    last_task_in_chain = task_chain[-1]
     finishing_task = ExecutionFinishTask(
-        my_required_task=last_task_in_chain,
+        my_required_task=task_chain[-1],
         execution_id=self.execution_id
     )
     task_chain.append(finishing_task)
@@ -253,6 +253,7 @@ class WorkflowExecution(
       task_chain: The task chain to attach the analysis tasks to.
     """
     last_task_in_chain = task_chain[-1]
+    data_output = self.workflow_exec.data_output[0]
 
     # Add appropriate prompt generation task.
     prompt_generation_task = generate_prompt.GenerateLlmPromptForContentTask(
@@ -285,6 +286,16 @@ class WorkflowExecution(
           )
       )
       task_chain.append(justification_processing_task)
+
+    # Add brand consolidation task if share of voice is requested
+    if data_output == common_msg.SentimentDataType.SHARE_OF_VOICE:
+      process_sov_brands_task = (
+          process_sov_brands.ProcessSovBrandsTask(
+              execution_id=self.execution_id,
+              my_required_task=task_chain[-1],
+          )
+      )
+      task_chain.append(process_sov_brands_task)
 
   def _attach_load_parent_workflow_dataset(self, task_chain: list[luigi.Task]):
     """Attaches loading the parent workflow dataset task to the task chain.

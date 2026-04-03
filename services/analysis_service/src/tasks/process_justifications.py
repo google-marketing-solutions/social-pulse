@@ -120,7 +120,7 @@ class JustificationCategorizer:
     response_text = None
     try:
       analyzer = service.registry.get(apis.LlmApiClient)
-      response_text = analyzer.analyze_content_with_gemini(prompt)
+      response_text = analyzer.analyze_content(prompt)
 
       # Gemini might return markdown code blocks, strip them if needed
       cleaned_response = markdown.strip_markdown_code_blocks(response_text)

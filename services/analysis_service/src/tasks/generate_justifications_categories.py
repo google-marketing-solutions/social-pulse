@@ -141,7 +141,7 @@ class GenerateJustificationCategoriesTask(tasks_core.SentimentTask):
     )
 
     analyzer = service.registry.get(apis.LlmApiClient)
-    return analyzer.analyze_content_with_gemini(prompt)
+    return analyzer.analyze_content(prompt)
 
   def _extract_quote_data(self, df: pd.DataFrame) -> list[dict[str, str]]:
     """Extracts justification data including quote, sentiment, and summary.
