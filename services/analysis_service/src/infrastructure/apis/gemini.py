@@ -23,7 +23,7 @@ from tasks.ports import apis
 # Initialize logging
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL_NAME = "gemini-3-pro-preview"
+GEMINI_MODEL_NAME = "gemini-3.1-pro-preview"
 GEMINI_MODEL_LOCATION = "global"
 
 

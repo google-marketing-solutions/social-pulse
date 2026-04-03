@@ -40,7 +40,7 @@ class TestInsightsGenerator(unittest.TestCase):
     self.datasets = [
         report_msg.SentimentReportDataset(
             report_id=self.report_id,
-            source=common_msg.SocialMediaSource.YOUTUBE_COMMENT,
+            source=common_msg.SocialMediaSource.YOUTUBE_VIDEO,
             data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
             dataset_uri="bq://test-project.dataset.table"
         )
@@ -52,7 +52,7 @@ class TestInsightsGenerator(unittest.TestCase):
         report_id=self.report_id,
         topic="Test Topic",
         status=report_msg.Status.COMPLETED,
-        sources=[common_msg.SocialMediaSource.YOUTUBE_COMMENT],
+        sources=[common_msg.SocialMediaSource.YOUTUBE_VIDEO],
         data_outputs=[common_msg.SentimentDataType.SENTIMENT_SCORE],
         include_justifications=True,
         start_time=datetime.datetime(2026, 1, 1),
@@ -141,6 +141,48 @@ class TestInsightsGenerator(unittest.TestCase):
         datasets=self.datasets,
         app_config=self.app_config
     )
+
+    # Verify Gemini provider was NOT called
+    gemini_provider = self.app_config.gemini_insights_provider
+    gemini_provider.generate_base_insights.assert_not_called()
+    gemini_provider.generate_spike_analysis.assert_not_called()
+
+    # Verify nothing was inserted
+    insights_repo = self.app_config.report_insights_repository
+    insights_repo.insert_insight.assert_not_called()
+
+  def test_generate_and_store_insights_only_comments(self):
+    """Tests that insights generator returns early for only comments datasets.
+
+    Given a report with only YouTube Comment datasets
+    When generate_and_store_insights is called
+    Then the background task returns early without calling Gemini or inserting.
+    """
+    datasets = [
+        report_msg.SentimentReportDataset(
+            report_id=self.report_id,
+            source=common_msg.SocialMediaSource.YOUTUBE_COMMENT,
+            data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
+            dataset_uri="bq://test-project.dataset.table"
+        )
+    ]
+
+    dataset_repo = self.app_config.dataset_repository
+    dataset_repo.get_full_report_context.return_value = []
+
+    report_repo = self.app_config.sentiment_report_repository
+    mock_report = mock.Mock()
+    mock_report.sources = [common_msg.SocialMediaSource.YOUTUBE_COMMENT]
+    report_repo.load_report.return_value = mock_report
+
+    insights_generator.generate_and_store_insights(
+        report_id=self.report_id,
+        datasets=datasets,
+        app_config=self.app_config
+    )
+
+    # Verify BigQuery data was NOT fetched because we return early on sources
+    dataset_repo.get_full_report_context.assert_not_called()
 
     # Verify Gemini provider was NOT called
     gemini_provider = self.app_config.gemini_insights_provider

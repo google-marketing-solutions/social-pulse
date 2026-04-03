@@ -24,7 +24,8 @@ from socialpulse_common.gemini import GeminiPromptClient
 
 logger = logging.getLogger(__name__)
 
-GEMINI_MODEL_NAME = "gemini-3-pro-preview"
+GEMINI_MODEL_NAME = "gemini-3.1-pro-preview"
+GEMINI_CHAT_MODEL_NAME = "gemini-3-flash-preview"
 GEMINI_MODEL_LOCATION = "global"
 
 
@@ -201,12 +202,12 @@ class GeminiInsightsProvider(InsightsProvider):
           - Keep answers snappy, conversational, and concise for a chat UI.
           - If the user asks about metrics beyond views (like likes, comments),
             provide detailed answers based on the report data.
-          - Ground justifications in exact user quotes from the
-            'sentiments.justifications.quote' data. Do not just cite a category.
+          - Ground answers in exact user quotes from the
+            'sentiments.justifications.quote' or 'text' data. Do not just
+            cite a category.
           - If 1 or 2 specific videos/channels drive a trend or spike being
             discussed, call them out explicitly by name in the answer.
           - If the user asks for a video, provide the title and channel.
-          - If the user asks for a channel, provide the name and link.
           - If the answer cannot be found in the Report Context, politely
             state that you do not have that information.
 
@@ -223,7 +224,7 @@ class GeminiInsightsProvider(InsightsProvider):
         """
         try:
             response = self._client.generate_content(
-                model=GEMINI_MODEL_NAME,
+                model=GEMINI_CHAT_MODEL_NAME,
                 contents=prompt,
                 system_instruction=system_instruction,
                 temperature=0.7,

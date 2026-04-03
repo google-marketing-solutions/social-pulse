@@ -215,16 +215,6 @@ export default async function ReportDetailPage({
                     />
                   </>
                 )}
-              {report.dataOutput === SentimentDataType.SHARE_OF_VOICE && (
-                <ReportShareOfVoiceCharts
-                  result={sourceResult as ShareOfVoiceResult}
-                  metricLabel={
-                    source === SocialMediaSource.YOUTUBE_VIDEO
-                      ? 'Views'
-                      : 'Comments'
-                  }
-                />
-              )}
             </div>
           );
         })}
@@ -333,9 +323,11 @@ export default async function ReportDetailPage({
             />
             {renderCharts()}
             {insights && insights.length > 0 && (
-              <ReportInsightsSection insights={insights} />
+              <>
+                <ReportInsightsSection insights={insights} />
+                <ReportChatSidebar reportId={reportId} />
+              </>
             )}
-            <ReportChatSidebar reportId={reportId} />
           </>
         )}
       </div>

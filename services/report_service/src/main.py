@@ -35,6 +35,7 @@ from infrastructure.persistence.postgresdb import sentiment_report_repo
 from infrastructure.persistence.postgresdb import sentiment_report_search_repo
 from socialpulse_common import config
 from socialpulse_common import service
+from socialpulse_common.messages import common as msg_common
 from socialpulse_common.messages import report_insight as insight_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import bigquery_client
@@ -154,8 +155,13 @@ def chat_about_report(
         report_entity.status == report_msg.Status.COMPLETED
         and report_entity.datasets
     ):
+      # Filter datasets to only include YouTube Video context for chat
+      filtered_datasets = [
+          d for d in report_entity.datasets
+          if d.source == msg_common.SocialMediaSource.YOUTUBE_VIDEO
+      ]
       analysis_results = app_config.dataset_repository.get_full_report_context(
-          report_entity.datasets,
+          filtered_datasets,
       )
       context += f"Analysis Results: {analysis_results}\n"
 

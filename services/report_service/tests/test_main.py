@@ -91,7 +91,9 @@ class MainApiTest(unittest.TestCase):
     mock_report = mock.Mock()
     mock_report.topic = "Test Topic"
     mock_report.status = report_msg.Status.COMPLETED
-    mock_report.datasets = ["dataset-1"]
+    mock_dataset = mock.Mock()
+    mock_dataset.source = main.msg_common.SocialMediaSource.YOUTUBE_VIDEO
+    mock_report.datasets = [mock_dataset]
     mock_report.include_justifications = True
 
     with mock.patch.object(

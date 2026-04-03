@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/sheet';
 import {chatAboutReport} from '@/lib/actions';
 import {ChatMessage} from '@/lib/types';
+import ReactMarkdown from 'react-markdown';
 
 /**
  * Renders the chat sidebar for a report, displaying AI-generated
@@ -160,7 +161,9 @@ export function ReportChatSidebar({reportId}: {reportId: string}) {
                       {msg.role === 'user' ? (
                         msg.content
                       ) : (
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                        <div className="markdown-body">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
                       )}
                     </div>
                   </div>

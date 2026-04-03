@@ -18,6 +18,7 @@ import json
 import logging
 from typing import Any
 
+from socialpulse_common.messages import common as msg_common
 from socialpulse_common.messages import report_insight as insight_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 
@@ -47,12 +48,25 @@ def generate_and_store_insights(
         "Starting background insight generation for report %s", report_id
     )
 
-    # 1. Verify report exists
-    app_config.sentiment_report_repository.load_report(report_id)
+    # 1. Verify report exists and check sources
+    report_entity = app_config.sentiment_report_repository.load_report(
+        report_id
+    )
+    if msg_common.SocialMediaSource.YOUTUBE_VIDEO not in report_entity.sources:
+      logger.warning(
+          "Report %s does not have YOUTUBE_VIDEO source. Skipping insights.",
+          report_id
+      )
+      return
 
     # 2. Fetch analysis results from BigQuery
+    # Filter datasets to only include YouTube Video context
+    filtered_datasets = [
+        d for d in datasets
+        if d.source == msg_common.SocialMediaSource.YOUTUBE_VIDEO
+    ]
     analysis_results = app_config.dataset_repository.get_full_report_context(
-        datasets
+        filtered_datasets
     )
 
     if not analysis_results:
