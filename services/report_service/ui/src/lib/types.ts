@@ -104,12 +104,23 @@ export enum SentimentDataType {
  */
 export enum Status {
   NEW = 'NEW',
-  COLLECTING_DATA = 'COLLECTING_DATA',
-  DATA_COLLECTED = 'DATA_COLLECTED',
-  GENERATING_REPORT = 'GENERATING_REPORT',
+  IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   FAILED = 'FAILED',
 }
+
+/**
+ * Defines the colors for the different report statuses.
+ */
+export const statusColors: {
+  [key in Status]: 'default' | 'secondary' | 'destructive' | 'success' | 'info';
+} = {
+  NEW: 'secondary',
+  IN_PROGRESS: 'info',
+  COMPLETED: 'success',
+  FAILED: 'destructive',
+};
+
 
 /**
  * Types of artifacts that can be generated for a sentiment report.
@@ -157,6 +168,7 @@ export interface SourceAnalysisResult {
   sentimentOverTime?: SentimentDataPoint[];
   overallSentiment?: OverallSentiment;
   justificationBreakdown?: JustificationBreakdown;
+  justificationCategories?: JustificationCategoryMetadataItem[];
 }
 
 /**
@@ -189,6 +201,19 @@ export interface ShareOfVoiceResult {
 export interface JustificationItem {
   category: string;
   count: number;
+}
+
+/**
+ * Represents metadata for a justification category, providing a clear
+ * definition and a representative example.
+ */
+export interface JustificationCategoryMetadataItem {
+  /** The unique name of the category. */
+  categoryName: string;
+  /** A concise definition explaining what the category represents. */
+  definition: string;
+  /** A representative example from the data illustrating the category. */
+  representativeExample: string;
 }
 
 /**

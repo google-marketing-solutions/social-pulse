@@ -171,6 +171,53 @@ class BigQueryDatasetRepoTest(unittest.TestCase):
     self.assertEqual(self.mock_bq_client.query.call_count, 1)
     self.assertEqual(len(results), 1)
 
+  def test_query_justification_category_metadata(self):
+    """Tests the justification category metadata query.
+
+    Given a mocked BigQuery client.
+    When query_justification_category_metadata is called.
+    Then the query is executed and the mocked JSON result is returned.
+    """
+    self.mock_bq_client.query.return_value = [
+        {"category_json_data": '[{"categoryName": "Test Category"}]'}
+    ]
+    results = self.repo.query_justification_category_metadata(
+        "project.dataset.table"
+    )
+    self.assertEqual(self.mock_bq_client.query.call_count, 1)
+    self.assertEqual(len(results), 1)
+    self.assertEqual(results[0]["categoryName"], "Test Category")
+
+  def test_query_justification_category_metadata_empty(self):
+    """Tests the justification category metadata query with empty results.
+
+    Given a mocked BigQuery client that returns nothing.
+    When query_justification_category_metadata is called.
+    Then an empty list is returned.
+    """
+    self.mock_bq_client.query.return_value = []
+    results = self.repo.query_justification_category_metadata(
+        "project.dataset.table"
+    )
+    self.assertEqual(len(results), 0)
+
+  def test_query_justification_category_metadata_with_markdown(self):
+    """Tests the justification category metadata query with markdown wrapping.
+
+    Given a mocked BigQuery client that returns markdown-wrapped JSON.
+    When query_justification_category_metadata is called.
+    Then the markdown is stripped and the JSON is parsed correctly.
+    """
+    markdown_json = '```json\n[{"categoryName": "Marked Down"}]\n```'
+    self.mock_bq_client.query.return_value = [
+        {"category_json_data": markdown_json}
+    ]
+    results = self.repo.query_justification_category_metadata(
+        "project.dataset.table"
+    )
+    self.assertEqual(len(results), 1)
+    self.assertEqual(results[0]["categoryName"], "Marked Down")
+
 
 if __name__ == "__main__":
   unittest.main()

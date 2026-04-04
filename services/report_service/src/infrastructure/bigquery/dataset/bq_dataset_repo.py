@@ -13,11 +13,13 @@
 #  limitations under the License.
 """BigQuery implementation of Dataset Persistence."""
 
+import json
 import logging
 
 from domain.ports import dataset
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import bigquery_client
+from socialpulse_common.utils import markdown
 
 
 logger = logging.getLogger(__name__)
@@ -51,20 +53,14 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     Returns:
       List of dictionaries containing the justification results.
     """
-    where_clauses = [f"t0.sentimentScore LIKE '%{sentiment_filter}%'"]
-
-    if start_date:
-      where_clauses.append(f"t.publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"t.publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"t.channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"t.channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[f"t0.sentimentScore LIKE '%{sentiment_filter}%'"],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+        field_prefix="t.",
+    )
 
     query = f"""
         SELECT
@@ -106,20 +102,14 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
     Returns:
       List of dictionaries containing the justification results.
     """
-    where_clauses = [f"t0.sentimentScore LIKE '%{sentiment_filter}%'"]
-
-    if start_date:
-      where_clauses.append(f"comments.publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"comments.publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"comments.channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"comments.channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[f"t0.sentimentScore LIKE '%{sentiment_filter}%'"],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+        field_prefix="comments.",
+    )
 
     query = f"""
         SELECT
@@ -146,6 +136,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      relevance_threshold: int = 90,
   ) -> list[dict[str, any]]:
     """Executes query for SHARE_OF_VOICE.
 
@@ -155,26 +146,21 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      relevance_threshold: The relevance threshold for the report.
 
     Returns:
       List of dictionaries containing the share of voice results.
     """
-    where_clauses = ["s.productOrBrand IS NOT NULL", "relevanceScore >= 90"]
-
-    if start_date:
-      where_clauses.append(f"publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"channelTitle = '{channel_title}'")
-    if excluded_channels:
-      # Simple optimization: escape single quotes in channel names to
-      # prevent SQL syntax errors
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[
+            "s.productOrBrand IS NOT NULL",
+            f"relevanceScore >= {relevance_threshold}",
+        ],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+    )
 
     query = f"""
         SELECT
@@ -215,6 +201,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      relevance_threshold: int = 90,
   ) -> dict[str, int]:
     """Queries total item count and views for Share of Voice context.
 
@@ -224,24 +211,21 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: End date filter.
       channel_title: Channel title filter.
       excluded_channels: Excluded channels.
+      relevance_threshold: The relevance threshold for the report.
 
     Returns:
       Dictionary with positive, negative, neutral views and item_count.
     """
-    where_clauses = ["s.productOrBrand IS NOT NULL", "relevanceScore >= 90"]
-
-    if start_date:
-      where_clauses.append(f"publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[
+            "s.productOrBrand IS NOT NULL",
+            f"relevanceScore >= {relevance_threshold}",
+        ],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+    )
 
     query = f"""
         SELECT
@@ -283,6 +267,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      relevance_threshold: int = 90,
   ) -> list[dict[str, any]]:
     """Executes query for SENTIMENT_SCORE.
 
@@ -292,24 +277,19 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      relevance_threshold: The relevance threshold for the report.
 
     Returns:
       List of dictionaries containing the sentiment score results.
     """
-    where_clauses = ["videos.relevanceScore >= 90"]
-
-    if start_date:
-      where_clauses.append(f"videos.publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"videos.publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"videos.channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"videos.channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[f"videos.relevanceScore >= {relevance_threshold}"],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+        field_prefix="videos.",
+    )
 
     query = f"""
         SELECT
@@ -361,6 +341,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      relevance_threshold: int = 90,
   ) -> list[dict[str, any]]:
     """Executes query for SENTIMENT_SCORE for comments.
 
@@ -370,24 +351,19 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      relevance_threshold: The relevance threshold for the report.
 
     Returns:
       List of dictionaries containing the sentiment score results.
     """
-    where_clauses = ["comments.relevanceScore >= 90"]
-
-    if start_date:
-      where_clauses.append(f"comments.publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"comments.publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"comments.channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"comments.channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[f"comments.relevanceScore >= {relevance_threshold}"],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+        field_prefix="comments.",
+    )
 
     query = f"""
         SELECT
@@ -436,6 +412,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      relevance_threshold: int = 90,
   ) -> list[dict[str, any]]:
     """Queries for summary stats of sentiment scores for videos.
 
@@ -445,24 +422,19 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      relevance_threshold: The relevance threshold for the report.
 
     Returns:
       List of dictionaries containing the sentiment score results.
     """
-    where_clauses = ["videos.relevanceScore >= 90"]
-
-    if start_date:
-      where_clauses.append(f"videos.publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"videos.publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"videos.channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"videos.channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[f"videos.relevanceScore >= {relevance_threshold}"],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+        field_prefix="videos.",
+    )
 
     query = f"""
         SELECT
@@ -505,6 +477,7 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: str | None = None,
       channel_title: str | None = None,
       excluded_channels: list[str] | None = None,
+      relevance_threshold: int = 90,
   ) -> list[dict[str, any]]:
     """Queries for summary stats of sentiment scores for comments.
 
@@ -514,24 +487,19 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       end_date: Optional end date filter.
       channel_title: Optional channel title filter.
       excluded_channels: Optional list of channels to exclude.
+      relevance_threshold: The relevance threshold for the report.
 
     Returns:
       List of dictionaries containing the sentiment score results.
     """
-    where_clauses = ["comments.relevanceScore >= 90"]
-
-    if start_date:
-      where_clauses.append(f"comments.publishedAt >= '{start_date}'")
-    if end_date:
-      where_clauses.append(f"comments.publishedAt <= '{end_date}'")
-    if channel_title:
-      where_clauses.append(f"comments.channelTitle = '{channel_title}'")
-    if excluded_channels:
-      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
-      channels_str = "', '".join(sanitized)
-      where_clauses.append(f"comments.channelTitle NOT IN ('{channels_str}')")
-
-    where_clause = " AND ".join(where_clauses)
+    where_clause = self._build_where_clause(
+        base_clauses=[f"comments.relevanceScore >= {relevance_threshold}"],
+        start_date=start_date,
+        end_date=end_date,
+        channel_title=channel_title,
+        excluded_channels=excluded_channels,
+        field_prefix="comments.",
+    )
 
     query = f"""
         SELECT
@@ -591,6 +559,48 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
 
     return sorted(list(all_channels))
 
+  def _build_where_clause(
+      self,
+      base_clauses: list[str],
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+      field_prefix: str = "",
+  ) -> str:
+    """Builds a WHERE clause combining base conditions and common filters.
+
+    Args:
+      base_clauses: List of initial WHERE conditions.
+      start_date: Optional start date filter.
+      end_date: Optional end date filter.
+      channel_title: Optional channel title filter.
+      excluded_channels: Optional list of channels to exclude.
+      field_prefix: Prefix for fields (e.g., 'videos.', 'comments.', or 't.').
+
+    Returns:
+      A SQL WHERE clause string.
+    """
+    where_clauses = list(base_clauses)
+
+    if start_date:
+      where_clauses.append(f"{field_prefix}publishedAt >= '{start_date}'")
+
+    if end_date:
+      where_clauses.append(f"{field_prefix}publishedAt <= '{end_date}'")
+
+    if channel_title:
+      where_clauses.append(f"{field_prefix}channelTitle = '{channel_title}'")
+
+    if excluded_channels:
+      sanitized = [c.replace("'", "\\'") for c in excluded_channels]
+      channels_str = "', '".join(sanitized)
+      where_clauses.append(
+          f"{field_prefix}channelTitle NOT IN ('{channels_str}')"
+      )
+
+    return " AND ".join(where_clauses)
+
   def _query_channels(
       self, table_id: str, query: str | None = None
   ) -> list[str]:
@@ -645,3 +655,33 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       all_results.extend(rows)
 
     return all_results
+
+  def query_justification_category_metadata(
+      self,
+      table_id: str,
+  ) -> list[dict[str, any]]:
+    """Queries justification category metadata.
+
+    Args:
+      table_id: Table ID in project.dataset.table format.
+
+    Returns:
+      List of dictionaries containing the category metadata.
+    """
+    try:
+      query = f"SELECT category_json_data FROM `{table_id}`"
+      rows = list(self._bq_client.query(query))
+      if not rows:
+        return []
+
+      json_data = rows[0].get("category_json_data")
+      if not json_data:
+        return []
+
+      # Handle potential markdown wrapping
+      json_data = markdown.strip_markdown_code_blocks(json_data)
+
+      return json.loads(json_data)
+    except Exception as e:  # pylint: disable=broad-except
+      logger.warning("Failed to query metadata table %s: %s", table_id, e)
+      return []

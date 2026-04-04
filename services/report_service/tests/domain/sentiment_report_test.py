@@ -284,7 +284,7 @@ class SentimentReportEntityTest(unittest.TestCase):
         end_time=self.end_date,
     )
 
-    report.mark_as_failed("Failure reason")
+    report.mark_as_failed()
 
     self.assertEqual(report.status, report_msg.Status.FAILED)
     self.assertEqual(report.last_updated, self.mock_now_ts)

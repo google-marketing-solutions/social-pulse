@@ -27,6 +27,14 @@ fetchMock.enableMocks();
 describe('API Service', () => {
   const mockBaseUrl = 'http://localhost:8000';
 
+  beforeAll(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    (console.log as jest.Mock).mockRestore();
+  });
+
   beforeEach(() => {
     fetchMock.resetMocks();
     process.env.REPORTING_API_URL = mockBaseUrl;

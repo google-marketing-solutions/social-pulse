@@ -54,13 +54,27 @@ class JustificationCategoryDataPoint(BaseAnalysisResultSet):
   count: int
 
 
+class JustificationCategoryMetadataItem(BaseAnalysisResultSet):
+  category_name: str
+  definition: str
+  classification_type: str
+  representative_example: str
+
+
+class JustificationCategoryMetadataResultSet(BaseAnalysisResultSet):
+  justification_categories: List[JustificationCategoryMetadataItem]
+
+
 class JustificationBreakdown(BaseAnalysisResultSet):
   positive: List[JustificationCategoryDataPoint] = pydantic.Field(
-      default_factory=list)
+      default_factory=list
+  )
   negative: List[JustificationCategoryDataPoint] = pydantic.Field(
-      default_factory=list)
+      default_factory=list
+  )
   neutral: List[JustificationCategoryDataPoint] = pydantic.Field(
-      default_factory=list)
+      default_factory=list
+  )
 
 
 class JustificationBreakdownResultSet(BaseAnalysisResultSet):
@@ -82,4 +96,7 @@ class SourceAnalysisResult(BaseAnalysisResultSet):
   sentiment_over_time: Optional[List[SentimentDataPoint]] = None
   overall_sentiment: Optional[OverallSentimentDataPoint] = None
   justification_breakdown: Optional[JustificationBreakdown] = None
+  justification_categories: Optional[
+      List[JustificationCategoryMetadataItem]
+  ] = None
   share_of_voice: Optional[List[ShareOfVoiceDataPoint]] = None

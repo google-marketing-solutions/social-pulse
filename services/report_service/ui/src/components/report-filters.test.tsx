@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 import '@testing-library/jest-dom';
-import {render, screen, fireEvent, waitFor} from '@testing-library/react';
+import {render, screen, fireEvent, waitFor, act} from '@testing-library/react';
 import {ReportFilters} from './report-filters';
 import {useRouter, usePathname, useSearchParams} from 'next/navigation';
 import {getReportChannels} from '@/lib/actions';
@@ -51,8 +51,10 @@ describe('ReportFilters', () => {
     (getReportChannels as jest.Mock).mockResolvedValue([]);
   });
 
-  it('renders report filters', () => {
-    render(<ReportFilters reportId="123" />);
+  it('renders report filters', async () => {
+    await act(async () => {
+      render(<ReportFilters reportId="123" />);
+    });
     // Initial text should indicate selection or search
     expect(screen.getByText(/Filter channels/i)).toBeInTheDocument();
     expect(screen.getByText('Start Date')).toBeInTheDocument();

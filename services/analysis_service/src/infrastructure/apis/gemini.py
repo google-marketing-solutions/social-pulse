@@ -23,6 +23,7 @@ from tasks.ports import apis
 # Initialize logging
 logger = logging.getLogger(__name__)
 
+# TODO(jmistral): Add these as init parameters, instead of constants.
 GEMINI_MODEL_NAME = "gemini-3.1-pro-preview"
 GEMINI_MODEL_LOCATION = "global"
 

@@ -84,12 +84,12 @@ def _bootstrap_services():
 
   # Register report completion service impl
   report_completion_service = (
-      wfe_cloud_function.HttpReportCompletionService(
+      wfe_cloud_function.HttpReportStatusUpdatingService(
           settings.cloud.report_backend_api_url
       )
   )
   service_registry.register(
-      trigger.ReportCompletionService, report_completion_service
+      trigger.ReportStatusUpdatingService, report_completion_service
   )
 
   # Register trigger service impl
@@ -121,13 +121,17 @@ class PollerHandler:
     self._trigger: trigger.WorkflowExecutionTrigger = service.registry.get(
         trigger.WorkflowExecutionTrigger
     )
-    self._mark_completed_trigger: trigger.ReportCompletionService = (
-        service.registry.get(trigger.ReportCompletionService)
+    self._mark_completed_trigger: trigger.ReportStatusUpdatingService = (
+        service.registry.get(trigger.ReportStatusUpdatingService)
     )
 
   def trigger_ready_workflow_execs(self):
     """Finds ready workflows, triggers them, and updates their status."""
-    logger.info("Polling for ready workflow executions.")
+    logger.info("Polling for ready workflow executions...")
+    if config.is_development():
+      logger.info("Running in development mode. Skipping workflow execution.")
+      return
+
     ready_executions = self._repo.find_ready_executions()
 
     if not ready_executions:
@@ -224,8 +228,34 @@ class PollerHandler:
         execution_id,
     )
     for dataset_name in sentiment_datasets:
-      if not dataset_name.startswith("SentimentDataset"):
+      if (
+          not dataset_name.startswith("SentimentDataset")
+          and not dataset_name.startswith("GenerateJustificationCategoriesTask")
+      ):
+        logger.info("Deleting dataset: %s", dataset_name)
         repo.delete_dataset(dataset_name)
+
+  def mark_in_progress_reports(self):
+    """Marks reports that are in progress."""
+    logger.info("Marking in progress reports...")
+    in_progress_reports = self._repo.find_in_progress_reports()
+
+    if not in_progress_reports:
+      logger.info("No in progress reports found.")
+      return
+
+    logger.info(
+        "Found %d in progress reports to mark as in progress.",
+        len(in_progress_reports),
+    )
+    for report_id in in_progress_reports:
+      try:
+        self._mark_completed_trigger.mark_report_in_progress(report_id)
+      except Exception:  # pylint: disable=broad-exception-caught
+        logger.exception(
+            "Failed to mark report_id: %s as in progress.",
+            report_id
+        )
 
 
 @app.post("/poller")
@@ -254,7 +284,14 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
 
   try:
     handler = PollerHandler()
+
+    logger.info("Triggering ready workflows...")
     handler.trigger_ready_workflow_execs()
+
+    logger.info("Marking in progress reports...")
+    handler.mark_in_progress_reports()
+
+    logger.info("Marking completed reports...")
     handler.mark_completed_reports()
 
     return {"status": "success", "message": "Polling cycle completed."}

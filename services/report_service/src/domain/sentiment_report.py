@@ -21,6 +21,12 @@ from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 
 
+# Default relevance threshold for the sentiment report.  The default threshold
+# is set to 90 to ensure that only highly relevant content is included in the
+# report analysis results.
+DEFAULT_RELEVANCE_THRESHOLD = 90
+
+
 class SentimentReportEntity(domain.Entity):
   """Represents a sentiment report entity."""
 
@@ -44,7 +50,9 @@ class SentimentReportEntity(domain.Entity):
       data_output: common_msg.SentimentDataType,
       start_time: datetime.datetime,
       include_justifications: bool = False,
-      end_time: datetime.datetime | None = None) -> "SentimentReportEntity":
+      relevance_threshold: int = DEFAULT_RELEVANCE_THRESHOLD,
+      end_time: datetime.datetime | None = None,
+  ) -> "SentimentReportEntity":
     """Factory for creating a SentimentReportEntity.
 
     Args:
@@ -53,6 +61,7 @@ class SentimentReportEntity(domain.Entity):
       data_output: The data output of the report.
       start_time: The start of the date range of the report.
       include_justifications: Whether to include justifications in the report.
+      relevance_threshold: The relevance threshold for the report.
       end_time: The end of the date range of the report.
 
     Returns:
@@ -66,6 +75,7 @@ class SentimentReportEntity(domain.Entity):
         status=report_msg.Status.NEW,
         sources=sources,
         data_outputs=[data_output],
+        relevance_threshold=relevance_threshold,
         include_justifications=include_justifications,
         start_time=start_time,
         end_time=end_time,
@@ -86,6 +96,7 @@ class SentimentReportEntity(domain.Entity):
       start_time: datetime.datetime | None = None,
       end_time: datetime.datetime | None = None,
       datasets: list[report_msg.SentimentReportDataset] | None = None,
+      relevance_threshold: int | None = None,
   ):
     """Initializes a complete SentimentReportEntity from the provided values.
 
@@ -106,6 +117,7 @@ class SentimentReportEntity(domain.Entity):
       start_time: The start of the date range for the report's analysis.
       end_time: The end of the date range for the report's analysis.
       datasets: A list of sentiment datasets associated with the report.
+      relevance_threshold: The relevance threshold for the report.
     """
     super().__init__(
         entity_id=report_id,
@@ -121,6 +133,7 @@ class SentimentReportEntity(domain.Entity):
     self._start_time = start_time
     self._end_time = end_time
     self._datasets = datasets
+    self._relevance_threshold = relevance_threshold
 
     self._validate_fields()
 
@@ -134,6 +147,8 @@ class SentimentReportEntity(domain.Entity):
       raise ValueError("Data output cannot be empty.")
     if not all(data_output for data_output in self._data_outputs):
       raise ValueError("Data output cannot contain an empty output.")
+    if self._relevance_threshold < 0 or self._relevance_threshold > 100:
+      raise ValueError("Relevance threshold must be between 0 and 100.")
 
   @property
   def topic(self) -> str:
@@ -175,18 +190,19 @@ class SentimentReportEntity(domain.Entity):
     """A list of sentiment datasets associated with the report."""
     return self._datasets
 
-  def mark_as_failed(self, reason: str):
-    """Marks the report as failed.
+  @property
+  def relevance_threshold(self) -> int:
+    """The relevance threshold for the report."""
+    return self._relevance_threshold
 
-    Args:
-      reason: The reason for the failure.
-    """
+  def mark_as_failed(self):
+    """Marks the report as failed."""
     self._status = report_msg.Status.FAILED
     self._last_updated = datetime.datetime.now()
 
-  def mark_as_collecting_data(self):
-    """Marks the report as collecting data."""
-    self._status = report_msg.Status.COLLECTING_DATA
+  def mark_as_in_progress(self):
+    """Marks the report as in progress."""
+    self._status = report_msg.Status.IN_PROGRESS
     self._last_updated = datetime.datetime.now()
 
   def mark_as_completed(self,

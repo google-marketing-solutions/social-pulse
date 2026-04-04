@@ -13,6 +13,8 @@
 #  limitations under the License.
 """Module for YouTube Comment Analysis Result Builders."""
 
+import logging
+
 from domain import sentiment_report
 from domain.analysis_results import core as builder_core
 from domain.ports import dataset
@@ -20,6 +22,9 @@ from socialpulse_common import service
 from socialpulse_common.messages import analysis_result
 from socialpulse_common.messages import common as msg_common
 from socialpulse_common.messages import sentiment_report as report_msg
+
+
+logger = logging.getLogger(__name__)
 
 
 class _BaseYoutubeCommentBuilder(builder_core.ResultDataBuilder):
@@ -70,6 +75,7 @@ class YoutubeCommentSentimentTimelineBuilder(_BaseYoutubeCommentBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
+        relevance_threshold=report_entity.relevance_threshold,
     )
 
     timeline = []
@@ -114,6 +120,7 @@ class YoutubeCommentOverallSentimentBuilder(_BaseYoutubeCommentBuilder):
         end_date=end_date,
         channel_title=channel_title,
         excluded_channels=excluded_channels,
+        relevance_threshold=report_entity.relevance_threshold,
     )
 
     overall_pos = sum(int(row.get("POSITIVE_COUNT", 0)) for row in rows)
@@ -210,4 +217,62 @@ class YoutubeCommentJustificationBuilder(_BaseYoutubeCommentBuilder):
             negative=result["negative"],
             neutral=result["neutral"],
         )
+    )
+
+
+class YoutubeCommentJustificationCategoryMetadataBuilder(
+    _BaseYoutubeCommentBuilder
+):
+  """Builder for YouTube Comment Justification Category Metadata."""
+
+  def build(
+      self,
+      report_entity: sentiment_report.SentimentReportEntity,
+      start_date: str | None = None,
+      end_date: str | None = None,
+      channel_title: str | None = None,
+      excluded_channels: list[str] | None = None,
+  ) -> analysis_result.JustificationCategoryMetadataResultSet:
+    if not report_entity.include_justifications:
+      return analysis_result.JustificationCategoryMetadataResultSet(
+          justification_categories=[]
+      )
+
+    ds = self._get_dataset(
+        report_entity, msg_common.SentimentDataType.SENTIMENT_SCORE
+    )
+    if not ds or not ds.dataset_uri:
+      return analysis_result.JustificationCategoryMetadataResultSet(
+          justification_categories=[]
+      )
+
+    repo = service.registry.get(dataset.DatasetRepo)
+    # Map SentimentDataset_XXX to GenerateJustificationCategoriesTask_XXX
+    dataset_uri = ds.dataset_uri
+    if "SentimentDataset_" not in dataset_uri:
+      logger.warning("Unexpected dataset URI format: %s", dataset_uri)
+      return analysis_result.JustificationCategoryMetadataResultSet(
+          justification_categories=[]
+      )
+
+    metadata_uri = dataset_uri.replace(
+        "SentimentDataset_", "GenerateJustificationCategoriesTask_"
+    )
+    table_id = self._get_table_id(metadata_uri)
+
+    rows = repo.query_justification_category_metadata(table_id)
+
+    categories = []
+    for row in rows:
+      categories.append(
+          analysis_result.JustificationCategoryMetadataItem(
+              category_name=row.get("categoryName", ""),
+              definition=row.get("definition", ""),
+              classification_type=row.get("classificationType", ""),
+              representative_example=row.get("representativeExample", ""),
+          )
+      )
+
+    return analysis_result.JustificationCategoryMetadataResultSet(
+        justification_categories=categories
     )

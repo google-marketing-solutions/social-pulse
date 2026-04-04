@@ -45,18 +45,8 @@ const statusOptions = [
     icon: Circle,
   },
   {
-    value: Status.COLLECTING_DATA,
-    label: 'Collecting Data',
-    icon: Timer,
-  },
-  {
-    value: Status.DATA_COLLECTED,
-    label: 'Data Collected',
-    icon: CheckCircle2,
-  },
-  {
-    value: Status.GENERATING_REPORT,
-    label: 'Generating Report',
+    value: Status.IN_PROGRESS,
+    label: 'In Progress',
     icon: Timer,
   },
   {
@@ -140,11 +130,9 @@ export function ReportsList({reports}: ReportsListProps) {
 
   const handleRowClick = (report: ReportForList) => {
     if (
-      report.status === 'COMPLETED' ||
-      report.status === 'NEW' ||
-      report.status === 'COLLECTING_DATA' ||
-      report.status === 'DATA_COLLECTED' ||
-      report.status === 'GENERATING_REPORT'
+      report.status === Status.COMPLETED ||
+      report.status === Status.NEW ||
+      report.status === Status.IN_PROGRESS
     ) {
       router.push(`/reports/${report.reportId}`);
     }

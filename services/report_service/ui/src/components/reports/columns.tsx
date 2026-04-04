@@ -19,19 +19,10 @@ import {format} from 'date-fns';
 
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
-import {ReportForList, Status, SocialMediaSource} from '@/lib/types';
+import {ReportForList, Status, SocialMediaSource, statusColors} from '@/lib/types';
 import {sourceConfiguration} from '@/lib/sources';
 import {SourceIcon} from '@/components/source-icon';
 
-const statusColors: {[key in Status]: 'default' | 'secondary' | 'destructive'} =
-  {
-    NEW: 'secondary',
-    COLLECTING_DATA: 'secondary',
-    DATA_COLLECTED: 'secondary',
-    GENERATING_REPORT: 'secondary',
-    COMPLETED: 'default',
-    FAILED: 'destructive',
-  };
 
 /**
  * Defines the columns for the reports table.

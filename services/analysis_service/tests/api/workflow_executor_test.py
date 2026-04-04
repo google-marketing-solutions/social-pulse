@@ -36,20 +36,13 @@ class PipelineRunnerTest(unittest.TestCase):
     super().setUp()
 
     self.runner = workflow_executor.PipelineRunner()
-    self.runner._register_services_for_pipeline = mock.Mock()
+
     self.mock_workflow_repo = mock.Mock(
         spec=persistence.WorkflowExecutionPersistenceService
     )
     service.registry.register(
         persistence.WorkflowExecutionPersistenceService, self.mock_workflow_repo
     )
-    self.runner._config = mock.Mock()
-    self.runner._config.workflow_repo = self.mock_workflow_repo
-
-  def tearDown(self):
-    """Tears down the test environment."""
-    super().tearDown()
-    service.registry._registered_services.clear()
 
   @mock.patch("luigi.build")
   def test_run(self, mock_luigi_build):

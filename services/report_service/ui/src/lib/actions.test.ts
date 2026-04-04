@@ -31,6 +31,14 @@ describe('Server Actions', () => {
     datasets: [],
   };
 
+  beforeAll(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    (console.error as jest.Mock).mockRestore();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -101,7 +109,7 @@ describe('Server Actions', () => {
 
       const result = await getReportById('123');
 
-      expect(api.getReportById).toHaveBeenCalledWith('123');
+      expect(api.getReportById).toHaveBeenCalledWith('123', undefined);
       expect(result).toEqual(mockReport);
     });
 
