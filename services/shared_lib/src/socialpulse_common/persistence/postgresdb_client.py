@@ -15,6 +15,7 @@
 
 import logging
 
+from psycopg2 import OperationalError
 from psycopg2 import pool
 
 
@@ -97,19 +98,26 @@ class PostgresDbClient:
         psycopg2.Error: If there is an error executing the query.
     """
 
-    result = None
-    conn = None
-
-    try:
-      conn = self._connection_pool.getconn()
-      with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        result = cursor.fetchone()
-
-      return result
-    finally:
-      if conn is not None:
-        self._connection_pool.putconn(conn)
+    retries = 1
+    while retries >= 0:
+      conn = None
+      try:
+        conn = self._connection_pool.getconn()
+        with conn.cursor() as cursor:
+          cursor.execute(query, params)
+          result = cursor.fetchone()
+        return result
+      except OperationalError as e:
+        if retries == 0:
+          raise
+        logger.warning("Postgres OperationalError, retrying: %s", e)
+        if conn is not None:
+          self._connection_pool.putconn(conn, close=True)
+          conn = None
+        retries -= 1
+      finally:
+        if conn is not None:
+          self._connection_pool.putconn(conn)
 
   def insert_row(self, query: str, params: tuple[any, ...] = None) -> str:
     """Inserts a single row into the database based on the given query.
@@ -218,16 +226,23 @@ class PostgresDbClient:
         psycopg2.Error: If there is an error executing the query.
     """
 
-    results = []
-    conn = None
-
-    try:
-      conn = self._connection_pool.getconn()
-      with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        results = cursor.fetchall()
-
-      return results
-    finally:
-      if conn is not None:
-        self._connection_pool.putconn(conn)
+    retries = 1
+    while retries >= 0:
+      conn = None
+      try:
+        conn = self._connection_pool.getconn()
+        with conn.cursor() as cursor:
+          cursor.execute(query, params)
+          results = cursor.fetchall()
+        return results
+      except OperationalError as e:
+        if retries == 0:
+          raise
+        logger.warning("Postgres OperationalError, retrying: %s", e)
+        if conn is not None:
+          self._connection_pool.putconn(conn, close=True)
+          conn = None
+        retries -= 1
+      finally:
+        if conn is not None:
+          self._connection_pool.putconn(conn)

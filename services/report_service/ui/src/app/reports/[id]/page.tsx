@@ -11,8 +11,8 @@
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
-import {getReportById} from '@/lib/actions';
-import {notFound} from 'next/navigation';
+import { getReportById, getInsightsById } from '@/lib/actions';
+import { notFound } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -20,14 +20,14 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import {Badge} from '@/components/ui/badge';
-import {format} from 'date-fns';
-import {BarChart, PieChart, Clock, CalendarDays, Info} from 'lucide-react';
-import {ReportFilters} from '@/components/report-filters';
-import {ReportSentimentCharts} from '@/components/report-sentiment-charts';
-import {ReportShareOfVoiceCharts} from '@/components/report-share-of-voice-charts';
-import {ReportJustificationCharts} from '@/components/report-justification-charts';
-import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { BarChart, PieChart, Clock, CalendarDays, Info } from 'lucide-react';
+import { ReportFilters } from '@/components/report-filters';
+import { ReportSentimentCharts } from '@/components/report-sentiment-charts';
+import { ReportShareOfVoiceCharts } from '@/components/report-share-of-voice-charts';
+import { ReportJustificationCharts } from '@/components/report-justification-charts';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   SentimentReport,
   SocialMediaSource,
@@ -35,12 +35,15 @@ import {
   SentimentDataType,
   SourceAnalysisResult,
   ShareOfVoiceResult,
+  ReportInsight,
   statusColors,
 } from '@/lib/types';
-import {Separator} from '@/components/ui/separator';
-import {sourceConfiguration} from '@/lib/sources';
+import { Separator } from '@/components/ui/separator';
+import { sourceConfiguration } from '@/lib/sources';
+import { ReportInsightsSection } from '@/components/report-insights-section';
+import { ReportChatSidebar } from '@/components/report-chat-sidebar';
 
-const PendingState = ({status}: {status?: Status}) => (
+const PendingState = ({ status }: { status?: Status }) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-background/80 backdrop-blur-sm">
       <Clock className="h-12 w-12 text-muted-foreground" />
@@ -81,7 +84,7 @@ export default async function ReportDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{id: string}>;
+  params: Promise<{ id: string }>;
   searchParams: Promise<{
     channelTitle?: string;
     startDate?: string;
@@ -110,6 +113,11 @@ export default async function ReportDetailPage({
 
   if (!report) {
     notFound();
+  }
+
+  let insights: ReportInsight[] = [];
+  if (report.status === Status.COMPLETED) {
+    insights = await getInsightsById(reportId);
   }
 
   const renderCharts = () => {
@@ -236,88 +244,88 @@ export default async function ReportDetailPage({
             </Badge>
           </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Analysis Type
-              </CardTitle>
-              {report.dataOutput === SentimentDataType.SENTIMENT_SCORE ? (
-                <BarChart className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <PieChart className="h-4 w-4 text-muted-foreground" />
-              )}
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold capitalize">
-                {report.dataOutput?.replace(/_/g, ' ')}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sources</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2 flex-wrap">
-                {report.sources.map(source => {
-                  const config =
-                    sourceConfiguration[source as SocialMediaSource];
-                  if (!config) return null;
-                  return (
-                    <Badge
-                      variant="outline"
-                      key={source}
-                      className="flex items-center gap-1.5 py-1"
-                    >
-                      {config.icon}
-                      <span className="capitalize">{config.label}</span>
-                    </Badge>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-          {report.startTime && report.endTime && (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Date Range
+                  Analysis Type
                 </CardTitle>
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                {report.dataOutput === SentimentDataType.SENTIMENT_SCORE ? (
+                  <BarChart className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <PieChart className="h-4 w-4 text-muted-foreground" />
+                )}
               </CardHeader>
               <CardContent>
-                <div className="text-lg font-semibold">
-                  {format(new Date(report.startTime), 'LLL d, y')} -{' '}
-                  {format(new Date(report.endTime), 'LLL d, y')}
+                <div className="text-2xl font-bold capitalize">
+                  {report.dataOutput?.replace(/_/g, ' ')}
                 </div>
               </CardContent>
             </Card>
-          )}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Report Created
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-lg font-semibold">
-                {report.createdOn &&
-                  format(new Date(report.createdOn), 'LLL d, y, p')}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Sources</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {report.sources.map(source => {
+                    const config =
+                      sourceConfiguration[source as SocialMediaSource];
+                    if (!config) return null;
+                    return (
+                      <Badge
+                        variant="outline"
+                        key={source}
+                        className="flex items-center gap-1.5 py-1"
+                      >
+                        {config.icon}
+                        <span className="capitalize">{config.label}</span>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+            {report.startTime && report.endTime && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Date Range
+                  </CardTitle>
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-lg font-semibold">
+                    {format(new Date(report.startTime), 'LLL d, y')} -{' '}
+                    {format(new Date(report.endTime), 'LLL d, y')}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Report Created
+                </CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-lg font-semibold">
+                  {report.createdOn &&
+                    format(new Date(report.createdOn), 'LLL d, y, p')}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {report.status === Status.COMPLETED && (
-          <ReportFilters
-            reportId={reportId}
-            excludedChannels={filters.excludedChannels || []}
-            defaultStartDate={report.startTime}
-            defaultEndDate={report.endTime}
-          />
-        )}
+          {report.status === Status.COMPLETED && (
+            <ReportFilters
+              reportId={reportId}
+              excludedChannels={filters.excludedChannels || []}
+              defaultStartDate={report.startTime}
+              defaultEndDate={report.endTime}
+            />
+          )}
         </div>
       </div> {/* End Sticky Full-Width Report Header */}
 
@@ -328,7 +336,23 @@ export default async function ReportDetailPage({
             <PendingState status={report.status} />
           )}
 
-        {report.status === Status.COMPLETED && renderCharts()}
+        {report.status === Status.COMPLETED && (
+          <>
+            <ReportFilters
+              reportId={reportId}
+              excludedChannels={filters.excludedChannels || []}
+              defaultStartDate={report.startTime}
+              defaultEndDate={report.endTime}
+            />
+            {renderCharts()}
+            {insights && insights.length > 0 && (
+              <>
+                <ReportInsightsSection insights={insights} />
+                <ReportChatSidebar reportId={reportId} />
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

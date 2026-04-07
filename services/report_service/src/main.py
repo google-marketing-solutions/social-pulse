@@ -17,17 +17,26 @@
 import logging
 import os
 
+from domain import insights_generator
 from domain import sentiment_report
 from domain.analysis_results import builder
 from domain.ports import dataset
+from domain.ports import insights
 from domain.ports import persistence
 import fastapi
-from infrastructure.api.http import workflow_execution_service as wfe_service_lib
+
+from infrastructure.api.http import (
+    workflow_execution_service as wfe_service_lib
+)
 from infrastructure.bigquery.dataset import bq_dataset_repo
+from infrastructure.insights import gemini
+from infrastructure.persistence.postgresdb import report_insights_repo
 from infrastructure.persistence.postgresdb import sentiment_report_repo
 from infrastructure.persistence.postgresdb import sentiment_report_search_repo
 from socialpulse_common import config
 from socialpulse_common import service
+from socialpulse_common.messages import common as msg_common
+from socialpulse_common.messages import report_insight as insight_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import bigquery_client
 from socialpulse_common.persistence import postgresdb_client as client
@@ -61,6 +70,16 @@ class AppConfig:
     ) = sentiment_report_search_repo.PostgresDbSentimentReportSearchRepo(
         postgres_client
     )
+    self.report_insights_repository: persistence.ReportInsightsRepo = (
+        report_insights_repo.PostgresDbReportInsightsRepo(postgres_client)
+    )
+
+    self.gemini_insights_provider: insights.InsightsProvider = (
+        gemini.GeminiInsightsProvider(
+            api_key=settings.api.youtube.key,
+            project_id=settings.cloud.project_id,
+        )
+    )
 
     logger.info(
         "Setting up WFE trigger client with URL:  %s",
@@ -87,6 +106,88 @@ app_config = AppConfig()
 @app.get("/api/hello")
 def read_root():
   return {"message": "Hello from the backend!"}
+
+
+@app.get("/api/insights/{report_id}")
+def get_insights(report_id: str) -> list[insight_msg.ReportInsight]:
+  """Retrieves pre-generated insights for a report.
+
+  Args:
+    report_id: The ID of the report.
+
+  Returns:
+    A list of report insights.
+  """
+  try:
+    return app_config.report_insights_repository.get_insights_for_report(
+        report_id
+    )
+  except Exception as e:
+    logger.exception("Error fetching insights:")
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e),
+    ) from e
+
+
+@app.post("/api/insights/{report_id}")
+def chat_about_report(
+    report_id: str,
+    request: insight_msg.ChatRequest,
+) -> insight_msg.ChatResponse:
+  """Performs a context-aware chat about a report.
+
+  Args:
+    report_id: The ID of the report.
+    request: The chat request message.
+
+  Returns:
+    The chat response message.
+  """
+  try:
+    report_entity = app_config.sentiment_report_repository.load_report(
+        report_id
+    )
+
+    # Load analysis results if completed to provide context
+    context = f"Report Topic: {report_entity.topic}\n"
+    if (
+        report_entity.status == report_msg.Status.COMPLETED
+        and report_entity.datasets
+    ):
+      # Filter datasets to only include YouTube Video context for chat
+      filtered_datasets = [
+          d for d in report_entity.datasets
+          if d.source == msg_common.SocialMediaSource.YOUTUBE_VIDEO
+      ]
+      analysis_results = app_config.dataset_repository.get_full_report_context(
+          filtered_datasets,
+      )
+      context += f"Analysis Results: {analysis_results}\n"
+
+      response_text = app_config.gemini_insights_provider.answer_chat_query(
+          report_context=context,
+          chat_history=[msg.model_dump() for msg in request.history],
+          query=request.query,
+      )
+    else:
+      response_text = (
+          "Sorry, but the report hasn't been completed yet so I can't answer"
+          " any questions just yet"
+      )
+
+    return insight_msg.ChatResponse(response=response_text)
+
+  except ValueError as e:
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_404_NOT_FOUND, detail=str(e)
+    ) from e
+  except Exception as e:
+    logger.exception("Error during chat:")
+    raise fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=str(e),
+    ) from e
 
 
 @app.get("/api/reports")
@@ -197,7 +298,9 @@ def _entity_to_message(
 
 @app.post("/api/{report_id}/mark_as_completed")
 def mark_as_completed(
-    report_id: str, datasets: list[report_msg.SentimentReportDataset]
+    report_id: str,
+    datasets: list[report_msg.SentimentReportDataset],
+    background_tasks: fastapi.BackgroundTasks,
 ) -> report_msg.SentimentReport:
   """Marks a sentiment report as completed and associates datasets with it.
 
@@ -205,6 +308,7 @@ def mark_as_completed(
     report_id: The ID of the report to mark as completed.
     datasets: A list of SentimentReportDataset messages containing information
       about the generated datasets.
+    background_tasks: FastAPI background tasks for asynchronous handling.
   """
   try:
     logger.info(
@@ -218,6 +322,14 @@ def mark_as_completed(
 
     report_entity.mark_as_completed(datasets)
     app_config.sentiment_report_repository.persist_report(report_entity)
+
+    # Schedule background generation of insights
+    background_tasks.add_task(
+        insights_generator.generate_and_store_insights,
+        report_id=report_id,
+        datasets=datasets,
+        app_config=app_config,
+    )
 
     return _entity_to_message(report_entity)
 

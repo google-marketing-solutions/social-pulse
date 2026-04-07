@@ -18,7 +18,12 @@ import {revalidatePath} from 'next/cache';
 import {z} from 'zod';
 
 import {createReportSchema} from './schema';
-import {SentimentReport, SocialMediaSource, ReportArtifactType} from './types';
+import {
+  SentimentReport,
+  SocialMediaSource,
+  ReportArtifactType,
+  ReportInsight,
+} from './types';
 
 interface CreateReportState {
   errors?: z.inferFlattenedErrors<typeof createReportSchema>['fieldErrors'];
@@ -30,6 +35,7 @@ import {
   createReport as apiCreateReport,
   getReports as apiGetReports,
   getReportById as apiGetReportsById,
+  getInsightsById as apiGetInsightsById,
 } from './api';
 
 /**
@@ -139,5 +145,41 @@ export async function getReportChannels(
   } catch (error) {
     console.error(`Failed to fetch channels for report ${id}:`, error);
     return [];
+  }
+}
+
+/**
+ * Fetches a list of insights for a report by its ID.
+ * @param id The ID of the report.
+ * @return A promise that resolves to an array of insights.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function getInsightsById(id: string): Promise<ReportInsight[]> {
+  try {
+    const insights = await apiGetInsightsById(id);
+    return insights;
+  } catch (error) {
+    console.error(`Failed to fetch insights for report ${id}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Performs a context-aware chat about a report.
+ * @param id The ID of the report.
+ * @param request The chat request containing query and history.
+ * @return A promise that resolves to the chat response.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function chatAboutReport(
+  id: string,
+  request: {query: string; history?: Array<{role: string; content: string}>},
+): Promise<{response: string}> {
+  const {chatAboutReport: apiChatAboutReport} = await import('./api');
+  try {
+    return await apiChatAboutReport(id, request);
+  } catch (error) {
+    console.error(`Failed to chat about report ${id}:`, error);
+    throw error;
   }
 }

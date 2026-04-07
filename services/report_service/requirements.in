@@ -3,6 +3,7 @@ db-dtypes
 fastapi
 google-cloud-logging
 google-cloud-bigquery
+google-genai
 parameterized
 protobuf
 psycopg2-binary

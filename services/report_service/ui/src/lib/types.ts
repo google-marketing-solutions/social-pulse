@@ -13,6 +13,74 @@
 //  limitations under the License.
 
 /**
+ * Types of insights that can be generated for a report.
+ */
+export enum InsightType {
+  TREND = 'TREND',
+  SPIKE = 'SPIKE',
+}
+
+/**
+ * Content structure for a trend insight.
+ */
+export interface TrendInsightContent {
+  top_trends: Array<{
+    trend_title: string;
+    description: string;
+    justifications: string[];
+  }>;
+}
+
+/**
+ * Content structure for a spike insight.
+ */
+export interface SpikeInsightContent {
+  spikes: Array<{
+    spike_topic: string;
+    cause_analysis: string;
+    primary_video_evidence: string[];
+    spike_magnitude?: string;
+    spike_trend?: string;
+    spike_month?: string;
+  }>;
+}
+
+/**
+ * Represents a single generated insight for a report.
+ */
+export interface ReportInsight {
+  insightId?: string;
+  reportId: string;
+  insightType: InsightType;
+  content: TrendInsightContent | SpikeInsightContent;
+  rawPromptOutput?: string;
+  createdOn?: string;
+}
+
+/**
+ * Represents a single message in a chat conversation.
+ */
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
+/**
+ * Represents a request to chat about a report.
+ */
+export interface ChatRequest {
+  query: string;
+  history?: ChatMessage[];
+}
+
+/**
+ * Represents a response from a chat query.
+ */
+export interface ChatResponse {
+  response: string;
+}
+
+/**
  * The social media sources that can be analyzed.
  */
 export enum SocialMediaSource {

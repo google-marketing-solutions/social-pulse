@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {SentimentReport as Report} from '@/lib/types';
+import {SentimentReport as Report, ReportInsight} from '@/lib/types';
 
 /**
  * Creates a new sentiment report by making a POST request to the backend API.
@@ -137,4 +137,61 @@ export async function getReportChannels(
   }
 
   return response.json();
+}
+
+/**
+ * Fetches insights for a single report by ID.
+ *
+ * @param id The ID of the report to fetch insights for.
+ * @return A promise that resolves to a list of insights.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function getInsightsById(id: string): Promise<ReportInsight[]> {
+  const baseUrl = process.env.REPORTING_API_URL;
+  const url = new URL(`${baseUrl}/api/insights/${id}`);
+
+  const response = await fetch(url.toString(), {
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Insights not found');
+    }
+    throw new Error('Failed to fetch insights');
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+/**
+ * Performs a context-aware chat about a report.
+ *
+ * @param id The ID of the report.
+ * @param request The chat request containing query and history.
+ * @return A promise that resolves to the chat response.
+ */
+// TODO(jcryan): Add API tests for this function.
+export async function chatAboutReport(
+  id: string,
+  request: {query: string; history?: Array<{role: string; content: string}>},
+): Promise<{response: string}> {
+  const baseUrl = process.env.REPORTING_API_URL;
+  const url = new URL(`${baseUrl}/api/insights/${id}`);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch chat response');
+  }
+
+  const data = await response.json();
+  return data;
 }

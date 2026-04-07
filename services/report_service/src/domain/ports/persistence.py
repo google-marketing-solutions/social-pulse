@@ -18,6 +18,7 @@ import enum
 import typing
 
 from domain import sentiment_report
+from socialpulse_common.messages import report_insight as insight_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 
 
@@ -89,3 +90,26 @@ class SentimentReportSearchRepo(abc.ABC):
     Returns:
       A list of sentiment reports matching the provided criteria.
     """
+    raise NotImplementedError
+
+
+class ReportInsightsRepo(abc.ABC):
+  """Interface for CRUD operations on report insights."""
+
+  @abc.abstractmethod
+  def insert_insight(
+      self,
+      report_id: str,
+      insight_type: insight_msg.InsightType,
+      content: typing.Dict[str, typing.Any],
+      raw_prompt_output: str | None = None,
+  ):
+    """Inserts a new insight for a report."""
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def get_insights_for_report(
+      self, report_id: str
+  ) -> list[insight_msg.ReportInsight]:
+    """Retrieves all insights for a specific report."""
+    raise NotImplementedError
