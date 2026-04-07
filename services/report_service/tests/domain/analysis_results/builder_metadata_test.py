@@ -37,6 +37,9 @@ class JustificationCategoryMetadataBuilderTest(unittest.TestCase):
         sentiment_report.SentimentReportEntity, instance=True
     )
     self.report_entity.include_justifications = True
+    self.report_entity.data_outputs = [
+        msg_common.SentimentDataType.SENTIMENT_SCORE
+    ]
 
   def test_youtube_video_metadata_builder(self):
     """Tests the video metadata builder.

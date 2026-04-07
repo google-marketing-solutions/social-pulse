@@ -193,6 +193,8 @@ export interface ShareOfVoiceResult {
     average: number;
     itemCount: number;
   };
+  justificationBreakdown?: JustificationBreakdown;
+  justificationCategories?: JustificationCategoryMetadataItem[];
 }
 
 /**
@@ -253,4 +255,7 @@ export interface SentimentReport {
   analysisResults?: Partial<Record<SocialMediaSource, AnalysisResult>>;
 }
 
+/**
+ * Represents a summarized version of a report for list views, omitting datasets.
+ */
 export type ReportForList = Omit<SentimentReport, 'datasets'>;

@@ -202,8 +202,8 @@ module "sp_analysis_wfe" {
   location              = var.region
   job_name              = "sp-analysis-wfe"
   image                 = local.wfe_image_name
-  cpu                   = "2"
-  memory                = "2Gi"
+  cpu                   = "4"
+  memory                = "16Gi"
   service_account_email = google_service_account.social-pulse-sa.email
   vpc_connector_id      = google_vpc_access_connector.connector.id
   command               = ["python", "api/workflow_executor.py"]

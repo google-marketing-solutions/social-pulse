@@ -163,7 +163,7 @@ class YoutubeVideoJustificationBuilder(_BaseYoutubeVideoBuilder):
       )
 
     ds = self._get_dataset(
-        report_entity, msg_common.SentimentDataType.SENTIMENT_SCORE
+        report_entity, report_entity.data_outputs[0]
     )
     if not ds or not ds.dataset_uri:
       return analysis_result.JustificationBreakdownResultSet(
@@ -253,7 +253,7 @@ class YoutubeVideoJustificationCategoryMetadataBuilder(
       )
 
     ds = self._get_dataset(
-        report_entity, msg_common.SentimentDataType.SENTIMENT_SCORE
+        report_entity, report_entity.data_outputs[0]
     )
     if not ds or not ds.dataset_uri:
       return analysis_result.JustificationCategoryMetadataResultSet(

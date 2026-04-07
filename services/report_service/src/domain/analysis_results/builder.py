@@ -39,6 +39,8 @@ _YT_VIDEO_TIMELINE_BUILDERS = [
 _YT_VIDEO_SHARE_OF_VOICE_BUILDERS = [
     youtube_video_builders.YoutubeVideoShareOfVoiceBuilder(),
     youtube_video_builders.YoutubeVideoShareOfVoiceStatsBuilder(),
+    youtube_video_builders.YoutubeVideoJustificationBuilder(),
+    youtube_video_builders.YoutubeVideoJustificationCategoryMetadataBuilder(),
 ]
 
 # List of builders for Youtube comment sentiment analysis.
@@ -91,6 +93,7 @@ class CompositeAnalysisResultsBuilder:
       source_result = results[source_key]
 
       for builder in builders:
+        logger.info("Building result for builder: %s", type(builder).__name__)
         try:
           partial_result = builder.build(
               report_entity,

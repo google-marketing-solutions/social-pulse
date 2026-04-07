@@ -30,7 +30,10 @@ from tasks.ports import apis
 
 logger = logging.getLogger(__name__)
 
-MAX_JUSTIFICATIONS_PER_BATCH = 250
+# Controls the maximum number of justifications to send to the LLM in a single
+# batch. This is done to avoid overwhelming the LLM with too large of a request
+# by limiting the number of justifications it needs to process per prompt.
+MAX_JUSTIFICATIONS_PER_BATCH = 50
 
 BULK_CATEGORIZATION_PROMPT_TEMPLATE = """
   You are an expert sentiment analyst. Your goal is to categorize a list of

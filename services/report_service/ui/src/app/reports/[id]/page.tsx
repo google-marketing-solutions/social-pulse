@@ -196,7 +196,8 @@ export default async function ReportDetailPage({
                 )}
               </>
 
-              {report.dataOutput === SentimentDataType.SENTIMENT_SCORE &&
+              {((report.dataOutput === SentimentDataType.SENTIMENT_SCORE) ||
+                (report.dataOutput === SentimentDataType.SHARE_OF_VOICE)) &&
                 (sourceResult as SourceAnalysisResult)
                   ?.justificationBreakdown && (
                   <>
