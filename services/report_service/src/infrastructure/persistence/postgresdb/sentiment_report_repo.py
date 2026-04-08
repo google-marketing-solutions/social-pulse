@@ -106,7 +106,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             status = %s,
             createdOn = %s,
             lastUpdatedOn = %s,
-            includeJustifications = %s
+            includeJustifications = %s,
+            relevanceThreshold = %s
         WHERE
             reportId = %s
     """
@@ -124,6 +125,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         report.created,
         report.last_updated,
         report.include_justifications,
+        report.relevance_threshold,
         report.entity_id,
     )
     self._postgres_client.update_row(query, update_params)
@@ -144,8 +146,9 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             topic,
             dateRangeStart,
             dateRangeEnd,
-            includeJustifications
-        ) VALUES (%s, %s, %s, %s, %s, %s)
+            includeJustifications,
+            relevanceThreshold
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING reportId;
     """
     sources_as_names = [source.name for source in report.sources]
@@ -158,6 +161,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         report.start_time,
         report.end_time,
         report.include_justifications,
+        report.relevance_threshold,
     )
 
     new_id = self._postgres_client.insert_row(query, params)

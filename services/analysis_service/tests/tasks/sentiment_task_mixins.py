@@ -65,6 +65,7 @@ class SetupMockSentimentTaskDepependenciesMixin():
         spec=persistence.WorkflowExecutionPersistenceService
     )
     self.mock_execution_params = mock.Mock(spec=wfe.WorkflowExecutionParams)
+    self.mock_execution_params.relevance_threshold = 0
     self.mock_wfe_params_loader_service.load_execution.return_value = (
         self.mock_execution_params
     )

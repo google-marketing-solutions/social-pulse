@@ -69,6 +69,9 @@ class WorkflowExecutionParams:
   # Flag to include justifications when producing sentiment scores.
   include_justifications: typing.Optional[bool] = None
 
+  # Relevance threshold for filtering content.
+  relevance_threshold: typing.Optional[int] = None
+
   # ID of a parent workflow exec this one depends on.
   parent_execution_id: typing.Optional[str] = None
 

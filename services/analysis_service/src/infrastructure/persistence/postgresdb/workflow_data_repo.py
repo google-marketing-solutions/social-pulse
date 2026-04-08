@@ -37,6 +37,7 @@ LASTCOMPLETEDTASK_COL_INDEX = 8
 PARENT_EXECUTION_ID_COL_INDEX = 9
 REPORT_ID_COL_INDEX = 10
 INCLUDE_JUSTIFICATIONS = 11
+RELEVANCE_THRESHOLD_COL_INDEX = 12
 
 
 class PostgresDbWorkflowExecutionPersistenceService(
@@ -69,7 +70,8 @@ class PostgresDbWorkflowExecutionPersistenceService(
         "  lastCompletedTask, "
         "  parentExecutionId, "
         "  reportId, "
-        "  includeJustifications "
+        "  includeJustifications, "
+        "  relevanceThreshold "
         "FROM WorkflowExecutionParams "
         "WHERE executionId = %s",
         (execution_id,),
@@ -110,9 +112,10 @@ class PostgresDbWorkflowExecutionPersistenceService(
           dateRangeEnd,
           parentExecutionId,
           reportId,
-          includeJustifications
+          includeJustifications,
+          relevanceThreshold
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING executionId;
     """
     data_outputs_as_names = [
@@ -136,6 +139,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         parent_execution_id,
         report_id,
         execution_params.include_justifications,
+        execution_params.relevance_threshold,
     )
 
     logger.info("Creating workflow execution with params: %s", params)
@@ -194,7 +198,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
             wep.executionId, wep.source, wep.dataOutputs, wep.topicType,
             wep.topic, wep.dateRangeStart, wep.dateRangeEnd, wep.status,
             wep.lastCompletedTask, wep.parentExecutionId, wep.reportId,
-            wep.includeJustifications
+            wep.includeJustifications, wep.relevanceThreshold
         FROM
             WorkflowExecutionParams wep
         LEFT JOIN
@@ -323,6 +327,7 @@ class PostgresDbWorkflowExecutionPersistenceService(
         if row[INCLUDE_JUSTIFICATIONS] is not None
         else True
     )
+    wfe_params.relevance_threshold = row[RELEVANCE_THRESHOLD_COL_INDEX]
 
     return wfe_params
 
@@ -354,5 +359,6 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params.include_justifications = wfe_dict.get(
         "includejustifications", True
     )
+    wfe_params.relevance_threshold = wfe_dict.get("relevancethreshold")
 
     return wfe_params

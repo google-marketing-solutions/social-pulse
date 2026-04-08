@@ -114,6 +114,9 @@ export async function createReport(
 
     // Defaulting to empty array for now, as it's not in the form
     datasets: [],
+
+    // Defaulting relevance threshold to 90 for now, as it's not in the form
+    relevanceThreshold: 90,
   };
 
   try {

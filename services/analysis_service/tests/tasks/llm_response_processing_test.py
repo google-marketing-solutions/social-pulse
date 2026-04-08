@@ -315,3 +315,49 @@ class ProcessLlmSentimentResponsesTest(
     expected_df = pd.concat(expected_results, ignore_index=True)
     self.assert_output_dataframe_matches(expected_df)
     self.assertEqual(mock_extract_response.call_count, 11)
+
+  def test_run_filters_by_relevance(self):
+    """Filters data by relevance threshold.
+
+    Given input data with some rows below relevance threshold
+    When run is called
+    Then only rows above or equal to threshold are kept in output
+    """
+    self.mock_execution_params.relevance_threshold = 90
+
+    # Row 1: Relevance 95 (keep)
+    resp1 = self.generate_test_llm_response(
+        {"summary": "s1", "relevanceScore": 95, "sentiments": []}
+    )
+    # Row 2: Relevance 85 (drop)
+    resp2 = self.generate_test_llm_response(
+        {"summary": "s2", "relevanceScore": 85, "sentiments": []}
+    )
+    # Row 3: Relevance 90 (keep)
+    resp3 = self.generate_test_llm_response(
+        {"summary": "s3", "relevanceScore": 90, "sentiments": []}
+    )
+
+    self.mock_input_target.load_sentiment_data.return_value = pd.DataFrame(
+        [
+            {"response": resp1},
+            {"response": resp2},
+            {"response": resp3},
+        ]
+    )
+
+    task = lrp.ProcessLlmSentimentResponses(
+        execution_id="some_execution_id",
+        my_required_task=self.mock_required_task
+    )
+    task.run()
+
+    self.assert_output_dataframe_matches(
+        pd.DataFrame(
+            [
+                {"summary": "s1", "relevanceScore": 95, "sentiments": []},
+                {"summary": "s3", "relevanceScore": 90, "sentiments": []},
+            ],
+            index=[0, 2]
+        )
+    )

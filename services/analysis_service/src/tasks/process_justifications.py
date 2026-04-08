@@ -22,7 +22,6 @@ import luigi
 import pandas as pd
 from socialpulse_common import service
 from socialpulse_common.utils import markdown
-from tasks import constants
 from tasks import core as tasks_core
 from tasks.generate_justifications_categories import GenerateJustificationCategoriesTask
 from tasks.ports import apis
@@ -30,10 +29,10 @@ from tasks.ports import apis
 
 logger = logging.getLogger(__name__)
 
-# Controls the maximum number of justifications to send to the LLM in a single
+# Controls the maximum number of rows of content to send to the LLM in a single
 # batch. This is done to avoid overwhelming the LLM with too large of a request
-# by limiting the number of justifications it needs to process per prompt.
-MAX_JUSTIFICATIONS_PER_BATCH = 50
+# by limiting the number of rows it needs to process per prompt.
+MAX_ROWS_OF_CONTENT_TO_CATEGORIZE = 250
 
 BULK_CATEGORIZATION_PROMPT_TEMPLATE = """
   You are an expert sentiment analyst. Your goal is to categorize a list of
@@ -275,9 +274,9 @@ class ProcessJustificationsTask(tasks_core.SentimentTask):
       processed_chunks = []
 
       for start in range(
-          0, len(input_sentiment_data), MAX_JUSTIFICATIONS_PER_BATCH
+          0, len(input_sentiment_data), MAX_ROWS_OF_CONTENT_TO_CATEGORIZE
       ):
-        end = start + MAX_JUSTIFICATIONS_PER_BATCH
+        end = start + MAX_ROWS_OF_CONTENT_TO_CATEGORIZE
         chunk = input_sentiment_data.iloc[start:end].copy()
 
         logging.info(
@@ -288,20 +287,7 @@ class ProcessJustificationsTask(tasks_core.SentimentTask):
             len(input_sentiment_data),
         )
 
-        # Only process rows where the relevance score is above the minimum
-        # threshold for sentiment to be generated.
-        relevant_mask = (
-            chunk["relevanceScore"]
-            >= constants.MIN_RELEVANCE_THRESHOLD_FOR_SENTIMENT_TO_BE_GENERATED
-        )
-        chunk_to_process = chunk[relevant_mask].copy()
-
-        if not chunk_to_process.empty:
-          categorizer.categorize(chunk_to_process)
-          chunk.loc[relevant_mask, "sentiments"] = chunk_to_process[
-              "sentiments"
-          ]
-
+        categorizer.categorize(chunk)
         processed_chunks.append(chunk)
 
       # Combine processed chunks back into a single DataFrame

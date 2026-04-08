@@ -64,7 +64,8 @@ class PostgresDbWorkflowExecutionPersistenceServiceTest(unittest.TestCase):
         None,  # Last Completed Task
         None,  # Parent Execution ID
         "report-123",  # Report ID
-        False  # Include Justifications (Explicitly False)
+        False,  # Include Justifications (Explicitly False)
+        90  # Relevance Threshold
     )
     self.mock_postgres_client.retrieve_row.return_value = mock_row
 
@@ -92,7 +93,8 @@ class PostgresDbWorkflowExecutionPersistenceServiceTest(unittest.TestCase):
         None,
         None,
         "report-123",
-        None  # Include Justifications (None)
+        None,  # Include Justifications (None)
+        90  # Relevance Threshold
     )
     self.mock_postgres_client.retrieve_row.return_value = mock_row
 

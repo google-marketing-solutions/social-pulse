@@ -114,6 +114,7 @@ class Deaggregator:
           parent_execution_id=None,
           report_id=report.report_id,
           include_justifications=report.include_justifications,
+          relevance_threshold=report.relevance_threshold,
       )
       video_execution_id = self._workflow_repo.create_execution(video_params)
       if common_msg.SocialMediaSource.YOUTUBE_VIDEO in report.sources:
@@ -135,6 +136,7 @@ class Deaggregator:
           parent_execution_id=video_execution_id,
           report_id=report.report_id,
           include_justifications=report.include_justifications,
+          relevance_threshold=report.relevance_threshold,
       )
       comment_execution_id = self._workflow_repo.create_execution(
           comment_params

@@ -1699,7 +1699,7 @@ sniffio==1.3.1 \
     --hash=sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc
     # via google-genai
 socialpulse-common==0.1.0 \
-    --hash=sha256:eea5479e01a31ee3296a44ffd57a2a1e62bcb9bb2bd9b3f58f7bb28357c9e8ad
+    --hash=sha256:7a10288eb67a1aa54c022eb362dafd5088ac8e71b1a39fe32643060e710e6085
     # via -r requirements.in
 sqlparse==0.5.5 \
     --hash=sha256:12a08b3bf3eec877c519589833aed092e2444e68240a3577e8e26148acc7b1ba \

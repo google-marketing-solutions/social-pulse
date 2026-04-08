@@ -241,6 +241,7 @@ def create_report(
             start_time=report.start_time,
             end_time=report.end_time,
             include_justifications=report.include_justifications,
+            relevance_threshold=report.relevance_threshold,
         )
     )
 
@@ -282,6 +283,7 @@ def _entity_to_message(
       start_time=entity.start_time,
       end_time=entity.end_time,
       include_justifications=entity.include_justifications,
+      relevance_threshold=entity.relevance_threshold,
       datasets=entity.datasets,
       # These fields might need to be populated if available in entity
       report_artifact_type=getattr(

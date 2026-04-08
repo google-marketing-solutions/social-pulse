@@ -120,10 +120,11 @@ class GenerateJustificationCategoriesTaskTest(
     ):
       self.task.run()
 
-      self.mock_analyzer.analyze_content.assert_called_once()
+      self.assertEqual(self.mock_analyzer.analyze_content.call_count, 2)
       mock_output_target.write_sentiment_data.assert_called_once()
 
       args, _ = mock_output_target.write_sentiment_data.call_args
       output_df = args[0]
       self.assertEqual(len(output_df), 1)
       self.assertEqual(output_df.iloc[0]["category_json_data"], mock_response)
+

@@ -21,7 +21,8 @@ from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import sentiment_report as report_msg
 from socialpulse_common.persistence import postgresdb_client as client
 
-# Column indices for the SentimentReports table (matching sentiment_report_repo.py)
+# Column indices for the SentimentReports table (matching
+# sentiment_report_repo.py)
 REPORTID_COL_INDEX = 0
 SOURCES_COL_INDEX = 1
 DATAOUTPUTS_COL_INDEX = 2
@@ -31,6 +32,7 @@ DATERANGEEND_COL_INDEX = 5
 STATUS_COL_INDEX = 6
 CREATEDON_COL_INDEX = 7
 LASTUPDATEDON_COL_INDEX = 8
+RELEVANCE_THRESHOLD_COL_INDEX = 9
 
 
 class PostgresDbSentimentReportSearchRepo(
@@ -62,7 +64,8 @@ class PostgresDbSentimentReportSearchRepo(
           daterangeend,
           status,
           createdon,
-          lastupdatedon
+          lastupdatedon,
+          relevanceThreshold
       FROM
           public.SentimentReports
       WHERE 1=1
@@ -121,6 +124,7 @@ class PostgresDbSentimentReportSearchRepo(
         end_time=row[DATERANGEEND_COL_INDEX],
         created_on=row[CREATEDON_COL_INDEX],
         last_updated_on=row[LASTUPDATEDON_COL_INDEX],
+        relevance_threshold=row[RELEVANCE_THRESHOLD_COL_INDEX],
         datasets=datasets,
     )
 

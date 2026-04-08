@@ -90,6 +90,9 @@ class SentimentReport(pydantic.BaseModel):
   # Flag to include justifications when producing sentiment scores.
   include_justifications: typing.Optional[bool] = None
 
+  # Relevance threshold for filtering content.
+  relevance_threshold: typing.Optional[int] = None
+
   # Information on the topic the analysis will be performed on.
   topic: typing.Optional[str] = None
 

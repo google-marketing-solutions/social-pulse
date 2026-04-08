@@ -190,6 +190,13 @@ class ProcessLlmSentimentResponses(tasks_core.SentimentTask):
         [SUMMARY_COL_NAME, RELEVANCE_SCORE_COL_NAME, SENTIMENTS_COL_NAME]
     ] = extracted_df
 
+    # Filter by relevance threshold
+    if RELEVANCE_SCORE_COL_NAME in llm_results.columns:
+      llm_results = llm_results[
+          llm_results[RELEVANCE_SCORE_COL_NAME]
+          >= self.workflow_exec.relevance_threshold
+      ]
+
     llm_results = llm_results.drop(columns=[RESPONSE_COLUMN_NAME])
     self.output().write_sentiment_data(llm_results)
 
