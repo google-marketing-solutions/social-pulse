@@ -54,7 +54,10 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       List of dictionaries containing the justification results.
     """
     where_clause = self._build_where_clause(
-        base_clauses=[f"t0.sentimentScore LIKE '%{sentiment_filter}%'"],
+        base_clauses=[
+            f"t0.sentimentScore LIKE '%{sentiment_filter}%'",
+            "t1.category != '[Uncategorized]'",
+        ],
         start_date=start_date,
         end_date=end_date,
         channel_title=channel_title,
@@ -103,7 +106,10 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       List of dictionaries containing the justification results.
     """
     where_clause = self._build_where_clause(
-        base_clauses=[f"t0.sentimentScore LIKE '%{sentiment_filter}%'"],
+        base_clauses=[
+            f"t0.sentimentScore LIKE '%{sentiment_filter}%'",
+            "t1.category != '[Uncategorized]'",
+        ],
         start_date=start_date,
         end_date=end_date,
         channel_title=channel_title,

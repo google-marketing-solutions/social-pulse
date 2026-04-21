@@ -154,6 +154,8 @@ class BigQueryDatasetRepoTest(unittest.TestCase):
     )
     self.assertEqual(self.mock_bq_client.query.call_count, 1)
     self.assertEqual(len(results), 1)
+    called_query = self.mock_bq_client.query.call_args[0][0]
+    self.assertIn("t1.category != '[Uncategorized]'", called_query)
 
   def test_query_justification_breakdown_for_comments(self):
     """Tests the justification breakdown query for comments.
@@ -170,6 +172,8 @@ class BigQueryDatasetRepoTest(unittest.TestCase):
     )
     self.assertEqual(self.mock_bq_client.query.call_count, 1)
     self.assertEqual(len(results), 1)
+    called_query = self.mock_bq_client.query.call_args[0][0]
+    self.assertIn("t1.category != '[Uncategorized]'", called_query)
 
   def test_query_justification_category_metadata(self):
     """Tests the justification category metadata query.
