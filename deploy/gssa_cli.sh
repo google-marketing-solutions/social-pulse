@@ -102,7 +102,9 @@ main() {
             echo ""
             check_service 8080 "Analysis Service"
             check_service 8008 "Report Service"
+            check_service 9002 "Report UI"
             check_service 3322 "PyPI Server"
+            check_service 8081 "Poller"
             echo ""
             ;;
 

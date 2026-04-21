@@ -224,7 +224,7 @@ main() {
     echo "  Poller Service:   http://localhost:8081/docs"
     echo "  Report Service: http://localhost:8008/docs"
     if [[ "$WITH_UI" == true ]]; then
-        echo "  Report UI: http://localhost:3000"
+        echo "  Report UI: http://localhost:9002"
     fi
     echo ""
     echo "View logs:"

@@ -8,6 +8,7 @@ build/
 .venv
 *.MINE
 packages/
+.agents
 
 # Ignore protobuf generated Python files
 **/*_pb2.py

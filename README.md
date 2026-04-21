@@ -143,14 +143,15 @@ you have the following pre-requisites set up:
 3. [Google Cloud CLI](https://docs.cloud.google.com/sdk/docs/install-sdk)
    installed and __authenticated__
 4. [Create an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
-   for the GCP project you're either going to install Gemini Social Sentiment Analyzer into, or the
-   GCP project you'll use for local development.
+   for the GCP project you're either going to install Gemini Social Sentiment
+   Analyzer into, or the GCP project you'll use for local development.
 
 
 ## Deploying to Google Cloud
 
 ### Steps
-1. Create or re-use a Google Cloud Project for deploying Gemini Social Sentiment Analyzer to.
+1. Create or re-use a Google Cloud Project for deploying Gemini Social Sentiment
+   Analyzer to.
 
 2. If the haven't done it already, create an API key within the GCP project
    you're going to install Gemini Social Sentiment Analyzer into.
@@ -207,8 +208,8 @@ cat ./deploy/TROUBLESHOOTING.md
 
 ## Local Development Workflow
 
-This section outlines the flow for developers working on Gemini Social Sentiment Analyzer,
-especially when modifying the shared library or services.
+This section outlines the flow for developers working on Gemini Social Sentiment
+Analyzer, especially when modifying the shared library or services.
 
 
 ### Prerequisites
@@ -274,29 +275,24 @@ When developing locally, you can manually trigger the workflow execution:
     ./services/analysis_service/run_wfe.sh <EXECUTION ID>
     ```
 
-4.  **Mark Report as Completed**:
-    Once the workflow is successful, manually notify the Reporting Service that
-    the report is ready (normally done by the Poller).
+4.  **Call the Poller to mark the report as completed**:
+    Once the workflow is successful, manually trigger the poller to mark the
+    report as completed.
 
     ```bash
-    curl -X POST http://localhost:8008/api/<REPORT ID>/mark_as_completed \
-      -H "Content-Type: application/json" \
-      -d '[{
-        "reportId": "<REPORT ID>",
-        "source": "YOUTUBE_VIDEO",
-        "dataOutput": "SENTIMENT_SCORE",
-        "datasetUri": "bq://<PROJECT_ID>/<DATASET>/SentimentDataset_<EXECUTION ID>"
-      }]'
+    curl -X POST -d '{}' http://localhost:8081/poller
     ```
 
 ## FAQ
 
 *Q. What social media content is currently supported?*
-*A. Currently only Youtube video and comments are supported, but we are working
-    on bringing other content types to the solution.
+
+A. Currently only Youtube video and comments are supported, but we are working
+   on bringing other content types to the solution.
 
 *Q. What output formats are currently supported?*
-*A. Currently, sentiment score and share of voice reports are supported.  In
-    addition, you can include justifications (quotes taken directly from the
-    social content) in the output for sentiment score reports by setting the
-    `include_justifications` flag to true in the request.
+
+A. Currently, sentiment score and share of voice reports are supported.  In
+   addition, you can include justifications (quotes taken directly from the
+   social content) in the output for sentiment score reports by setting the
+   `include_justifications` flag to true in the request.
