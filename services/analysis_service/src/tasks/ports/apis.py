@@ -25,6 +25,7 @@ from socialpulse_common import service
 
 
 class VideoResultsSortBy(enum.Enum):
+  """Enum for YouTube video search results sorting options."""
   RELEVANCE = "relevance"
   UPLOAD_DATE = "date"
   VIEW_COUNT = "viewCount"
@@ -33,6 +34,7 @@ class VideoResultsSortBy(enum.Enum):
 
 
 class Language(enum.Enum):
+  """Enum for supported languages."""
   ENGLISH = "en"
   SPANISH = "es"
   FRENCH = "fr"
@@ -117,7 +119,7 @@ class YoutubeApiClient(service.RegisterableService, abc.ABC):
     raise NotImplementedError
 
 
-class LlmBatchJobApiClient(abc.ABC):
+class LlmBatchJobApiClient(abc.ABC):  # pylint: disable=too-few-public-methods
   """Abstract interface for interacting with the LLM Batch Job API."""
 
   @abc.abstractmethod
@@ -139,15 +141,18 @@ class LlmBatchJobApiClient(abc.ABC):
     raise NotImplementedError
 
 
-class LlmApiClient(abc.ABC):
+class LlmApiClient(abc.ABC):  # pylint: disable=too-few-public-methods
   """Abstract interface for interacting with the LLM API."""
 
   @abc.abstractmethod
-  def analyze_content(self, prompt: str) -> str:
+  def analyze_content(
+      self, prompt: str, response_mime_type: str = "text/plain"
+  ) -> str:
     """Analyzes the provided prompt using an LLM.
 
     Args:
       prompt: The prompt to analyze.
+      response_mime_type: The expected MIME type of the response.
 
     Returns:
       The analysis result.

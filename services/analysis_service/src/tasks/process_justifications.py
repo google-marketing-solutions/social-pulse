@@ -12,11 +12,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+# pylint: disable=duplicate-code
+
 """Task to execute the sentiment analysis job and wait for the results."""
 
 import json
 import logging
 import string
+import time
 
 import luigi
 import pandas as pd
@@ -33,6 +36,7 @@ logger = logging.getLogger(__name__)
 # batch. This is done to avoid overwhelming the LLM with too large of a request
 # by limiting the number of rows it needs to process per prompt.
 MAX_ROWS_OF_CONTENT_TO_CATEGORIZE = 250
+MAX_JUSTIFICATIONS_TO_CATEGORIZE = 250
 
 BULK_CATEGORIZATION_PROMPT_TEMPLATE = """
   You are an expert sentiment analyst. Your goal is to categorize a list of
@@ -67,17 +71,25 @@ BULK_CATEGORIZATION_PROMPT_TEMPLATE = """
   - Ensure every input ID is returned in the output.
 
   # Output Format
-  [
-    {
-      "id": "unique_id_from_input",
-      "category": "Expert Selected Category Name"
-    },
-    ...
-  ]
+  The output must be a JSON list of objects. Each object must have the
+  following fields:
+
+  - **Field**: `id`
+    - **Description**: The unique identifier for the justification.
+    - **Constraints**: Must match exactly the `id` provided in the input.
+    - **Where the data comes from**: The `id` field from the input
+      justifications list.
+
+  - **Field**: `category`
+    - **Description**: The name of the category assigned to the justification.
+    - **Constraints**: Must be one of the category names provided in the input
+      categories, or "[Uncategorized]".
+    - **Where the data comes from**: The `name` field of the matching category
+      from the input categories list, or "[Uncategorized]".
   """
 
 
-class JustificationCategorizer:
+class JustificationCategorizer:  # pylint: disable=too-few-public-methods
   """Categorizes justifications using an LLM."""
 
   def __init__(
@@ -113,36 +125,76 @@ class JustificationCategorizer:
         self._task_family,
         len(flattened_justifications),
     )
-    justifications_json_data = json.dumps(flattened_justifications)
+    all_categorized_justifications = []
+    analyzer = service.registry.get(apis.LlmApiClient)
+
+    for i in range(
+        0, len(flattened_justifications), MAX_JUSTIFICATIONS_TO_CATEGORIZE
+    ):
+      chunk = flattened_justifications[i:i + MAX_JUSTIFICATIONS_TO_CATEGORIZE]
+      logging.debug(
+          "[%s] Processing justification batch %d to %d",
+          self._task_family,
+          i,
+          i + len(chunk),
+      )
+
+      categorized_justifications = self._categorize_batch(chunk, analyzer)
+      all_categorized_justifications.extend(categorized_justifications)
+
+    self._reconstruct_dataframe(df, all_categorized_justifications)
+
+  def _categorize_batch(
+      self,
+      chunk: list[dict[str, str]],
+      analyzer: apis.LlmApiClient,
+  ) -> list[dict[str, str]]:
+    """Categorizes a batch of justifications using the LLM."""
+    justifications_json_data = json.dumps(chunk)
     prompt = string.Template(BULK_CATEGORIZATION_PROMPT_TEMPLATE).substitute(
         category_json_data=self._category_json_data,
         justifications_json_data=justifications_json_data,
     )
 
     response_text = None
-    try:
-      analyzer = service.registry.get(apis.LlmApiClient)
-      response_text = analyzer.analyze_content(prompt)
+    max_retries = 1
+    for attempt in range(max_retries + 1):
+      try:
+        response_text = analyzer.analyze_content(
+            prompt, response_mime_type="application/json"
+        )
 
-      # Gemini might return markdown code blocks, strip them if needed
-      cleaned_response = markdown.strip_markdown_code_blocks(response_text)
+        # Gemini might return markdown code blocks, strip them if needed
+        cleaned_response = markdown.strip_markdown_code_blocks(response_text)
 
-      categorized_justifications = json.loads(cleaned_response)
-      logging.debug(
-          "[%s] Categorized %d justifications.",
-          self._task_family,
-          len(categorized_justifications),
-      )
+        categorized_justifications = json.loads(cleaned_response)
+        logging.debug(
+            "[%s] Categorized %d justifications in batch.",
+            self._task_family,
+            len(categorized_justifications),
+        )
+        return categorized_justifications
 
-    except Exception:
-      logging.error(
-          "[%s] Failed to bulk categorize justifications:  \n%s",
-          self._task_family,
-          response_text,
-      )
-      raise
-
-    self._reconstruct_dataframe(df, categorized_justifications)
+      except Exception as e:  # pylint: disable=broad-exception-caught
+        if attempt < max_retries:
+          logging.warning(
+              "[%s] Failed to bulk categorize justifications on attempt %d. "
+              "Retrying in 1 second. Error: %s",
+              self._task_family,
+              attempt + 1,
+              e,
+          )
+          time.sleep(1)
+        else:
+          logging.error(
+              "[%s] Failed to bulk categorize justifications after %d "
+              "attempts. Response: %s",
+              self._task_family,
+              max_retries + 1,
+              json.dumps(response_text),
+          )
+          raise
+    raise RuntimeError("Should not reach here")
 
   def _flatten_and_tag_justifications(
       self, df: pd.DataFrame

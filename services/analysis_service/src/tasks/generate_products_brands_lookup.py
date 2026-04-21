@@ -27,25 +27,35 @@ from tasks.ports import apis
 logger = logging.getLogger(__name__)
 
 CONSOLIDATION_PROMPT_TEMPLATE = """
-  As an expert market analyst, analyze the following list of brands and
-  products extracted from social sentiment data.
-  Your task is to consolidate them into a mapping of unique, top-level
-  parent brands.
+  # System User
+  You are an expert market analyst. Your task is to consolidate a list of
+  brands and products into a mapping of unique, top-level parent brands.
 
-  For example, if the list includes "Google", "Gemini", and "Veo", they
-  should all map to "Google" as the top-level brand.
+  # Task
+  Consolidate the list of brands and products below using the following rules:
+
+  * **Brand Consolidation**: If a product mentioned is a sub-brand of a larger
+    company, the sub-brand should be consolidated to the top-level company
+    brand (e.g., "Gemini" maps to "Google", "Veo" maps to "Google", etc.).
+  * **Ambiguous Cases**: If it's unclear whether an item is a product or a
+    brand, or which brand it belongs to, use your best judgment as a market
+    analyst. When in doubt, err on the side of mapping to the most
+    recognizable and encompassing brand.
 
   Please provide the output as a valid JSON object where keys are the
   original brand/product names from the provided list, and values are
   the consolidated top-level brand names.
 
-  List of Brands and Products:
+  # List of Brands and Products:
   ${brands_products_list}
 
-  Output Format:
-  {
-    "originalName": "consolidatedName"
-  }
+  # Output Format:
+  A JSON object containing the mapping:
+
+  * Key: The original brand or product name from the provided list.
+  * Value: The consolidated top-level brand name.
+  * Note: You must consolidate both products and sub-brands up to their
+    consistent parent brand.
 """
 
 

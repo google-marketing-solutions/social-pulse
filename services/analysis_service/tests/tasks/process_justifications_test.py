@@ -26,6 +26,7 @@ from tasks.ports import apis
 
 
 class JustificationCategorizerTest(unittest.TestCase):
+  """Unit tests for the JustificationCategorizer class."""
 
   def setUp(self):
     super().setUp()
@@ -73,7 +74,9 @@ class JustificationCategorizerTest(unittest.TestCase):
 
     self.categorizer.categorize(df)
 
-    self.mock_analyzer.analyze_content.assert_called_once()
+    self.mock_analyzer.analyze_content.assert_called_once_with(
+        mock.ANY, response_mime_type="application/json"
+    )
 
     # Verify the category was added
     updated_sentiment = df.iloc[0]["sentiments"][0]
@@ -122,10 +125,87 @@ class JustificationCategorizerTest(unittest.TestCase):
     with self.assertRaises(json.JSONDecodeError):
       self.categorizer.categorize(df)
 
+  def test_categorize_handles_batching_of_justifications(self):
+    """Handles processing of justifications in batches.
+
+    Given a DataFrame with more justifications than the batch size
+    When categorize is called
+    Then the analyzer is called multiple times
+    """
+    df = pd.DataFrame(
+        [
+            {
+                "sentiments": [
+                    {
+                        "justifications": [
+                            {"quote": "q1"},
+                            {"quote": "q2"},
+                            {"quote": "q3"},
+                        ]
+                    }
+                ]
+            }
+        ]
+    )
+
+    self.mock_analyzer.analyze_content.side_effect = [
+        json.dumps(
+            [
+                {"id": "0_0_0", "category": "C1"},
+                {"id": "0_0_1", "category": "C2"},
+            ]
+        ),
+        json.dumps([{"id": "0_0_2", "category": "C3"}]),
+    ]
+
+    with mock.patch(
+        "tasks.process_justifications.MAX_JUSTIFICATIONS_TO_CATEGORIZE", 2
+    ):
+      self.categorizer.categorize(df)
+
+      self.assertEqual(self.mock_analyzer.analyze_content.call_count, 2)
+
+      updated_justifications = df.iloc[0]["sentiments"][0]["justifications"]
+      self.assertEqual(updated_justifications[0]["category"], "C1")
+      self.assertEqual(updated_justifications[1]["category"], "C2")
+      self.assertEqual(updated_justifications[2]["category"], "C3")
+
+  def test_categorize_batch_retries_on_failure(self):
+    """Retries analyze_content on failure.
+
+    Given the analyzer fails on the first call but succeeds on the second
+    When categorize is called
+    Then the analyzer is called twice
+    And the DataFrame is updated with the categories
+    """
+    df = pd.DataFrame(
+        [{"sentiments": [{"justifications": [{"quote": "retry me"}]}]}]
+    )
+
+    mock_response = json.dumps(
+        [{"id": "0_0_0", "category": "Feature: Quality"}]
+    )
+    self.mock_analyzer.analyze_content.side_effect = [
+        Exception("API Error"),
+        mock_response,
+    ]
+
+    with mock.patch("time.sleep") as mock_sleep:
+      self.categorizer.categorize(df)
+
+      self.assertEqual(self.mock_analyzer.analyze_content.call_count, 2)
+      mock_sleep.assert_called_once_with(1)
+
+      updated_sentiment = df.iloc[0]["sentiments"][0]
+      self.assertEqual(
+          updated_sentiment["justifications"][0]["category"], "Feature: Quality"
+      )
+
 
 class ProcessJustificationsTaskTest(
     unittest.TestCase, test_mixins.SetupMockSentimentTaskDepependenciesMixin
 ):
+  """Unit tests for the ProcessJustificationsTask class."""
 
   def setUp(self):
     super().setUp()
@@ -211,7 +291,9 @@ class ProcessJustificationsTaskTest(
       self.task.run()
 
       # Validation
-      self.mock_analyzer.analyze_content.assert_called_once()
+      self.mock_analyzer.analyze_content.assert_called_once_with(
+          mock.ANY, response_mime_type="application/json"
+      )
 
       # Verify output was written
       mock_output_target.write_sentiment_data.assert_called_once()
@@ -261,10 +343,10 @@ class ProcessJustificationsTaskTest(
 
     mock_output_target = mock.Mock()
 
-    # Patch MAX_JUSTIFICATIONS_PER_BATCH constant
+    # Patch MAX_ROWS_OF_CONTENT_TO_CATEGORIZE constant
     with (
         mock.patch(
-            "tasks.process_justifications.MAX_JUSTIFICATIONS_PER_BATCH", 1
+            "tasks.process_justifications.MAX_ROWS_OF_CONTENT_TO_CATEGORIZE", 1
         ),
         mock.patch.object(
             self.task, "input", return_value=self.mock_input_dict

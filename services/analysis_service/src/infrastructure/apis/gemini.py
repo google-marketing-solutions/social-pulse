@@ -28,7 +28,7 @@ GEMINI_MODEL_NAME = "gemini-3.1-pro-preview"
 GEMINI_MODEL_LOCATION = "global"
 
 
-class GeminiSentimentAnalyzer(apis.LlmApiClient):
+class GeminiSentimentAnalyzer(apis.LlmApiClient):  # pylint: disable=too-few-public-methods
   """Analyzes content using Google's GenAI SDK."""
 
   def __init__(self, api_key: str, project_id: str):
@@ -58,16 +58,17 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):
       logger.error("Failed to initialize GenAI client: %s", e)
       raise
 
-  def analyze_content(self, prompt: str) -> dict[str]:
+  def analyze_content(
+      self, prompt: str, response_mime_type: str = "text/plain"
+  ) -> str:
     """Analyzes content using Vertex AI's generate_content API.
 
     Args:
-        prompt (str): Type of content ("online video", "video comment",
-        "review post").
+        prompt (str): The prompt to analyze.
+        response_mime_type (str): The expected MIME type of the response.
 
     Returns:
-        Any: The parsed response from the Vertex AI generate_content API,
-        or None if an error occurs.
+        str: The response text from the Gemini API.
     """
 
     try:
@@ -76,6 +77,7 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):
           contents=prompt,
           config=types.GenerateContentConfig(
               temperature=0.1,
+              response_mime_type=response_mime_type,
               thinking_config=types.ThinkingConfig(
                   thinking_level=types.ThinkingLevel.HIGH
               ),

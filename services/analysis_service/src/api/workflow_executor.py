@@ -27,7 +27,6 @@ import logging
 import os
 import sys
 
-import google.cloud.logging
 from infrastructure.apis import gemini
 from infrastructure.apis import vertexai
 from infrastructure.apis import youtube
@@ -35,6 +34,7 @@ from infrastructure.persistence.bigquery import sentiment_data_repo
 from infrastructure.persistence.postgresdb import workflow_data_repo
 import luigi
 from socialpulse_common import config
+from socialpulse_common import logging as sp_logging
 from socialpulse_common import service
 from socialpulse_common.messages import workflow_execution as wfe
 from socialpulse_common.persistence import postgresdb_client as client
@@ -42,71 +42,68 @@ from tasks import execution
 from tasks.ports import apis
 from tasks.ports import persistence
 
-if not config.is_development():
-  logging_client = google.cloud.logging.Client()
-  logging_client.setup_logging()
-
-log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-logging.getLogger().setLevel(log_level)
+sp_logging.setup_logging(
+    log_level=os.environ.get("LOG_LEVEL", "INFO")
+)
 logger = logging.getLogger(__name__)
 
-settings = None
-service_registry = None
-is_initialized = False
+SETTINGS = None
+SERVICE_REGISTRY = None
+IS_INITIALIZED = False
 
 
 def _bootstrap_services():
   """Initializes and registers all necessary services for the function."""
-  global settings, is_initialized, service_registry
+  global SETTINGS, IS_INITIALIZED, SERVICE_REGISTRY  # pylint: disable=global-statement
 
-  if is_initialized:
+  if IS_INITIALIZED:
     return
 
   logger.info("Starting service bootstrapping for workflow_executor.")
-  settings = config.Settings()
-  service_registry = service.registry
+  SETTINGS = config.Settings()
+  SERVICE_REGISTRY = service.registry
 
   # Bootstrap the WFE persistence service
   postgres_client = client.PostgresDbClient(
-      host=settings.db.host,
-      port=settings.db.port,
-      database=settings.db.name,
-      user=settings.db.username,
-      password=settings.db.password,
+      host=SETTINGS.db.host,
+      port=SETTINGS.db.port,
+      database=SETTINGS.db.name,
+      user=SETTINGS.db.username,
+      password=SETTINGS.db.password,
   )
   workflow_repo = (
       workflow_data_repo.
-          PostgresDbWorkflowExecutionPersistenceService(postgres_client)
+      PostgresDbWorkflowExecutionPersistenceService(postgres_client)
   )
-  service_registry.register(
+  SERVICE_REGISTRY.register(
       persistence.WorkflowExecutionPersistenceService,
       workflow_repo,
   )
 
   # Bootstrap the sentiment data repo
   bq_repo = sentiment_data_repo.BigQuerySentimentDataRepo(
-      gcp_project_id=settings.cloud.project_id,
-      bq_dataset_name=settings.cloud.dataset_name,
+      gcp_project_id=SETTINGS.cloud.project_id,
+      bq_dataset_name=SETTINGS.cloud.dataset_name,
   )
   service.registry.register(persistence.SentimentDataRepo, bq_repo)
 
   # Bootstrap the YT and LLM API clients
-  yt_api = youtube.YoutubeApiHttpClient(api_key=settings.api.youtube.key)
+  yt_api = youtube.YoutubeApiHttpClient(api_key=SETTINGS.api.youtube.key)
   vertex_api = vertexai.VertexAiLlmBatchJobApiClient(
-      project_id=settings.cloud.project_id,
-      region=settings.cloud.region,
-      bq_dataset_name=settings.cloud.dataset_name,
+      project_id=SETTINGS.cloud.project_id,
+      region=SETTINGS.cloud.region,
+      bq_dataset_name=SETTINGS.cloud.dataset_name,
   )
   gemini_api = gemini.GeminiSentimentAnalyzer(
-      api_key=settings.api.youtube.key,
-      project_id=settings.cloud.project_id,
+      api_key=SETTINGS.api.youtube.key,
+      project_id=SETTINGS.cloud.project_id,
   )
 
   service.registry.register(apis.YoutubeApiClient, yt_api)
   service.registry.register(apis.LlmBatchJobApiClient, vertex_api)
   service.registry.register(apis.LlmApiClient, gemini_api)
 
-  is_initialized = True
+  IS_INITIALIZED = True
 
 
 class PipelineRunner:
@@ -144,6 +141,7 @@ def main():
     raise ValueError("No execution ID provided to the executor.")
 
   execution_id = sys.argv[1]
+  sp_logging.set_execution_id(execution_id)
   runner = None
 
   try:
