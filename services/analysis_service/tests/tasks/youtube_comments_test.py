@@ -238,6 +238,78 @@ class YoutubeCommentsTest(unittest.TestCase):
     written_df = call_args[1]
     self.assertTrue(written_df.empty)
 
+  def test_run_handles_comments_with_no_replies_field(self):
+    """Tests that run() handles comments that have no replies field.
+
+    Given a FindYoutubeComments task where the API returns comments without
+      the 'replies' field.
+    When the run method is invoked.
+    Then the task completes successfully and processes top-level comments.
+    """
+    input_videos_df = pd.DataFrame(
+        {
+            "videoId": ["vidWithNoReplies"],
+            "videoTitle": ["a video title"],
+            "channelTitle": ["a channel title"],
+            "summary": ["a video summary"]
+        }
+    )
+    self.mock_input_video_target.load_sentiment_data.return_value = (
+        input_videos_df
+    )
+
+    comments_without_replies = [
+        {
+            "id": "top1",
+            "snippet": {
+                "videoId": "vidWithNoReplies",
+                "topLevelComment": {
+                    "snippet": {
+                        "authorChannelId": {"value": "authorA"},
+                        "publishedAt": "dateA",
+                        "textOriginal": "Text A",
+                        "likeCount": 10,
+                    }
+                },
+                "totalReplyCount": 0,
+            },
+        }
+    ]
+    self.mock_api_client.get_comments_for_videos.return_value = (
+        comments_without_replies
+    )
+
+    expected_comments_df = pd.DataFrame(
+        {
+            "commentId": ["top1"],
+            "videoId": ["vidWithNoReplies"],
+            "authorId": ["authorA"],
+            "publishedAt": ["dateA"],
+            "text": ["Text A"],
+            "likeCount": [10],
+            "numOfReplies": [0],
+            "parentId": [pd.NA],
+            "videoTitle": ["a video title"],
+            "channelTitle": ["a channel title"],
+            "summary": ["a video summary"],
+        }
+    ).astype({"likeCount": "int64", "numOfReplies": "int64"})
+
+    task = youtube_comments.FindYoutubeComments(
+        execution_id=self.execution_id,
+        my_required_task=self.mock_required_video_task,
+    )
+    expected_output_table_name = task.output().table_name
+
+    task.run()
+
+    self.mock_data_repo.write_sentiment_data.assert_called_once()
+    call_args, _ = self.mock_data_repo.write_sentiment_data.call_args
+    self.assertEqual(call_args[0], expected_output_table_name)
+    pd.testing.assert_frame_equal(
+        call_args[1], expected_comments_df, check_dtype=False
+    )
+
   def test_run_raises_exception_on_data_load_error(self):
     """Tests that an exception during data loading is propagated.
 

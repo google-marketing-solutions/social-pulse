@@ -227,7 +227,7 @@ module "sp_analysis_wfe" {
     "source-code-hash" = data.archive_file.source_zip.output_md5
   }
   max_retries = 1
-  timeout     = "7200s"
+  timeout     = "43200s"
 
   depends_on = [google_service_account.social-pulse-sa,
     google_vpc_access_connector.connector,

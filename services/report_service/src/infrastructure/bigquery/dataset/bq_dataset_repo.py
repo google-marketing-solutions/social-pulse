@@ -656,7 +656,24 @@ class BigQueryDatasetRepo(dataset.DatasetRepo):
       if table_id.startswith("bq://"):
         table_id = table_id[5:].replace("/", ".")
 
-      query = f"SELECT * FROM `{table_id}` WHERE relevanceScore >= 90"
+      # TODO(jmistral): Make the list of fields dependant on the source.
+      query = f"""
+          SELECT
+            videoUrl,
+            videoTitle,
+            videoDescription,
+            channelTitle,
+            publishedAt,
+            likeCount,
+            viewCount,
+            commentCount,
+            summary,
+            relevanceScore,
+            sentiments
+          FROM `{table_id}`
+          WHERE
+            relevanceScore >= 90
+      """
       rows = self._bq_client.query(query)
       all_results.extend(rows)
 

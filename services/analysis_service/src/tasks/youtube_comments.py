@@ -114,9 +114,13 @@ class FindYoutubeComments(tasks_core.SentimentTask):
 
     try:
       # Normalize, selecting top-level fields and the replies structure
+      df = pd.json_normalize(raw_comments_data)
+      if "replies.comments" not in df.columns:
+        df["replies.comments"] = None
+
       # pylint: disable=line-too-long
       comments_dataset = (
-          pd.json_normalize(raw_comments_data)[
+          df[
               [
                   "id",
                   "snippet.videoId",
@@ -318,12 +322,12 @@ class FindYoutubeComments(tasks_core.SentimentTask):
           [comments_top_level_final, processed_replies_df], ignore_index=True
       )
       return flattened_comments_df
-    else:
-      logging.debug(
-          "[%s] No replies to concatenate, using only top-level.",
-          self.task_family,
-      )
-      return comments_top_level_final
+
+    logging.debug(
+        "[%s] No replies to concatenate, using only top-level.",
+        self.task_family,
+    )
+    return comments_top_level_final
 
   def _finalize_dataframe(self, flattened_df: pd.DataFrame) -> pd.DataFrame:
     """Performs final fillna and type casting."""

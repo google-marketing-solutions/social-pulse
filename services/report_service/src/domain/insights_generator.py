@@ -77,7 +77,11 @@ def generate_and_store_insights(
       return
 
     # 3. Construct the report context string
-    report_context = json.dumps(analysis_results, default=str)
+    report_context = json.dumps(
+        analysis_results,
+        default=str,
+        separators=(",", ":")
+    )
 
     # 4. Generate Base Insights (Top Trends)
     logger.debug("Generating base insights for report %s", report_id)
