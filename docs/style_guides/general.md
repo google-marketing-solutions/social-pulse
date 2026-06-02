@@ -24,7 +24,7 @@ within the Gemini Social Sentiment Analyzer project, regardless of the programmi
   indicates the type of change (e.g. "feat:", "fix:", "docs:", "test:",
   "chore:", "refactor:", "perf:", "style:", "build:", "ci:").
 - **Body:** The body should be a more detailed explanation of the changes. It
-  should be wrapped at 80 characters.  Each bullet point should start with a
+  should be wrapped at 72 characters.  Each bullet point should start with a
   symbol such as "-" or "*", and limit it to only 3 bullet points max.
 - **Separation:** The subject line and the body must be separated by exactly
   one blank line (an empty line).

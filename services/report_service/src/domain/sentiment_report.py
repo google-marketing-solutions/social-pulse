@@ -14,12 +14,10 @@
 """Module for the sentiment report entities."""
 
 import datetime
-import typing
 
 from socialpulse_common import domain
 from socialpulse_common.messages import common as common_msg
 from socialpulse_common.messages import sentiment_report as report_msg
-
 
 # Default relevance threshold for the sentiment report.  The default threshold
 # is set to 90 to ensure that only highly relevant content is included in the
@@ -27,21 +25,12 @@ from socialpulse_common.messages import sentiment_report as report_msg
 DEFAULT_RELEVANCE_THRESHOLD = 90
 
 
+# pylint: disable=too-many-instance-attributes
 class SentimentReportEntity(domain.Entity):
   """Represents a sentiment report entity."""
 
-  topic: str
-  status: report_msg.Status
-  sources: list[common_msg.SocialMediaSource]
-  data_outputs: list[common_msg.SentimentDataType]
-  include_justifications: bool
-  start_time: datetime.datetime
-  end_time: datetime.datetime
-  report_artifact_type: report_msg.ReportArtifactType
-  report_artifact_uri: str
-  datasets: typing.List[report_msg.SentimentReportDataset]
-
   @classmethod
+  # pylint: disable=too-many-arguments
   def create_sentiment_report(
       cls,
       *,
@@ -82,6 +71,7 @@ class SentimentReportEntity(domain.Entity):
     )
     return report
 
+  # pylint: disable=too-many-arguments
   def __init__(
       self,
       *,
@@ -133,7 +123,8 @@ class SentimentReportEntity(domain.Entity):
     self._start_time = start_time
     self._end_time = end_time
     self._datasets = datasets
-    self._relevance_threshold = relevance_threshold
+    self._relevance_threshold = (relevance_threshold if relevance_threshold
+                                 is not None else DEFAULT_RELEVANCE_THRESHOLD)
 
     self._validate_fields()
 
@@ -237,11 +228,33 @@ class SentimentReportEntity(domain.Entity):
         raise ValueError("Data output cannot be empty.")
 
     dataset_sources = [dataset.source for dataset in datasets]
-    all_sources_have_datasets = all(source in dataset_sources
-                                    for source in self.sources)
+    all_sources_have_datasets = all(
+        source in dataset_sources for source in self.sources)
     if not all_sources_have_datasets:
       missing_sources = [
           source for source in self.sources if source not in dataset_sources
       ]
       raise ValueError(
           f"Missing datasets for the following sources: {missing_sources}")
+
+  def get_bq_table_id_for_source(
+      self, source: common_msg.SocialMediaSource) -> str | None:
+    """Returns the formatted BigQuery table ID for the given source if present.
+
+    Args:
+      source: The social media source to look up.
+
+    Returns:
+      The formatted BigQuery table ID string (e.g. 'project.dataset.table')
+      or None if not found.
+    """
+    if not self._datasets:
+      return None
+
+    for dataset in self._datasets:
+      if dataset.source == source and dataset.dataset_uri:
+        uri = dataset.dataset_uri
+        if uri.startswith("bq://"):
+          return uri[5:].replace("/", ".")
+        return uri
+    return None

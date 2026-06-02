@@ -11,7 +11,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
 """Unit tests for the insights_generator module.
 
 These tests assert that the background task logic correctly fetches report
@@ -42,8 +41,7 @@ class TestInsightsGenerator(unittest.TestCase):
             report_id=self.report_id,
             source=common_msg.SocialMediaSource.YOUTUBE_VIDEO,
             data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
-            dataset_uri="bq://test-project.dataset.table"
-        )
+            dataset_uri="bq://test-project.dataset.table")
     ]
 
     self.app_config = mock.MagicMock()
@@ -57,74 +55,61 @@ class TestInsightsGenerator(unittest.TestCase):
         include_justifications=True,
         start_time=datetime.datetime(2026, 1, 1),
         end_time=datetime.datetime(2026, 1, 31),
-        datasets=self.datasets
-    )
-
-    # Configure the load_report mock
-    report_repo = self.app_config.sentiment_report_repository
-    report_repo.load_report.return_value = self.report_entity
+        datasets=self.datasets,
+        relevance_threshold=90)
 
     # Mock BigQuery result
     self.mock_analysis_result = [{"some_column": "some_value"}]
 
     dataset_repo = self.app_config.dataset_repository
     dataset_repo.get_full_report_context.return_value = (
-        self.mock_analysis_result
-    )
+        self.mock_analysis_result)
 
   def test_generate_and_store_insights_success(self):
     """Tests the successful generation and persistence of insights.
 
-    Given a report with existing analysis results
+    Given a standard sentiment report with existing analysis results
     When the generate_and_store_insights orchestrator is called
-    Then the Gemini provider generates both Base Insights and Spike Analysis
-    and the ReportInsights repository inserts them.
+    Then the Gemini provider generates both Base Insights (with no top brands)
+    and Spike Analysis, and the ReportInsights repository inserts them.
     """
     # Mock successful Gemini generations
     gemini_provider = self.app_config.gemini_insights_provider
-    gemini_provider.generate_base_insights.return_value = (
-        {"top_trends": []}, "trends_raw"
-    )
-    gemini_provider.generate_spike_analysis.return_value = (
-        {"spikes": []}, "spikes_raw"
-    )
+    gemini_provider.generate_base_insights.return_value = ({
+        "top_trends": []
+    }, "trends_raw")
+    gemini_provider.generate_spike_analysis.return_value = ({
+        "spikes": []
+    }, "spikes_raw")
 
-    insights_generator.generate_and_store_insights(
-        report_id=self.report_id,
-        datasets=self.datasets,
-        app_config=self.app_config
-    )
+    insights_generator.generate_and_store_insights(report=self.report_entity,
+                                                   app_config=self.app_config)
 
     # Verify BigQuery data was fetched
     dataset_repo = self.app_config.dataset_repository
-    dataset_repo.get_full_report_context.assert_called_once_with(
-        self.datasets
-    )
+    dataset_repo.get_full_report_context.assert_called_once_with(self.datasets)
 
-    # Verify Gemini provider was called twice
-    gemini_provider.generate_base_insights.assert_called_once()
-    gemini_provider.generate_spike_analysis.assert_called_once()
+    # Verify Gemini provider was called with top_brands=None
+    gemini_provider.generate_base_insights.assert_called_once_with(
+        report_context='[{"some_column":"some_value"}]', top_brands=None)
+    gemini_provider.generate_spike_analysis.assert_called_once_with(
+        '[{"some_column":"some_value"}]')
 
     # Verify insights were inserted into the database twice
     insights_repo = self.app_config.report_insights_repository
-    self.assertEqual(
-        insights_repo.insert_insight.call_count,
-        2
-    )
+    self.assertEqual(insights_repo.insert_insight.call_count, 2)
 
     # Check specific calls for insert
     insights_repo.insert_insight.assert_any_call(
         report_id=self.report_id,
         insight_type=insight_msg.InsightType.TREND,
         content={"top_trends": []},
-        raw_prompt_output="trends_raw"
-    )
+        raw_prompt_output="trends_raw")
     insights_repo.insert_insight.assert_any_call(
         report_id=self.report_id,
         insight_type=insight_msg.InsightType.SPIKE,
         content={"spikes": []},
-        raw_prompt_output="spikes_raw"
-    )
+        raw_prompt_output="spikes_raw")
 
   def test_generate_and_store_insights_no_analysis_data(self):
     """Tests the insights generator does not proceed if no data exists.
@@ -136,11 +121,8 @@ class TestInsightsGenerator(unittest.TestCase):
     dataset_repo = self.app_config.dataset_repository
     dataset_repo.get_full_report_context.return_value = []
 
-    insights_generator.generate_and_store_insights(
-        report_id=self.report_id,
-        datasets=self.datasets,
-        app_config=self.app_config
-    )
+    insights_generator.generate_and_store_insights(report=self.report_entity,
+                                                   app_config=self.app_config)
 
     # Verify Gemini provider was NOT called
     gemini_provider = self.app_config.gemini_insights_provider
@@ -163,23 +145,26 @@ class TestInsightsGenerator(unittest.TestCase):
             report_id=self.report_id,
             source=common_msg.SocialMediaSource.YOUTUBE_COMMENT,
             data_output=common_msg.SentimentDataType.SENTIMENT_SCORE,
-            dataset_uri="bq://test-project.dataset.table"
-        )
+            dataset_uri="bq://test-project.dataset.table")
     ]
 
     dataset_repo = self.app_config.dataset_repository
     dataset_repo.get_full_report_context.return_value = []
 
-    report_repo = self.app_config.sentiment_report_repository
-    mock_report = mock.Mock()
-    mock_report.sources = [common_msg.SocialMediaSource.YOUTUBE_COMMENT]
-    report_repo.load_report.return_value = mock_report
-
-    insights_generator.generate_and_store_insights(
+    report_entity = sentiment_report.SentimentReportEntity(
         report_id=self.report_id,
+        topic="Test Topic",
+        status=report_msg.Status.COMPLETED,
+        sources=[common_msg.SocialMediaSource.YOUTUBE_COMMENT],
+        data_outputs=[common_msg.SentimentDataType.SENTIMENT_SCORE],
+        include_justifications=True,
+        start_time=datetime.datetime(2026, 1, 1),
+        end_time=datetime.datetime(2026, 1, 31),
         datasets=datasets,
-        app_config=self.app_config
-    )
+        relevance_threshold=90)
+
+    insights_generator.generate_and_store_insights(report=report_entity,
+                                                   app_config=self.app_config)
 
     # Verify BigQuery data was NOT fetched because we return early on sources
     dataset_repo.get_full_report_context.assert_not_called()
@@ -201,21 +186,72 @@ class TestInsightsGenerator(unittest.TestCase):
     Then the error is caught, logged, and the function exits without raising.
     """
     gemini_provider = self.app_config.gemini_insights_provider
-    gemini_provider.generate_base_insights.side_effect = Exception(
-        "API Failed"
-    )
+    gemini_provider.generate_base_insights.side_effect = Exception("API Failed")
 
     # Call function, should not raise an exception
-    insights_generator.generate_and_store_insights(
-        report_id=self.report_id,
-        datasets=self.datasets,
-        app_config=self.app_config
-    )
+    insights_generator.generate_and_store_insights(report=self.report_entity,
+                                                   app_config=self.app_config)
 
     # Verify it attempted to call the base insights API but stopped there
     gemini_provider.generate_base_insights.assert_called_once()
     insights_repo = self.app_config.report_insights_repository
     insights_repo.insert_insight.assert_not_called()
+
+  def test_generate_and_store_insights_share_of_voice_success(self):
+    """Tests successful generation of insights for a Share of Voice report.
+
+    Given a SHARE_OF_VOICE report
+    When generate_and_store_insights is called
+    Then it queries the dataset repository for the top 15 brands
+    and passes them to the Gemini base insights provider.
+    """
+    # Configure report as Share of Voice
+    self.report_entity = sentiment_report.SentimentReportEntity(
+        report_id=self.report_id,
+        topic="Test Topic",
+        status=report_msg.Status.COMPLETED,
+        sources=[common_msg.SocialMediaSource.YOUTUBE_VIDEO],
+        data_outputs=[common_msg.SentimentDataType.SHARE_OF_VOICE],
+        include_justifications=True,
+        start_time=datetime.datetime(2026, 1, 1),
+        end_time=datetime.datetime(2026, 1, 31),
+        datasets=self.datasets,
+        relevance_threshold=90)
+
+    # Mock query_share_of_voice return
+    sov_results = [
+        {
+            "productOrBrand": "Brand A",
+            "Total_Views_Associated_With_Brand": 100
+        },
+        {
+            "productOrBrand": "Brand B",
+            "Total_Views_Associated_With_Brand": 50
+        },
+    ]
+    dataset_repo = self.app_config.dataset_repository
+    dataset_repo.query_share_of_voice.return_value = sov_results
+
+    # Mock successful Gemini generations
+    gemini_provider = self.app_config.gemini_insights_provider
+    gemini_provider.generate_base_insights.return_value = ({
+        "top_trends": []
+    }, "trends_raw")
+    gemini_provider.generate_spike_analysis.return_value = ({
+        "spikes": []
+    }, "spikes_raw")
+
+    insights_generator.generate_and_store_insights(report=self.report_entity,
+                                                   app_config=self.app_config)
+
+    # Verify query_share_of_voice was called with correct parameters
+    dataset_repo.query_share_of_voice.assert_called_once_with(
+        table_id="test-project.dataset.table", relevance_threshold=90)
+
+    # Verify generate_base_insights was called with the top brands list
+    gemini_provider.generate_base_insights.assert_called_once_with(
+        report_context='[{"some_column":"some_value"}]',
+        top_brands=["Brand A", "Brand B"])
 
 
 if __name__ == "__main__":

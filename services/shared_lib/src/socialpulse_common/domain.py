@@ -28,12 +28,11 @@ class Entity:
     """Instantiate a new entity.
 
     Args:
-      entity_id: Optional.  Used as the entity ID, or if None is provided, a new
-        UUID will be generated.
+      entity_id: Optional.  Used as the entity ID.
       created: Optional.  The creation timestamp of the entity.
       last_updated: Optional.  The last updated timestamp of the entity.
     """
-    self.entity_id = entity_id
+    self._entity_id = entity_id
 
     if created and last_updated and last_updated < created:
       raise ValueError(
@@ -41,7 +40,34 @@ class Entity:
           ' created: %s' % (last_updated, created)
       )
 
-    self.created = created if created else datetime.datetime.now()
-    self.last_updated = (
+    self._created = created if created else datetime.datetime.now()
+    self._last_updated = (
         last_updated if last_updated else datetime.datetime.now()
     )
+
+  @property
+  def entity_id(self) -> str:
+    """The entity ID.
+
+    Returns:
+      str: The entity ID.
+    """
+    return self._entity_id
+
+  @property
+  def created(self) -> datetime.datetime:
+    """The creation timestamp.
+
+    Returns:
+      datetime.datetime: The creation timestamp.
+    """
+    return self._created
+
+  @property
+  def last_updated(self) -> datetime.datetime:
+    """The last updated timestamp.
+
+    Returns:
+      datetime.datetime: The last updated timestamp.
+    """
+    return self._last_updated
