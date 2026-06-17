@@ -50,7 +50,7 @@ psql -U postgres
 CREATE USER social_pulse_user WITH PASSWORD 'your_password';
 
 # Grant privileges
-GRANT CREATEDB ON DATABASE postgres TO social_pulse_user;
+ALTER ROLE social_pulse_user WITH CREATEDB;
 
 # Exit psql
 \q
