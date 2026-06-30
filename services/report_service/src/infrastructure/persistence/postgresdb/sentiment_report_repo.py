@@ -165,7 +165,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
     )
 
     new_id = self._postgres_client.insert_row(query, params)
-    report.entity_id = new_id
+    report._entity_id = new_id
 
     if report.datasets:
       self._persist_datasets(report.datasets, new_id)
