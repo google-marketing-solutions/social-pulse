@@ -36,7 +36,10 @@ class ReportStatusUpdatingService(service.RegisterableService, abc.ABC):
 
   @abc.abstractmethod
   def mark_report_completed(
-      self, report_id: str, datasets: list[report_msg.SentimentReportDataset]
+      self,
+      report_id: str,
+      datasets: list[report_msg.SentimentReportDataset],
+      has_data: bool = True,
   ) -> None:
     """Marks a report as completed.
 
@@ -44,6 +47,7 @@ class ReportStatusUpdatingService(service.RegisterableService, abc.ABC):
         report_id: The unique ID of the report to mark as completed.
         datasets: A list of SentimentReportDataset objects associated with the
           completed report.
+        has_data: Whether the report has data.
     """
     raise NotImplementedError
 
@@ -53,5 +57,15 @@ class ReportStatusUpdatingService(service.RegisterableService, abc.ABC):
 
     Args:
         report_id: The unique ID of the report to mark as in progress.
+    """
+    raise NotImplementedError
+
+  @abc.abstractmethod
+  def mark_report_failed(self, report_id: str, error_message: str) -> None:
+    """Marks a report as failed.
+
+    Args:
+        report_id: The unique ID of the report to mark as failed.
+        error_message: The error message explaining the failure.
     """
     raise NotImplementedError

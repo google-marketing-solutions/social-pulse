@@ -34,6 +34,19 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
   parameters. It normalizes the results into a DataFrame and stores them
   using the configured SentimentDataRepo.
   """
+  _FINAL_OUTPUT_COLUMNS = [
+      "videoId",
+      "videoUrl",
+      "videoTitle",
+      "videoDescription",
+      "channelId",
+      "channelTitle",
+      "publishedAt",
+      "viewCount",
+      "likeCount",
+      "commentCount",
+      "favoriteCount",
+  ]
 
   def _generate_monthly_intervals(
       self, start_date: datetime.date, end_date: datetime.date
@@ -227,16 +240,15 @@ class FindYoutubeVideos(tasks_core.SentimentTask):
       )
 
       if not videos_raw:
-        logging.error(
-            "[%s] No videos found for criteria in execution %s."
-            "Cannot proceed with analysis.",
+        logging.warning(
+            "[%s] No videos found matching criteria for execution %s. "
+            "Proceeding with an empty dataset.",
             self.task_family,
             self.execution_id,
         )
-        raise ValueError(
-            f"[{self.task_family}] No videos found matching criteria for "
-            f"execution {self.execution_id}. Analysis cannot continue."
-        )
+        empty_df = pd.DataFrame(columns=self._FINAL_OUTPUT_COLUMNS)
+        self.output().write_sentiment_data(empty_df)
+        return
 
       videos_df = self._normalize_video_search_results(videos_raw)
       videos_df = self._attach_video_stats_to_video_data(videos_df)

@@ -106,6 +106,9 @@ class SentimentReport(pydantic.BaseModel):
   # The actual analysis results, if available.
   analysis_results: typing.Optional[typing.Dict[str, typing.Any]] = None
 
+  # Whether the report has data (e.g. if no videos were found)
+  has_data: typing.Optional[bool] = True
+
 
 
 

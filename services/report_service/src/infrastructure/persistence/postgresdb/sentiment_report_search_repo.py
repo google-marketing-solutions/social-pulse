@@ -33,6 +33,7 @@ STATUS_COL_INDEX = 6
 CREATEDON_COL_INDEX = 7
 LASTUPDATEDON_COL_INDEX = 8
 RELEVANCE_THRESHOLD_COL_INDEX = 9
+HASDATA_COL_INDEX = 10
 
 
 class PostgresDbSentimentReportSearchRepo(
@@ -65,7 +66,8 @@ class PostgresDbSentimentReportSearchRepo(
           status,
           createdon,
           lastupdatedon,
-          relevanceThreshold
+          relevanceThreshold,
+          hasData
       FROM
           public.SentimentReports
       WHERE 1=1
@@ -126,6 +128,7 @@ class PostgresDbSentimentReportSearchRepo(
         last_updated_on=row[LASTUPDATEDON_COL_INDEX],
         relevance_threshold=row[RELEVANCE_THRESHOLD_COL_INDEX],
         datasets=datasets,
+        has_data=row[HASDATA_COL_INDEX] if len(row) > HASDATA_COL_INDEX else True,
     )
 
   def _get_report_datasets(

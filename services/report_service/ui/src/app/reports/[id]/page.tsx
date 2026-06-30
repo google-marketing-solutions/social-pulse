@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { BarChart, PieChart, Clock, CalendarDays, Info } from 'lucide-react';
+import { BarChart, PieChart, Clock, CalendarDays, Info, XCircle } from 'lucide-react';
 import { ReportFilters } from '@/components/report-filters';
 import { ReportSentimentCharts } from '@/components/report-sentiment-charts';
 import { ReportShareOfVoiceCharts } from '@/components/report-share-of-voice-charts';
@@ -337,7 +337,31 @@ export default async function ReportDetailPage({
             <PendingState status={report.status} />
           )}
 
-        {report.status === Status.COMPLETED && (
+        {report.status === Status.FAILED && (
+          <Alert variant="destructive" className="my-4">
+            <XCircle className="h-5 w-5" />
+            <AlertTitle className="font-headline text-lg font-semibold tracking-tight">
+              Report Generation Failed
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-sm leading-relaxed opacity-90">
+              An unexpected error occurred while generating this report. Please explore the backend logs to diagnose the issue.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {report.status === Status.COMPLETED && report.hasData === false && (
+          <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900 my-4">
+            <Info className="h-5 w-5 text-yellow-900" />
+            <AlertTitle className="font-headline text-lg font-semibold tracking-tight text-yellow-900">
+              No Videos Found
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-sm leading-relaxed text-yellow-800">
+              No videos were found matching your topic and date range. Please try creating a new analysis with a broader topic or a wider date range.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {report.status === Status.COMPLETED && report.hasData !== false && (
           <>
             <ReportFilters
               reportId={reportId}

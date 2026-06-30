@@ -163,12 +163,25 @@ class PollerHandler:
         "Found %d completed reports to mark as completed.",
         len(completed_report_data),
     )
+    data_repo = service.registry.get(persistence.SentimentDataRepo)
     for report_wfes_data in completed_report_data.items():
       report_id = report_wfes_data[0]
       completed_wfes: list[wfe.WorkflowExecutionParams] = report_wfes_data[1]
 
       try:
-        self._mark_report_as_completed(report_id, completed_wfes)
+        has_data = False
+        for workflow in completed_wfes:
+          try:
+            df = data_repo.load_sentiment_data(
+                f"SentimentDataset_{workflow.execution_id}"
+            )
+            if not df.empty:
+              has_data = True
+              break
+          except Exception:
+            logger.exception("Failed to check if dataset is empty")
+
+        self._mark_report_as_completed(report_id, completed_wfes, has_data)
 
         for workflow in completed_wfes:
           self._repo.update_status(workflow.execution_id, wfe.Status.EXPORTED)
@@ -178,7 +191,10 @@ class PollerHandler:
         logger.exception("Failed to process report_id: %s.", report_id)
 
   def _mark_report_as_completed(
-      self, report_id: str, wfes: list[wfe.WorkflowExecutionParams]
+      self,
+      report_id: str,
+      wfes: list[wfe.WorkflowExecutionParams],
+      has_data: bool = True,
   ):
     """Marks a report as completed.
 
@@ -186,6 +202,7 @@ class PollerHandler:
       report_id: The unique ID of the report to mark as completed.
       wfes: A list of WorkflowExecutionParams associated with the completed
         report.
+      has_data: Whether the report has data.
     """
 
     def _generate_dataset_uri(execution_id: str):
@@ -206,9 +223,9 @@ class PollerHandler:
         if wfe_data.data_output
     ]
 
-    logger.info("Marking report %s as completed.", report_id)
+    logger.info("Marking report %s as completed (has_data=%s).", report_id, has_data)
     self._mark_completed_trigger.mark_report_completed(
-        report_id=report_id, datasets=report_datasets
+        report_id=report_id, datasets=report_datasets, has_data=has_data
     )
 
   def _clean_up_staging_datasets(self, execution_id: str):
@@ -257,6 +274,20 @@ class PollerHandler:
             report_id
         )
 
+  def mark_failed_reports(self):
+    """Finds failed reports and marks them as failed."""
+    logger.info("Marking failed reports...")
+    failed_report_data = self._repo.find_failed_reports()
+    if not failed_report_data:
+      logger.info("No failed reports found.")
+      return
+    for report_id, error_msg in failed_report_data.items():
+      try:
+        self._mark_completed_trigger.mark_report_failed(report_id, error_msg)
+        self._repo.cancel_report_workflows(report_id)
+      except Exception:
+        logger.exception("Failed to process failed report_id: %s.", report_id)
+
 
 @app.post("/poller")
 def poller(request: fastapi.Request):  # pylint: disable=unused-argument
@@ -290,6 +321,9 @@ def poller(request: fastapi.Request):  # pylint: disable=unused-argument
 
     logger.info("Marking in progress reports...")
     handler.mark_in_progress_reports()
+
+    logger.info("Marking failed reports...")
+    handler.mark_failed_reports()
 
     logger.info("Marking completed reports...")
     handler.mark_completed_reports()

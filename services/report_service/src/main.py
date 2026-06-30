@@ -286,6 +286,7 @@ def mark_as_completed(
     report_id: str,
     datasets: list[report_msg.SentimentReportDataset],
     background_tasks: fastapi.BackgroundTasks,
+    has_data: bool = fastapi.Query(default=True),
 ) -> report_msg.SentimentReport:
   """Marks a sentiment report as completed and associates datasets with it.
 
@@ -294,25 +295,28 @@ def mark_as_completed(
     datasets: A list of SentimentReportDataset messages containing information
       about the generated datasets.
     background_tasks: FastAPI background tasks for asynchronous handling.
+    has_data: Whether the report has data.
   """
   try:
     logger.info(
-        "Marking report %s as completed with %d datasets",
+        "Marking report %s as completed with %d datasets, has_data=%s",
         report_id,
         len(datasets),
+        has_data,
     )
     report_entity = app_config.sentiment_report_repository.load_report(
         report_id)
 
-    report_entity.mark_as_completed(datasets)
+    report_entity.mark_as_completed(datasets, has_data)
     app_config.sentiment_report_repository.persist_report(report_entity)
 
     # Schedule background generation of insights
-    background_tasks.add_task(
-        insights_generator.generate_and_store_insights,
-        report=report_entity,
-        app_config=app_config,
-    )
+    if has_data:
+      background_tasks.add_task(
+          insights_generator.generate_and_store_insights,
+          report=report_entity,
+          app_config=app_config,
+      )
 
     return _entity_to_message(report_entity)
 
@@ -323,6 +327,23 @@ def mark_as_completed(
         status_code=fastapi.status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail=str(e),
     ) from e
+
+
+@app.post("/api/{report_id}/mark_as_failed")
+def mark_as_failed(
+    report_id: str,
+    error_message: str = fastapi.Query(default=None),
+) -> report_msg.SentimentReport:
+  """Marks a sentiment report as failed."""
+  try:
+    logger.info("Marking report %s as failed (error: %s)", report_id, error_message)
+    report_entity = app_config.sentiment_report_repository.load_report(report_id)
+    report_entity.mark_as_failed()
+    app_config.sentiment_report_repository.persist_report(report_entity)
+    return _entity_to_message(report_entity)
+  except Exception as e:
+    logger.exception("Error occurred, will return 500 error:")
+    raise fastapi.HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/api/{report_id}/mark_as_in_progress")
