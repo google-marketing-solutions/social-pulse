@@ -20,6 +20,7 @@ import string
 
 import pandas as pd
 from socialpulse_common import service
+from socialpulse_common.utils import markdown
 from tasks import core as tasks_core
 from tasks.ports import apis
 
@@ -93,9 +94,11 @@ class GenerateConsolidatedBrandsTask(tasks_core.SentimentTask):
       )
 
       analyzer = service.registry.get(apis.LlmApiClient)
-      consolidated_json = analyzer.analyze_content(prompt)
-
-      df = pd.DataFrame([{"consolidated_brands_json": consolidated_json}])
+      consolidated_json = analyzer.analyze_content(
+          prompt, response_mime_type="application/json"
+      )
+      cleaned_json = markdown.strip_markdown_code_blocks(consolidated_json)
+      df = pd.DataFrame([{"consolidated_brands_json": cleaned_json}])
       self.output().write_sentiment_data(df)
 
       logging.info(
