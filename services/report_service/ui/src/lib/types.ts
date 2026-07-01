@@ -253,9 +253,10 @@ export interface SentimentReport {
   reportArtifactType: ReportArtifactType;
   reportArtifactUri?: string;
   analysisResults?: Partial<Record<SocialMediaSource, AnalysisResult>>;
+  hasData?: boolean;
 }
 
 /**
  * Represents a summarized version of a report for list views, omitting datasets.
  */
-export type ReportForList = Omit<SentimentReport, 'datasets'>;
+export type ReportForList = SentimentReport;

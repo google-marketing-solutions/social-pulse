@@ -33,12 +33,26 @@ class HttpReportStatusUpdatingService(trigger.ReportStatusUpdatingService):
     self._report_api_url = report_api_url
 
   def mark_report_completed(
-      self, report_id: str, datasets: list[report_msg.SentimentReportDataset]
+      self,
+      report_id: str,
+      datasets: list[report_msg.SentimentReportDataset],
+      has_data: bool = True,
   ) -> None:
     """Marks a report as completed."""
     payload = [d.model_dump() for d in datasets]
     self._send_status_update_request(
-        report_id=report_id, action="mark_as_completed", payload=payload
+        report_id=report_id,
+        action="mark_as_completed",
+        payload=payload,
+        query_params={"has_data": str(has_data).lower()},
+    )
+
+  def mark_report_failed(self, report_id: str, error_message: str) -> None:
+    """Marks a report as failed."""
+    self._send_status_update_request(
+        report_id=report_id,
+        action="mark_as_failed",
+        query_params={"error_message": error_message},
     )
 
   def mark_report_in_progress(self, report_id: str) -> None:
@@ -62,7 +76,8 @@ class HttpReportStatusUpdatingService(trigger.ReportStatusUpdatingService):
       self,
       report_id: str,
       action: str,
-      payload: list[dict[str, any]] | None = None
+      payload: list[dict[str, any]] | None = None,
+      query_params: dict[str, str] | None = None,
   ) -> None:
     """Sends an authenticated POST request to the report service.
 
@@ -70,6 +85,7 @@ class HttpReportStatusUpdatingService(trigger.ReportStatusUpdatingService):
       report_id: The ID of the report.
       action: The action to perform (e.g., 'mark_as_completed').
       payload: Optional JSON payload for the request.
+      query_params: Optional query parameters for the request.
     """
     trigger_url = self._build_report_service_url(report_id, action)
     id_token = google.oauth2.id_token.fetch_id_token(
@@ -89,7 +105,11 @@ class HttpReportStatusUpdatingService(trigger.ReportStatusUpdatingService):
         trigger_url,
     )
     response = requests.post(
-        trigger_url, headers=headers, json=payload, timeout=30
+        trigger_url,
+        headers=headers,
+        json=payload,
+        params=query_params,
+        timeout=30,
     )
 
     if not response.ok:

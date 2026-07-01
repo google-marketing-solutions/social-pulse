@@ -129,13 +129,7 @@ export function ReportsList({reports}: ReportsListProps) {
   }
 
   const handleRowClick = (report: ReportForList) => {
-    if (
-      report.status === Status.COMPLETED ||
-      report.status === Status.NEW ||
-      report.status === Status.IN_PROGRESS
-    ) {
-      router.push(`/reports/${report.reportId}`);
-    }
+    router.push(`/reports/${report.reportId}`);
   };
 
   const facetedFilters = [

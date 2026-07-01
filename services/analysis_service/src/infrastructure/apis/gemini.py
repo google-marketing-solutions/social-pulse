@@ -71,6 +71,13 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):  # pylint: disable=too-few-pub
         str: The response text from the Gemini API.
     """
 
+    system_instruction = None
+    if response_mime_type == "application/json":
+      system_instruction = (
+          "Return ONLY valid JSON. Do not include any conversational elements,"
+          " introductory or concluding text, or markdown formatting."
+      )
+
     try:
       response = self._client.models.generate_content(
           model=GEMINI_MODEL_NAME,
@@ -78,6 +85,7 @@ class GeminiSentimentAnalyzer(apis.LlmApiClient):  # pylint: disable=too-few-pub
           config=types.GenerateContentConfig(
               temperature=0.1,
               response_mime_type=response_mime_type,
+              system_instruction=system_instruction,
               thinking_config=types.ThinkingConfig(
                   thinking_level=types.ThinkingLevel.HIGH
               ),

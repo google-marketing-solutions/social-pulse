@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { BarChart, PieChart, Clock, CalendarDays, Info } from 'lucide-react';
+import { BarChart, PieChart, Clock, CalendarDays, Info, XCircle } from 'lucide-react';
 import { ReportFilters } from '@/components/report-filters';
 import { ReportSentimentCharts } from '@/components/report-sentiment-charts';
 import { ReportShareOfVoiceCharts } from '@/components/report-share-of-voice-charts';
@@ -42,6 +42,34 @@ import { Separator } from '@/components/ui/separator';
 import { sourceConfiguration } from '@/lib/sources';
 import { ReportInsightsSection } from '@/components/report-insights-section';
 import { ReportChatSidebar } from '@/components/report-chat-sidebar';
+import { TimezoneSelector } from '@/components/timezone-selector';
+
+const formatDateInTimeZone = (dateString: string | Date, timeZone: string) => {
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeZone: timeZone,
+    }).format(date);
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return String(dateString);
+  }
+};
+
+const formatDateTimeInTimeZone = (dateString: string | Date, timeZone: string) => {
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: timeZone,
+    }).format(date);
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return String(dateString);
+  }
+};
 
 const PendingState = ({ status }: { status?: Status }) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -90,10 +118,12 @@ export default async function ReportDetailPage({
     startDate?: string;
     endDate?: string;
     excludedChannels?: string | string[];
+    timezone?: string;
   }>;
 }) {
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
+  const timezone = resolvedSearchParams.timezone || 'America/New_York';
   const reportId = resolvedParams.id;
 
   const filters = {
@@ -234,15 +264,20 @@ export default async function ReportDetailPage({
       <div className="sticky top-14 z-40 w-full bg-muted/80 backdrop-blur-md border-b shadow-sm">
         <div className="container mx-auto px-4 py-6 md:px-8 flex flex-col gap-6">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <h1 className="font-headline text-4xl font-bold tracking-tighter">
-              {report.topic}
-            </h1>
-            <Badge
-              variant={statusColors[report.status || Status.NEW]}
-              className="capitalize text-sm py-1 px-3"
-            >
-              {report.status?.replace(/_/g, ' ')}
-            </Badge>
+            <div className="flex flex-col gap-2">
+              <h1 className="font-headline text-4xl font-bold tracking-tighter">
+                {report.topic}
+              </h1>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={statusColors[report.status || Status.NEW]}
+                  className="capitalize text-sm py-1 px-3"
+                >
+                  {report.status?.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+            </div>
+            <TimezoneSelector />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -297,8 +332,8 @@ export default async function ReportDetailPage({
                 </CardHeader>
                 <CardContent>
                   <div className="text-lg font-semibold">
-                    {format(new Date(report.startTime), 'LLL d, y')} -{' '}
-                    {format(new Date(report.endTime), 'LLL d, y')}
+                    {formatDateInTimeZone(report.startTime!, timezone)} -{' '}
+                    {formatDateInTimeZone(report.endTime!, timezone)}
                   </div>
                 </CardContent>
               </Card>
@@ -313,7 +348,7 @@ export default async function ReportDetailPage({
               <CardContent>
                 <div className="text-lg font-semibold">
                   {report.createdOn &&
-                    format(new Date(report.createdOn), 'LLL d, y, p')}
+                    formatDateTimeInTimeZone(report.createdOn, timezone)}
                 </div>
               </CardContent>
             </Card>
@@ -337,7 +372,31 @@ export default async function ReportDetailPage({
             <PendingState status={report.status} />
           )}
 
-        {report.status === Status.COMPLETED && (
+        {report.status === Status.FAILED && (
+          <Alert variant="destructive" className="my-4">
+            <XCircle className="h-5 w-5" />
+            <AlertTitle className="font-headline text-lg font-semibold tracking-tight">
+              Report Generation Failed
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-sm leading-relaxed opacity-90">
+              An unexpected error occurred while generating this report. Please explore the backend logs to diagnose the issue.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {report.status === Status.COMPLETED && report.hasData === false && (
+          <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900 my-4">
+            <Info className="h-5 w-5 text-yellow-900" />
+            <AlertTitle className="font-headline text-lg font-semibold tracking-tight text-yellow-900">
+              No Videos Found
+            </AlertTitle>
+            <AlertDescription className="mt-2 text-sm leading-relaxed text-yellow-800">
+              No videos were found matching your topic and date range. Please try creating a new analysis with a broader topic or a wider date range.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {report.status === Status.COMPLETED && report.hasData !== false && (
           <>
             <ReportFilters
               reportId={reportId}

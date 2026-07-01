@@ -362,3 +362,42 @@ class PostgresDbWorkflowExecutionPersistenceService(
     wfe_params.relevance_threshold = wfe_dict.get("relevancethreshold")
 
     return wfe_params
+
+  def find_failed_reports(self) -> dict[str, str]:
+    """Finds all distinct report_ids where at least one WFE is FAILED.
+
+    Returns:
+        A dictionary mapping report_id to a description of the failure.
+    """
+    query = """
+        SELECT DISTINCT
+            wep.reportid
+        FROM
+            WorkflowExecutionParams wep
+        WHERE
+            wep.status = 'FAILED'
+            AND wep.reportid IS NOT NULL
+            AND EXISTS (
+                SELECT 1
+                FROM WorkflowExecutionParams wep2
+                WHERE wep2.reportid = wep.reportid
+                AND wep2.status != 'EXPORTED'
+            );
+    """
+    rows = self._postgres_client.retrieve_rows(query)
+    if not rows:
+      return {}
+
+    return {row[0]: "One or more workflow executions failed." for row in rows}
+
+  def cancel_report_workflows(self, report_id: str) -> None:
+    """Marks all workflows for a given report as EXPORTED."""
+    query = """
+        UPDATE WorkflowExecutionParams
+        SET
+            status = 'EXPORTED',
+            lastUpdatedOn = NOW()
+        WHERE
+            reportId = %s;
+    """
+    self._postgres_client.update_row(query, (report_id,))

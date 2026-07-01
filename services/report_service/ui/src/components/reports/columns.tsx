@@ -109,6 +109,14 @@ export const columns: Array<ColumnDef<ReportForList>> = [
     },
     cell: ({row}) => {
       const status = row.getValue('status') as Status;
+      const report = row.original;
+      if (status === Status.COMPLETED && report.hasData === false) {
+        return (
+          <Badge variant="secondary" className="normal-case">
+            No Videos Found
+          </Badge>
+        );
+      }
       return (
         <Badge variant={statusColors[status || 'NEW']} className="capitalize">
           {status?.replace(/_/g, ' ')}

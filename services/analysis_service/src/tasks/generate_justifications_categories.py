@@ -228,7 +228,9 @@ class JustificationCategoryGenerator:
 
     # Retry logic: wait 1 second to retry once.
     try:
-      return self.analyzer.analyze_content(prompt)
+      return self.analyzer.analyze_content(
+          prompt, response_mime_type="application/json"
+      )
     except Exception as e:  # pylint: disable=broad-exception-caught
       logging.warning(
           "[%s] Batch %d failed: %s. Retrying in 1 second...",
@@ -239,7 +241,9 @@ class JustificationCategoryGenerator:
 
       time.sleep(1)
       try:
-        return self.analyzer.analyze_content(prompt)
+        return self.analyzer.analyze_content(
+            prompt, response_mime_type="application/json"
+        )
       except Exception as e_retry:
         logging.error(
             "[%s] Batch %d failed on retry: %s.",
@@ -300,7 +304,9 @@ class JustificationCategoryGenerator:
     ).substitute(candidate_categories_json=candidate_categories_json)
 
     try:
-      final_response_text = self.analyzer.analyze_content(consolidation_prompt)
+      final_response_text = self.analyzer.analyze_content(
+          consolidation_prompt, response_mime_type="application/json"
+      )
     except Exception as e:
       logging.error(
           "[%s] Failed to consolidate categories: %s", self.task_family, e

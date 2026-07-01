@@ -34,6 +34,7 @@ CREATEDON_COL_INDEX = 7
 LASTUPDATEDON_COL_INDEX = 8
 INCLUDEJUSTIFICATIONS_COL_INDEX = 9
 RELEVANCETHRESHOLD_COL_INDEX = 10
+HASDATA_COL_INDEX = 11
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
           createdon,
           lastupdatedon,
           includeJustifications,
-          relevanceThreshold
+          relevanceThreshold,
+          hasData
       FROM
           public.SentimentReports
       WHERE
@@ -107,7 +109,8 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             createdOn = %s,
             lastUpdatedOn = %s,
             includeJustifications = %s,
-            relevanceThreshold = %s
+            relevanceThreshold = %s,
+            hasData = %s
         WHERE
             reportId = %s
     """
@@ -126,6 +129,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         report.last_updated,
         report.include_justifications,
         report.relevance_threshold,
+        report.has_data,
         report.entity_id,
     )
     self._postgres_client.update_row(query, update_params)
@@ -147,8 +151,9 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
             dateRangeStart,
             dateRangeEnd,
             includeJustifications,
-            relevanceThreshold
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            relevanceThreshold,
+            hasData
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING reportId;
     """
     sources_as_names = [source.name for source in report.sources]
@@ -162,10 +167,11 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         report.end_time,
         report.include_justifications,
         report.relevance_threshold,
+        report.has_data,
     )
 
     new_id = self._postgres_client.insert_row(query, params)
-    report.entity_id = new_id
+    report._entity_id = new_id
 
     if report.datasets:
       self._persist_datasets(report.datasets, new_id)
@@ -238,6 +244,7 @@ class PostgresDbSentimentReportRepo(persistence.SentimentReportRepo):
         include_justifications=row[INCLUDEJUSTIFICATIONS_COL_INDEX],
         relevance_threshold=row[RELEVANCETHRESHOLD_COL_INDEX],
         datasets=datasets,
+        has_data=row[HASDATA_COL_INDEX] if len(row) > HASDATA_COL_INDEX else True,
     )
 
   def _get_report_datasets(

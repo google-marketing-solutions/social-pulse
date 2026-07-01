@@ -87,6 +87,7 @@ class SentimentReportEntity(domain.Entity):
       end_time: datetime.datetime | None = None,
       datasets: list[report_msg.SentimentReportDataset] | None = None,
       relevance_threshold: int | None = None,
+      has_data: bool = True,
   ):
     """Initializes a complete SentimentReportEntity from the provided values.
 
@@ -125,6 +126,7 @@ class SentimentReportEntity(domain.Entity):
     self._datasets = datasets
     self._relevance_threshold = (relevance_threshold if relevance_threshold
                                  is not None else DEFAULT_RELEVANCE_THRESHOLD)
+    self._has_data = has_data
 
     self._validate_fields()
 
@@ -186,6 +188,11 @@ class SentimentReportEntity(domain.Entity):
     """The relevance threshold for the report."""
     return self._relevance_threshold
 
+  @property
+  def has_data(self) -> bool:
+    """Whether the report has data."""
+    return self._has_data
+
   def mark_as_failed(self):
     """Marks the report as failed."""
     self._status = report_msg.Status.FAILED
@@ -197,17 +204,21 @@ class SentimentReportEntity(domain.Entity):
     self._last_updated = datetime.datetime.now()
 
   def mark_as_completed(self,
-                        datasets: list[report_msg.SentimentReportDataset]):
+                        datasets: list[report_msg.SentimentReportDataset],
+                        has_data: bool = True):
     """Marks the report as completed.
 
     Args:
       datasets: The datasets for the report.
+      has_data: Whether the report has data.
     """
-    self._validate_datasets(datasets)
+    if has_data:
+      self._validate_datasets(datasets)
 
     self._status = report_msg.Status.COMPLETED
     self._last_updated = datetime.datetime.now()
     self._datasets = datasets
+    self._has_data = has_data
 
   def _validate_datasets(self,
                          datasets: list[report_msg.SentimentReportDataset]):
