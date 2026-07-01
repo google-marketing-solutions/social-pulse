@@ -42,6 +42,34 @@ import { Separator } from '@/components/ui/separator';
 import { sourceConfiguration } from '@/lib/sources';
 import { ReportInsightsSection } from '@/components/report-insights-section';
 import { ReportChatSidebar } from '@/components/report-chat-sidebar';
+import { TimezoneSelector } from '@/components/timezone-selector';
+
+const formatDateInTimeZone = (dateString: string | Date, timeZone: string) => {
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeZone: timeZone,
+    }).format(date);
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return String(dateString);
+  }
+};
+
+const formatDateTimeInTimeZone = (dateString: string | Date, timeZone: string) => {
+  try {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: timeZone,
+    }).format(date);
+  } catch (e) {
+    console.error('Error formatting date:', e);
+    return String(dateString);
+  }
+};
 
 const PendingState = ({ status }: { status?: Status }) => (
   <div className="relative col-span-full rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -90,10 +118,12 @@ export default async function ReportDetailPage({
     startDate?: string;
     endDate?: string;
     excludedChannels?: string | string[];
+    timezone?: string;
   }>;
 }) {
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
+  const timezone = resolvedSearchParams.timezone || 'America/New_York';
   const reportId = resolvedParams.id;
 
   const filters = {
@@ -234,15 +264,20 @@ export default async function ReportDetailPage({
       <div className="sticky top-14 z-40 w-full bg-muted/80 backdrop-blur-md border-b shadow-sm">
         <div className="container mx-auto px-4 py-6 md:px-8 flex flex-col gap-6">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-            <h1 className="font-headline text-4xl font-bold tracking-tighter">
-              {report.topic}
-            </h1>
-            <Badge
-              variant={statusColors[report.status || Status.NEW]}
-              className="capitalize text-sm py-1 px-3"
-            >
-              {report.status?.replace(/_/g, ' ')}
-            </Badge>
+            <div className="flex flex-col gap-2">
+              <h1 className="font-headline text-4xl font-bold tracking-tighter">
+                {report.topic}
+              </h1>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={statusColors[report.status || Status.NEW]}
+                  className="capitalize text-sm py-1 px-3"
+                >
+                  {report.status?.replace(/_/g, ' ')}
+                </Badge>
+              </div>
+            </div>
+            <TimezoneSelector />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -297,8 +332,8 @@ export default async function ReportDetailPage({
                 </CardHeader>
                 <CardContent>
                   <div className="text-lg font-semibold">
-                    {format(new Date(report.startTime), 'LLL d, y')} -{' '}
-                    {format(new Date(report.endTime), 'LLL d, y')}
+                    {formatDateInTimeZone(report.startTime!, timezone)} -{' '}
+                    {formatDateInTimeZone(report.endTime!, timezone)}
                   </div>
                 </CardContent>
               </Card>
@@ -313,7 +348,7 @@ export default async function ReportDetailPage({
               <CardContent>
                 <div className="text-lg font-semibold">
                   {report.createdOn &&
-                    format(new Date(report.createdOn), 'LLL d, y, p')}
+                    formatDateTimeInTimeZone(report.createdOn, timezone)}
                 </div>
               </CardContent>
             </Card>
